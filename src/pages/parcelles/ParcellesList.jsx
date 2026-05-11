@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Map, LogOut, ChevronRight } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay } from '../../lib/surface'
 
@@ -12,39 +12,27 @@ export default function ParcellesList() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function load() {
-      const { data } = await supabase
-        .from('parcelles')
-        .select('*')
-        .order('nom')
+    api.get('/parcelles').then(data => {
       setParcelles(data || [])
       setLoading(false)
-    }
-    load()
+    })
   }, [])
 
   return (
     <div>
-      {/* Header */}
       <div className="page-header flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">🍇 Mes Parcelles</h1>
           <p className="text-vigne-200 text-xs mt-0.5">{user?.email}</p>
         </div>
-        <button
-          onClick={signOut}
-          className="p-2 rounded-full active:bg-vigne-600"
-          title="Déconnexion"
-        >
+        <button onClick={signOut} className="p-2 rounded-full active:bg-vigne-600" title="Déconnexion">
           <LogOut size={20} />
         </button>
       </div>
 
       <div className="px-4 pt-4 space-y-3">
         {loading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="card skeleton h-20" />
-          ))
+          Array.from({ length: 3 }).map((_, i) => <div key={i} className="card skeleton h-20" />)
         ) : parcelles.length === 0 ? (
           <div className="text-center py-16">
             <Map size={48} className="mx-auto text-vigne-300 mb-4" />
@@ -59,8 +47,7 @@ export default function ParcellesList() {
               className="card w-full text-left flex items-center gap-3 active:scale-[0.99] transition-transform"
             >
               {p.photo_url ? (
-                <img src={p.photo_url} alt={p.nom}
-                     className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                <img src={p.photo_url} alt={p.nom} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
               ) : (
                 <div className="w-14 h-14 rounded-xl bg-vigne-100 flex items-center justify-center flex-shrink-0">
                   <Map size={24} className="text-vigne-500" />
@@ -82,10 +69,9 @@ export default function ParcellesList() {
         )}
       </div>
 
-      {/* FAB */}
       <button
         onClick={() => navigate('/parcelles/new')}
-        className="fixed bottom-24 right-4 bg-vigne-700 text-white w-14 h-14 rounded-full
+        className="fixed right-4 bg-vigne-700 text-white w-14 h-14 rounded-full
                    shadow-lg flex items-center justify-center active:scale-95 transition-transform z-10"
         style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
       >

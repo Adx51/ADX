@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Trash2 } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../contexts/AuthContext'
+import { api } from '../../lib/api'
 import { uploadPhoto } from '../../lib/uploadPhoto'
 import PageHeader from '../../components/PageHeader'
 import PhotoInput from '../../components/PhotoInput'
@@ -11,7 +10,6 @@ import PhotoInput from '../../components/PhotoInput'
 export default function TacheForm() {
   const { id } = useParams()
   const isEdit = Boolean(id)
-  const { user } = useAuth()
   const navigate = useNavigate()
   const [photo, setPhoto] = useState(null)
   const [existingPhotoUrl, setExistingPhotoUrl] = useState(null)
@@ -23,24 +21,21 @@ export default function TacheForm() {
   const { register, handleSubmit, setValue } = useForm()
 
   useEffect(() => {
-    async function load() {
-      const { data: p } = await supabase.from('parcelles').select('id, nom').order('nom')
-      setParcelles(p || [])
+    api.get('/parcelles').then(p => setParcelles(p || []))
 
-      if (isEdit) {
-        const { data: t } = await supabase.from('taches').select('*').eq('id', id).single()
+    if (isEdit) {
+      api.get(`/taches/${id}`).then(t => {
         if (t) {
-          setValue('titre', t.titre)
-          setValue('description', t.description || '')
-          setValue('parcelle_id', t.parcelle_id || '')
-          setValue('statut', t.statut)
-          setValue('priorite', t.priorite)
+          setValue('titre',         t.titre)
+          setValue('description',   t.description || '')
+          setValue('parcelle_id',   t.parcelle_id || '')
+          setValue('statut',        t.statut)
+          setValue('priorite',      t.priorite)
           setValue('date_echeance', t.date_echeance || '')
           setExistingPhotoUrl(t.photo_url)
         }
-      }
+      })
     }
-    load()
   }, [id, isEdit, setValue])
 
   async function onSubmit(data) {
@@ -51,20 +46,19 @@ export default function TacheForm() {
       if (photo) photo_url = await uploadPhoto(photo, 'taches')
 
       const payload = {
-        user_id: user.id,
-        titre: data.titre,
-        description: data.description || null,
-        parcelle_id: data.parcelle_id || null,
-        statut: data.statut || 'a_faire',
-        priorite: data.priorite || 'normale',
+        titre:         data.titre,
+        description:   data.description || null,
+        parcelle_id:   data.parcelle_id || null,
+        statut:        data.statut || 'a_faire',
+        priorite:      data.priorite || 'normale',
         date_echeance: data.date_echeance || null,
         photo_url,
       }
 
       if (isEdit) {
-        await supabase.from('taches').update(payload).eq('id', id)
+        await api.put(`/taches/${id}`, payload)
       } else {
-        await supabase.from('taches').insert(payload)
+        await api.post('/taches', payload)
       }
       navigate('/taches')
     } catch (e) {
@@ -74,7 +68,7 @@ export default function TacheForm() {
   }
 
   async function deleteTache() {
-    await supabase.from('taches').delete().eq('id', id)
+    await api.delete(`/taches/${id}`)
     navigate('/taches')
   }
 
@@ -83,9 +77,7 @@ export default function TacheForm() {
       <PageHeader title={isEdit ? 'Modifier la tâche' : 'Nouvelle tâche'} back="/taches" />
 
       <form onSubmit={handleSubmit(onSubmit)} className="px-4 pt-4 space-y-5 pb-8">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>
-        )}
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>}
 
         <div>
           <label className="label">Tâche *</label>
@@ -94,17 +86,14 @@ export default function TacheForm() {
 
         <div>
           <label className="label">Description</label>
-          <textarea className="input min-h-[80px]" placeholder="Détails..."
-                    {...register('description')} />
+          <textarea className="input min-h-[80px]" placeholder="Détails..." {...register('description')} />
         </div>
 
         <div>
           <label className="label">Parcelle concernée</label>
           <select className="input" {...register('parcelle_id')}>
             <option value="">— Toutes les parcelles —</option>
-            {parcelles.map(p => (
-              <option key={p.id} value={p.id}>{p.nom}</option>
-            ))}
+            {parcelles.map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
           </select>
         </div>
 
@@ -143,12 +132,8 @@ export default function TacheForm() {
             <div className="card border-red-200 bg-red-50 space-y-3">
               <p className="text-red-700 font-medium text-sm text-center">Supprimer cette tâche ?</p>
               <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => setConfirmDelete(false)} className="btn-secondary py-2 text-sm">
-                  Annuler
-                </button>
-                <button type="button" onClick={deleteTache} className="btn-danger py-2 text-sm">
-                  Supprimer
-                </button>
+                <button type="button" onClick={() => setConfirmDelete(false)} className="btn-secondary py-2 text-sm">Annuler</button>
+                <button type="button" onClick={deleteTache} className="btn-danger py-2 text-sm">Supprimer</button>
               </div>
             </div>
           ) : (

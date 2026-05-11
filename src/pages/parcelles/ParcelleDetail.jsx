@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { api } from '../../lib/api'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
 
@@ -9,21 +9,14 @@ export default function ParcelleDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [parcelle, setParcelle] = useState(null)
-  const [vendanges, setVendanges] = useState([])
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
-    async function load() {
-      const [{ data: p }, { data: v }] = await Promise.all([
-        supabase.from('parcelles').select('*').eq('id', id).single(),
-        supabase.from('vendanges').select('*').eq('parcelle_id', id).order('annee', { ascending: false })
-      ])
-      setParcelle(p)
-      setVendanges(v || [])
+    api.get(`/parcelles/${id}`).then(data => {
+      setParcelle(data)
       setLoading(false)
-    }
-    load()
+    })
   }, [id])
 
   function shareGPS() {
@@ -38,29 +31,25 @@ export default function ParcelleDetail() {
   }
 
   async function deleteParcelle() {
-    await supabase.from('parcelles').delete().eq('id', id)
+    await api.delete(`/parcelles/${id}`)
     navigate('/parcelles')
   }
 
-  if (loading) {
-    return (
-      <div>
-        <PageHeader title="Chargement..." back="/parcelles" />
-        <div className="px-4 pt-4 space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => <div key={i} className="card skeleton h-16" />)}
-        </div>
+  if (loading) return (
+    <div>
+      <PageHeader title="Chargement..." back="/parcelles" />
+      <div className="px-4 pt-4 space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="card skeleton h-16" />)}
       </div>
-    )
-  }
+    </div>
+  )
 
-  if (!parcelle) {
-    return (
-      <div>
-        <PageHeader title="Parcelle introuvable" back="/parcelles" />
-        <p className="text-center py-8 text-gray-500">Cette parcelle n'existe pas.</p>
-      </div>
-    )
-  }
+  if (!parcelle) return (
+    <div>
+      <PageHeader title="Introuvable" back="/parcelles" />
+      <p className="text-center py-8 text-gray-500">Cette parcelle n'existe pas.</p>
+    </div>
+  )
 
   return (
     <div>
@@ -71,29 +60,19 @@ export default function ParcelleDetail() {
         </button>
       </PageHeader>
 
-      {/* Photo */}
       {parcelle.photo_url && (
-        <img src={parcelle.photo_url} alt={parcelle.nom}
-             className="w-full h-52 object-cover" />
+        <img src={parcelle.photo_url} alt={parcelle.nom} className="w-full h-52 object-cover" />
       )}
 
       <div className="px-4 pt-4 space-y-4">
-        {/* Infos principales */}
         <div className="card space-y-3">
-          <InfoRow label="Surface totale" value={caToDisplay(parcelle.surface_totale_ca)} />
-          <InfoRow label="Surface plantée" value={caToDisplay(parcelle.surface_plantee_ca)} />
-          {parcelle.nombre_routes && (
-            <InfoRow label="Nombre de routes" value={`${parcelle.nombre_routes} routes`} />
-          )}
-          {parcelle.cepage && (
-            <InfoRow label="Cépage" value={parcelle.cepage} />
-          )}
-          {parcelle.notes && (
-            <InfoRow label="Notes" value={parcelle.notes} />
-          )}
+          <InfoRow label="Surface totale"   value={caToDisplay(parcelle.surface_totale_ca)} />
+          <InfoRow label="Surface plantée"  value={caToDisplay(parcelle.surface_plantee_ca)} />
+          {parcelle.nombre_routes && <InfoRow label="Nombre de routes" value={`${parcelle.nombre_routes} routes`} />}
+          {parcelle.cepage         && <InfoRow label="Cépage"          value={parcelle.cepage} />}
+          {parcelle.notes          && <InfoRow label="Notes"           value={parcelle.notes} />}
         </div>
 
-        {/* GPS */}
         {parcelle.gps_lat && (
           <button onClick={shareGPS}
                   className="card w-full flex items-center gap-3 text-left active:scale-[0.99] transition-transform">
@@ -102,7 +81,9 @@ export default function ParcelleDetail() {
             </div>
             <div className="flex-1">
               <p className="font-medium text-gray-900">Position GPS</p>
-              <p className="text-xs text-gray-400">{parcelle.gps_lat?.toFixed(6)}, {parcelle.gps_lng?.toFixed(6)}</p>
+              <p className="text-xs text-gray-400">
+                {Number(parcelle.gps_lat).toFixed(6)}, {Number(parcelle.gps_lng).toFixed(6)}
+              </p>
             </div>
             <Share2 size={18} className="text-gray-400" />
           </button>
@@ -112,20 +93,19 @@ export default function ParcelleDetail() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-gray-900">Historique vendanges</h2>
-            <Link to={`/vendange/new?parcelle=${id}`}
-                  className="text-vigne-700 text-sm font-semibold">
+            <Link to={`/vendange/new?parcelle=${id}`} className="text-vigne-700 text-sm font-semibold">
               + Ajouter
             </Link>
           </div>
 
-          {vendanges.length === 0 ? (
+          {(!parcelle.vendanges || parcelle.vendanges.length === 0) ? (
             <div className="card text-center py-6">
               <Grape size={32} className="mx-auto text-vigne-300 mb-2" />
               <p className="text-gray-500 text-sm">Aucune vendange enregistrée</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {vendanges.map(v => {
+              {parcelle.vendanges.map(v => {
                 const rendement = rendementKgHa(v.poids_total, parcelle.surface_plantee_ca)
                 return (
                   <button key={v.id} onClick={() => navigate(`/vendange/${v.id}`)}
@@ -134,9 +114,9 @@ export default function ParcelleDetail() {
                       <span className="font-bold text-amber-700 text-sm">{v.annee}</span>
                     </div>
                     <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{v.poids_total?.toFixed(0)} kg</p>
+                      <p className="font-semibold text-gray-900">{Number(v.poids_total || 0).toFixed(0)} kg</p>
                       <p className="text-xs text-gray-500">
-                        {v.nb_caisses_total} caisses
+                        {v.nb_caisses_total || 0} caisses
                         {rendement && <span className="text-vigne-600"> · {rendement.toLocaleString('fr-FR')} kg/ha</span>}
                       </p>
                     </div>
@@ -148,7 +128,6 @@ export default function ParcelleDetail() {
           )}
         </div>
 
-        {/* Supprimer */}
         {!confirmDelete ? (
           <button onClick={() => setConfirmDelete(true)}
                   className="w-full flex items-center justify-center gap-2 text-red-500 py-3 text-sm font-medium">
@@ -161,12 +140,8 @@ export default function ParcelleDetail() {
               Supprimer définitivement {parcelle.nom} ?
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setConfirmDelete(false)} className="btn-secondary py-2 text-sm">
-                Annuler
-              </button>
-              <button onClick={deleteParcelle} className="btn-danger py-2 text-sm">
-                Supprimer
-              </button>
+              <button onClick={() => setConfirmDelete(false)} className="btn-secondary py-2 text-sm">Annuler</button>
+              <button onClick={deleteParcelle} className="btn-danger py-2 text-sm">Supprimer</button>
             </div>
           </div>
         )}

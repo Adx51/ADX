@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'vine-icon.svg'],
+      includeAssets: ['favicon.ico', 'vine-icon.svg'],
       manifest: {
         name: 'ADX Vignoble',
         short_name: 'ADX',
@@ -28,16 +28,30 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            urlPattern: /\/api\/.*/i,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'supabase-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
-              networkTimeoutSeconds: 10
+              cacheName: 'api-cache',
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
+              networkTimeoutSeconds: 8
+            }
+          },
+          {
+            urlPattern: /\/photos\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'photos-cache',
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 }
             }
           }
         ]
       }
     })
-  ]
+  ],
+  server: {
+    proxy: {
+      '/api':    { target: 'http://localhost:3001', changeOrigin: true },
+      '/photos': { target: 'http://localhost:3001', changeOrigin: true }
+    }
+  }
 })

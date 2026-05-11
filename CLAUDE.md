@@ -2,77 +2,99 @@
 
 ## Project: ADX Vignoble
 
-Application PWA de gestion de vignoble. React + Vite + Tailwind CSS + Supabase.
+Application PWA de gestion de vignoble. React + Vite + Tailwind CSS + backend Express/SQLite auto-hébergé.
 
 ## Commands
 
 ```bash
-npm run dev      # Serveur de développement (http://localhost:5173)
-npm run build    # Build de production (génère dist/ + service worker PWA)
-npm run preview  # Prévisualiser le build de production
+# Développement (frontend + backend séparés)
+npm run dev          # Frontend Vite sur :5173, proxy vers :3001
+npm run server:dev   # Backend Express avec hot-reload sur :3001
+
+# Production (sur le Pi)
+npm run build        # Build React → dist/
+npm run server       # Démarrer le serveur Express (sert aussi dist/)
+
+# Docker (déploiement Pi)
+docker compose up -d        # Démarrer
+docker compose logs -f adx  # Logs
+docker compose down         # Arrêter
 ```
 
 ## Architecture
 
 ```
-src/
-  App.jsx                    # Router principal
-  main.jsx                   # Point d'entrée React
-  index.css                  # Tailwind + styles globaux (.btn-primary, .card, .input)
-  contexts/
-    AuthContext.jsx           # Auth Supabase (user, signIn, signUp, signOut)
-    OfflineContext.jsx        # Détection online/offline + compteur queue
+server/                     # Backend Node.js/Express
+  index.js                  # Point d'entrée Express
+  db.js                     # SQLite (better-sqlite3) + schéma + triggers
+  middleware/auth.js         # Vérification JWT
+  routes/
+    auth.js                 # POST /api/auth/login|register, GET /api/auth/me
+    parcelles.js            # CRUD /api/parcelles
+    taches.js               # CRUD /api/taches
+    vendanges.js            # CRUD /api/vendanges (avec chargements inclus dans GET /:id)
+    chargements.js          # CRUD /api/chargements
+    photos.js               # POST /api/photos (multer → data/photos/)
+  .env.example              # Variables d'environnement serveur
+  package.json              # Dépendances serveur indépendantes
+
+src/                        # Frontend React
   lib/
-    supabase.js              # Client Supabase (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
-    surface.js               # surface centiares ↔ "32 A 21", rendement kg/ha
-    uploadPhoto.js           # Upload Supabase Storage bucket "photos"
-    offlineQueue.js          # File IndexedDB pour opérations hors ligne
+    api.js                  # Client fetch JWT (remplace supabase.js)
+    surface.js              # Centiares ↔ "32 A 21", rendement kg/ha
+    uploadPhoto.js          # POST /api/photos (multipart)
+    offlineQueue.js         # File IndexedDB pour opérations hors ligne
+  contexts/
+    AuthContext.jsx          # Auth JWT (token dans localStorage)
+    OfflineContext.jsx       # Détection online/offline
   components/
-    Layout.jsx               # Shell : BottomNav + OfflineBanner
-    BottomNav.jsx            # Navigation bas (Parcelles / Tâches / Vendange)
-    PageHeader.jsx           # Header vert avec bouton retour
-    PrivateRoute.jsx         # Redirect /login si non authentifié
-    PhotoInput.jsx           # Input photo avec aperçu (capture caméra)
-    OfflineBanner.jsx        # Bandeau hors ligne / synchronisation
+    Layout.jsx / BottomNav.jsx / PageHeader.jsx / PhotoInput.jsx / OfflineBanner.jsx
   pages/
-    auth/Login.jsx           # Connexion
-    auth/Register.jsx        # Inscription + confirmation email
-    parcelles/
-      ParcellesList.jsx      # Liste + FAB
-      ParcelleDetail.jsx     # Détail + historique vendanges + partage GPS
-      ParcelleForm.jsx       # Création/édition (surface en ares/centiares)
-    taches/
-      TachesList.jsx         # Liste avec filtres statut + toggle rapide
-      TacheForm.jsx          # Création/édition avec photo
-    vendange/
-      VendangesList.jsx      # Liste par année + totaux
-      VendangeDetail.jsx     # Détail + chargements groupés par date + kg/ha
-      VendangeForm.jsx       # Parcelle + année
-      ChargementForm.jsx     # Date, heure, caisses, poids
-supabase/
-  schema.sql                 # Tables, RLS, triggers, storage
+    auth/Login.jsx, Register.jsx
+    parcelles/ ParcellesList, ParcelleDetail, ParcelleForm
+    taches/    TachesList, TacheForm
+    vendange/  VendangesList, VendangeDetail, VendangeForm, ChargementForm
+
+Dockerfile                  # Build multi-stage (frontend puis serveur)
+docker-compose.yml          # Service adx, volume adx-data (SQLite + photos)
+scripts/
+  install-pi.sh             # Script d'installation sur Raspbian/Debian
+  install-portainer.md      # Guide installation via Portainer (HAOS)
 ```
 
-## Base de données Supabase
+## Base de données SQLite
 
 - `parcelles` — surface en **centiares** (32a 21ca = 3221 ca), GPS, photo
-- `taches` — statut (a_faire/en_cours/termine), priorité, date_echeance
-- `vendanges` — une par parcelle par année ; totaux calculés auto par trigger
+- `taches` — statut (a_faire/en_cours/termine), priorité, date_echeance, photo
+- `vendanges` — une par parcelle par année ; poids_total/nb_caisses_total mis à jour par triggers SQLite
 - `chargements` — date, heure_livraison, nombre_caisses, poids_kg
 
-Toutes les tables ont RLS activé → chaque utilisateur ne voit que ses données.
+Schéma auto-créé au démarrage du serveur (db.js).
 
-## Setup (nouveau projet)
+## Déploiement sur Raspberry Pi avec Home Assistant
 
-1. Créer un projet sur supabase.com
-2. Copier `.env.example` → `.env` et renseigner les deux variables
-3. Exécuter `supabase/schema.sql` dans l'éditeur SQL Supabase
+Le Pi tourne déjà Home Assistant → utiliser **Docker** pour isoler l'app.
+
+**HAOS (Home Assistant OS) :**
+→ Voir `scripts/install-portainer.md` — ajouter via Portainer add-on HA
+
+**Raspbian/Debian avec HA Container :**
+```bash
+cd /opt && git clone <repo> adx-vignoble && cd adx-vignoble
+cp server/.env.example .env.local
+# Éditer .env.local : générer JWT_SECRET
+bash scripts/install-pi.sh
+```
+
+**Accès :**
+- Réseau local : `http://IP-PI:3001`
+- Depuis l'extérieur : Tailscale (add-on HA officiel) → `http://100.x.x.x:3001`
 
 ## Conventions
 
-- Tailwind custom: `vigne-*` (vert), `amber-*` (vendange/récolte)
-- Surface stockée en **centiares** en base, affichée "X A YY" via `caToDisplay()`
+- Auth : JWT dans localStorage (`adx_token`), durée 30 jours
+- Tailwind custom: `vigne-*` (vert), `amber-*` (vendange)
+- Surface stockée en **centiares**, affichée "X A YY" via `caToDisplay()`
 - Rendement = poids_total / surface_plantee_ha → kg/ha
-- Git branch pattern: `claude/<description>`
-- Default branch: `main`
-- Push: `git push -u origin <branch-name>`
+- Pas de fichier .env à la racine pour le frontend (pas de Supabase)
+- Git branch pattern: `claude/<description>`, push: `git push -u origin <branch>`

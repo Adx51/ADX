@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Plus, Edit2, Trash2, Package, Scale } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { supabase } from '../../lib/supabase'
+import { api } from '../../lib/api'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
 
@@ -11,41 +11,25 @@ export default function VendangeDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [vendange, setVendange] = useState(null)
-  const [parcelle, setParcelle] = useState(null)
-  const [chargements, setChargements] = useState([])
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(null)
 
   useEffect(() => { load() }, [id])
 
   async function load() {
-    const { data: v } = await supabase
-      .from('vendanges')
-      .select('*, parcelles(*)')
-      .eq('id', id)
-      .single()
-
-    const { data: c } = await supabase
-      .from('chargements')
-      .select('*')
-      .eq('vendange_id', id)
-      .order('date_chargement')
-      .order('heure_livraison', { nullsFirst: false })
-
-    setVendange(v)
-    setParcelle(v?.parcelles || null)
-    setChargements(c || [])
+    const data = await api.get(`/vendanges/${id}`)
+    setVendange(data)
     setLoading(false)
   }
 
   async function deleteChargement(cid) {
-    await supabase.from('chargements').delete().eq('id', cid)
+    await api.delete(`/chargements/${cid}`)
     setConfirmDelete(null)
     load()
   }
 
   async function deleteVendange() {
-    await supabase.from('vendanges').delete().eq('id', id)
+    await api.delete(`/vendanges/${id}`)
     navigate('/vendange')
   }
 
@@ -65,9 +49,10 @@ export default function VendangeDetail() {
     </div>
   )
 
+  const parcelle = vendange.parcelles
+  const chargements = vendange.chargements || []
   const rendement = rendementKgHa(vendange.poids_total, parcelle?.surface_plantee_ca)
 
-  // Grouper chargements par date
   const byDate = chargements.reduce((acc, c) => {
     const key = c.date_chargement
     if (!acc[key]) acc[key] = []
@@ -85,20 +70,15 @@ export default function VendangeDetail() {
       </PageHeader>
 
       <div className="px-4 pt-4 space-y-4">
-
         {/* Récap */}
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <p className="text-2xl font-bold text-amber-800">
-                {(vendange.poids_total || 0).toFixed(0)}
-              </p>
+              <p className="text-2xl font-bold text-amber-800">{Number(vendange.poids_total || 0).toFixed(0)}</p>
               <p className="text-xs text-amber-600 mt-0.5">kg total</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-amber-800">
-                {vendange.nb_caisses_total || 0}
-              </p>
+              <p className="text-2xl font-bold text-amber-800">{vendange.nb_caisses_total || 0}</p>
               <p className="text-xs text-amber-600 mt-0.5">caisses</p>
             </div>
             <div>
@@ -115,7 +95,6 @@ export default function VendangeDetail() {
           )}
         </div>
 
-        {/* Notes */}
         {vendange.notes && (
           <div className="card">
             <p className="text-xs text-gray-400 mb-1">Notes</p>
@@ -127,10 +106,8 @@ export default function VendangeDetail() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-gray-900">Chargements au pressoir</h2>
-            <button
-              onClick={() => navigate(`/vendange/${id}/chargement/new`)}
-              className="flex items-center gap-1 text-amber-600 font-semibold text-sm"
-            >
+            <button onClick={() => navigate(`/vendange/${id}/chargement/new`)}
+                    className="flex items-center gap-1 text-amber-600 font-semibold text-sm">
               <Plus size={18} />
               Ajouter
             </button>
@@ -140,17 +117,15 @@ export default function VendangeDetail() {
             <div className="card text-center py-8">
               <Package size={32} className="mx-auto text-gray-300 mb-2" />
               <p className="text-gray-500 text-sm">Aucun chargement enregistré</p>
-              <button
-                onClick={() => navigate(`/vendange/${id}/chargement/new`)}
-                className="mt-3 text-amber-600 font-medium text-sm"
-              >
+              <button onClick={() => navigate(`/vendange/${id}/chargement/new`)}
+                      className="mt-3 text-amber-600 font-medium text-sm">
                 Ajouter le premier chargement
               </button>
             </div>
           ) : (
             Object.entries(byDate).map(([date, items]) => {
               const dateFormatted = format(parseISO(date), 'EEEE d MMMM yyyy', { locale: fr })
-              const dayPoids = items.reduce((s, c) => s + (c.poids_kg || 0), 0)
+              const dayPoids   = items.reduce((s, c) => s + (c.poids_kg || 0), 0)
               const dayCaisses = items.reduce((s, c) => s + (c.nombre_caisses || 0), 0)
 
               return (
@@ -159,7 +134,6 @@ export default function VendangeDetail() {
                     <p className="text-sm font-semibold text-gray-700 capitalize">{dateFormatted}</p>
                     <p className="text-xs text-gray-400">{dayCaisses} c · {dayPoids.toFixed(0)} kg</p>
                   </div>
-
                   <div className="space-y-2">
                     {items.map(c => (
                       <div key={c.id}>
@@ -179,46 +153,33 @@ export default function VendangeDetail() {
                           </div>
                         ) : (
                           <div className="card flex items-center gap-3">
-                            {/* Heure */}
                             <div className="w-12 text-center flex-shrink-0">
                               <p className="text-xs font-bold text-vigne-700">
                                 {c.heure_livraison ? c.heure_livraison.slice(0, 5) : '—'}
                               </p>
                             </div>
-
-                            {/* Caisses */}
                             <div className="flex items-center gap-1.5 flex-shrink-0">
                               <Package size={14} className="text-gray-400" />
                               <span className="font-bold text-gray-900">{c.nombre_caisses}</span>
                               <span className="text-xs text-gray-400">c</span>
                             </div>
-
-                            {/* Poids */}
                             <div className="flex items-center gap-1.5 flex-1">
                               <Scale size={14} className="text-gray-400" />
                               <span className="font-bold text-amber-700">{c.poids_kg} kg</span>
                             </div>
-
-                            {/* Actions */}
                             <div className="flex gap-1">
-                              <button
-                                onClick={() => navigate(`/vendange/${id}/chargement/${c.id}/edit`)}
-                                className="p-2 text-gray-400 active:text-vigne-700"
-                              >
+                              <button onClick={() => navigate(`/vendange/${id}/chargement/${c.id}/edit`)}
+                                      className="p-2 text-gray-400 active:text-vigne-700">
                                 <Edit2 size={16} />
                               </button>
-                              <button
-                                onClick={() => setConfirmDelete(c.id)}
-                                className="p-2 text-gray-400 active:text-red-600"
-                              >
+                              <button onClick={() => setConfirmDelete(c.id)}
+                                      className="p-2 text-gray-400 active:text-red-600">
                                 <Trash2 size={16} />
                               </button>
                             </div>
                           </div>
                         )}
-                        {c.notes && (
-                          <p className="text-xs text-gray-400 pl-4 mt-0.5">{c.notes}</p>
-                        )}
+                        {c.notes && <p className="text-xs text-gray-400 pl-4 mt-0.5">{c.notes}</p>}
                       </div>
                     ))}
                   </div>
@@ -229,31 +190,23 @@ export default function VendangeDetail() {
         </div>
 
         {/* Supprimer vendange */}
-        <div className="pt-2">
-          {!confirmDelete || confirmDelete === 'vendange' ? (
-            confirmDelete === 'vendange' ? (
-              <div className="card border-red-200 bg-red-50 space-y-3">
-                <p className="text-red-700 font-medium text-sm text-center">
-                  Supprimer toute la vendange {vendange.annee} de {parcelle?.nom} ?
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => setConfirmDelete(null)} className="btn-secondary py-2 text-sm">
-                    Annuler
-                  </button>
-                  <button onClick={deleteVendange} className="btn-danger py-2 text-sm">
-                    Supprimer
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={() => setConfirmDelete('vendange')}
-                      className="w-full flex items-center justify-center gap-2 text-red-500 py-3 text-sm font-medium">
-                <Trash2 size={16} />
-                Supprimer cette vendange
-              </button>
-            )
-          ) : null}
-        </div>
+        {confirmDelete === 'vendange' ? (
+          <div className="card border-red-200 bg-red-50 space-y-3">
+            <p className="text-red-700 font-medium text-sm text-center">
+              Supprimer toute la vendange {vendange.annee} de {parcelle?.nom} ?
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => setConfirmDelete(null)} className="btn-secondary py-2 text-sm">Annuler</button>
+              <button onClick={deleteVendange} className="btn-danger py-2 text-sm">Supprimer</button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete('vendange')}
+                  className="w-full flex items-center justify-center gap-2 text-red-500 py-3 text-sm font-medium">
+            <Trash2 size={16} />
+            Supprimer cette vendange
+          </button>
+        )}
       </div>
     </div>
   )

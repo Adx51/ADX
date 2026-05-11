@@ -7,34 +7,16 @@ export default function Register() {
   const { signUp } = useAuth()
   const navigate = useNavigate()
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
-  const { register, handleSubmit, watch, formState: { isSubmitting } } = useForm()
+  const { register, handleSubmit, watch, formState: { isSubmitting, errors } } = useForm()
 
   async function onSubmit(data) {
     setError('')
     const { error } = await signUp(data.email, data.password)
     if (error) {
-      setError(error.message)
+      setError(error)
     } else {
-      setSuccess(true)
+      navigate('/parcelles')
     }
-  }
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-vigne-700 flex items-center justify-center px-6">
-        <div className="bg-white rounded-3xl p-8 text-center max-w-sm w-full shadow-2xl">
-          <div className="text-5xl mb-4">✉️</div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Vérifiez votre email</h2>
-          <p className="text-gray-600 text-sm mb-6">
-            Un lien de confirmation a été envoyé à votre adresse email. Cliquez dessus pour activer votre compte.
-          </p>
-          <Link to="/login" className="btn-primary inline-block text-center no-underline">
-            Retour à la connexion
-          </Link>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -68,9 +50,12 @@ export default function Register() {
             <input
               type="password"
               className="input"
-              placeholder="Min. 8 caractères"
-              {...register('password', { required: true, minLength: 8 })}
+              placeholder="Min. 6 caractères"
+              {...register('password', { required: true, minLength: 6 })}
             />
+            {errors.password && (
+              <p className="text-xs text-red-500 mt-1">6 caractères minimum</p>
+            )}
           </div>
           <div>
             <label className="label">Confirmer le mot de passe</label>
@@ -83,6 +68,9 @@ export default function Register() {
                 validate: v => v === watch('password') || 'Les mots de passe ne correspondent pas'
               })}
             />
+            {errors.confirmPassword && (
+              <p className="text-xs text-red-500 mt-1">{errors.confirmPassword.message}</p>
+            )}
           </div>
 
           <button type="submit" className="btn-primary mt-2" disabled={isSubmitting}>
@@ -92,9 +80,7 @@ export default function Register() {
 
         <p className="text-center text-sm text-gray-500 mt-6">
           Déjà un compte ?{' '}
-          <Link to="/login" className="text-vigne-700 font-semibold">
-            Se connecter
-          </Link>
+          <Link to="/login" className="text-vigne-700 font-semibold">Se connecter</Link>
         </p>
       </div>
     </div>

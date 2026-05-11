@@ -1,0 +1,68 @@
+import { Router } from 'express'
+import { v4 as uuidv4 } from 'uuid'
+import db from '../db.js'
+import { requireAuth } from '../middleware/auth.js'
+
+const router = Router()
+router.use(requireAuth)
+
+router.get('/:id', (req, res) => {
+  const c = db.prepare(`
+    SELECT c.* FROM chargements c
+    JOIN vendanges v ON v.id = c.vendange_id
+    WHERE c.id = ? AND v.user_id = ?
+  `).get(req.params.id, req.userId)
+  if (!c) return res.status(404).json({ error: 'Chargement introuvable' })
+  res.json(c)
+})
+
+router.post('/', (req, res) => {
+  const { vendange_id, nombre_caisses, poids_kg, date_chargement, heure_livraison, notes } = req.body
+  if (!vendange_id || !date_chargement) return res.status(400).json({ error: 'Champs requis manquants' })
+
+  // Vérifier que la vendange appartient à l'utilisateur
+  const v = db.prepare('SELECT id FROM vendanges WHERE id = ? AND user_id = ?').get(vendange_id, req.userId)
+  if (!v) return res.status(404).json({ error: 'Vendange introuvable' })
+
+  const id = uuidv4()
+  db.prepare(`
+    INSERT INTO chargements
+      (id, vendange_id, nombre_caisses, poids_kg, date_chargement, heure_livraison, notes)
+    VALUES (?,?,?,?,?,?,?)
+  `).run(id, vendange_id, nombre_caisses || 0, poids_kg || 0,
+         date_chargement, heure_livraison || null, notes || null)
+
+  res.json(db.prepare('SELECT * FROM chargements WHERE id = ?').get(id))
+})
+
+router.put('/:id', (req, res) => {
+  const c = db.prepare(`
+    SELECT c.id FROM chargements c
+    JOIN vendanges v ON v.id = c.vendange_id
+    WHERE c.id = ? AND v.user_id = ?
+  `).get(req.params.id, req.userId)
+  if (!c) return res.status(404).json({ error: 'Chargement introuvable' })
+
+  const { nombre_caisses, poids_kg, date_chargement, heure_livraison, notes } = req.body
+  db.prepare(`
+    UPDATE chargements SET
+      nombre_caisses = ?, poids_kg = ?, date_chargement = ?,
+      heure_livraison = ?, notes = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `).run(nombre_caisses, poids_kg, date_chargement, heure_livraison || null, notes || null, req.params.id)
+
+  res.json(db.prepare('SELECT * FROM chargements WHERE id = ?').get(req.params.id))
+})
+
+router.delete('/:id', (req, res) => {
+  const c = db.prepare(`
+    SELECT c.id FROM chargements c
+    JOIN vendanges v ON v.id = c.vendange_id
+    WHERE c.id = ? AND v.user_id = ?
+  `).get(req.params.id, req.userId)
+  if (!c) return res.status(404).json({ error: 'Chargement introuvable' })
+  db.prepare('DELETE FROM chargements WHERE id = ?').run(req.params.id)
+  res.json({ success: true })
+})
+
+export default router

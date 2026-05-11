@@ -1,32 +1,68 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { api } from '../lib/api'
 
 const AuthContext = createContext(null)
 
+function getStoredUser() {
+  try { return JSON.parse(localStorage.getItem('adx_user')) } catch { return null }
+}
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(getStoredUser)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+    const token = localStorage.getItem('adx_token')
+    if (!token) { setLoading(false); return }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-
-    return () => subscription.unsubscribe()
+    api.get('/auth/me')
+      .then(data => {
+        if (data?.user) {
+          setUser(data.user)
+          localStorage.setItem('adx_user', JSON.stringify(data.user))
+        } else {
+          localStorage.removeItem('adx_token')
+          localStorage.removeItem('adx_user')
+          setUser(null)
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem('adx_token')
+        localStorage.removeItem('adx_user')
+        setUser(null)
+      })
+      .finally(() => setLoading(false))
   }, [])
 
-  const signIn = (email, password) =>
-    supabase.auth.signInWithPassword({ email, password })
+  async function signIn(email, password) {
+    try {
+      const data = await api.post('/auth/login', { email, password })
+      localStorage.setItem('adx_token', data.token)
+      localStorage.setItem('adx_user', JSON.stringify(data.user))
+      setUser(data.user)
+      return { error: null }
+    } catch (e) {
+      return { error: e.message }
+    }
+  }
 
-  const signUp = (email, password) =>
-    supabase.auth.signUp({ email, password })
+  async function signUp(email, password) {
+    try {
+      const data = await api.post('/auth/register', { email, password })
+      localStorage.setItem('adx_token', data.token)
+      localStorage.setItem('adx_user', JSON.stringify(data.user))
+      setUser(data.user)
+      return { error: null }
+    } catch (e) {
+      return { error: e.message }
+    }
+  }
 
-  const signOut = () => supabase.auth.signOut()
+  function signOut() {
+    localStorage.removeItem('adx_token')
+    localStorage.removeItem('adx_user')
+    setUser(null)
+  }
 
   return (
     <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>

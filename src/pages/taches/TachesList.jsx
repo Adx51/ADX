@@ -1,20 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, CheckSquare, Clock, AlertCircle, Check } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
-import { format } from 'date-fns'
+import { api } from '../../lib/api'
+import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 const STATUTS = {
-  a_faire:  { label: 'À faire',    color: 'bg-gray-100 text-gray-600',   icon: Clock },
-  en_cours: { label: 'En cours',   color: 'bg-blue-100 text-blue-700',   icon: AlertCircle },
-  termine:  { label: 'Terminée',   color: 'bg-vigne-100 text-vigne-700', icon: Check },
-}
-
-const PRIORITES = {
-  basse:   'text-gray-400',
-  normale: 'text-amber-500',
-  haute:   'text-red-500',
+  a_faire:  { label: 'À faire',  color: 'bg-gray-100 text-gray-600',   icon: Clock },
+  en_cours: { label: 'En cours', color: 'bg-blue-100 text-blue-700',   icon: AlertCircle },
+  termine:  { label: 'Terminée', color: 'bg-vigne-100 text-vigne-700', icon: Check },
 }
 
 export default function TachesList() {
@@ -23,15 +17,10 @@ export default function TachesList() {
   const [loading, setLoading] = useState(true)
   const [filtre, setFiltre] = useState('a_faire')
 
-  useEffect(() => {
-    load()
-  }, [])
+  useEffect(() => { load() }, [])
 
   async function load() {
-    const { data } = await supabase
-      .from('taches')
-      .select('*, parcelles(nom)')
-      .order('date_echeance', { ascending: true, nullsFirst: false })
+    const data = await api.get('/taches')
     setTaches(data || [])
     setLoading(false)
   }
@@ -39,7 +28,7 @@ export default function TachesList() {
   async function toggleStatut(tache) {
     const next = tache.statut === 'a_faire' ? 'en_cours'
                : tache.statut === 'en_cours' ? 'termine' : 'a_faire'
-    await supabase.from('taches').update({ statut: next }).eq('id', tache.id)
+    await api.put(`/taches/${tache.id}`, { ...tache, statut: next })
     setTaches(prev => prev.map(t => t.id === tache.id ? { ...t, statut: next } : t))
   }
 
@@ -51,21 +40,18 @@ export default function TachesList() {
         <h1 className="text-xl font-bold">Tâches</h1>
       </div>
 
-      {/* Filtres */}
       <div className="flex gap-2 px-4 pt-4 pb-2 overflow-x-auto">
         {[
-          { key: 'a_faire',  label: 'À faire' },
-          { key: 'en_cours', label: 'En cours' },
+          { key: 'a_faire',  label: 'À faire'   },
+          { key: 'en_cours', label: 'En cours'  },
           { key: 'termine',  label: 'Terminées' },
-          { key: 'all',      label: 'Tout' },
+          { key: 'all',      label: 'Tout'      },
         ].map(f => (
           <button
             key={f.key}
             onClick={() => setFiltre(f.key)}
             className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              filtre === f.key
-                ? 'bg-vigne-700 text-white'
-                : 'bg-white text-gray-600 border border-gray-200'
+              filtre === f.key ? 'bg-vigne-700 text-white' : 'bg-white text-gray-600 border border-gray-200'
             }`}
           >
             {f.label}
@@ -86,9 +72,7 @@ export default function TachesList() {
             const statut = STATUTS[t.statut]
             const Icon = statut.icon
             return (
-              <div key={t.id}
-                   className="card flex gap-3 active:scale-[0.99] transition-transform">
-                {/* Bouton statut */}
+              <div key={t.id} className="card flex gap-3">
                 <button
                   onClick={() => toggleStatut(t)}
                   className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${statut.color}`}
@@ -96,31 +80,21 @@ export default function TachesList() {
                   <Icon size={18} />
                 </button>
 
-                {/* Contenu */}
-                <div
-                  className="flex-1 min-w-0 cursor-pointer"
-                  onClick={() => navigate(`/taches/${t.id}/edit`)}
-                >
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/taches/${t.id}/edit`)}>
                   <p className={`font-semibold ${t.statut === 'termine' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
                     {t.titre}
                   </p>
-                  {t.parcelles && (
-                    <p className="text-xs text-vigne-600 mt-0.5">{t.parcelles.nom}</p>
-                  )}
-                  {t.description && (
-                    <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{t.description}</p>
-                  )}
+                  {t.parcelles && <p className="text-xs text-vigne-600 mt-0.5">{t.parcelles.nom}</p>}
+                  {t.description && <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{t.description}</p>}
                   {t.date_echeance && (
                     <p className="text-xs text-gray-400 mt-1">
-                      📅 {format(new Date(t.date_echeance), 'd MMM yyyy', { locale: fr })}
+                      📅 {format(parseISO(t.date_echeance), 'd MMM yyyy', { locale: fr })}
                     </p>
                   )}
                 </div>
 
-                {/* Photo miniature */}
                 {t.photo_url && (
-                  <img src={t.photo_url} alt=""
-                       className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                  <img src={t.photo_url} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
                 )}
               </div>
             )
@@ -128,7 +102,6 @@ export default function TachesList() {
         )}
       </div>
 
-      {/* FAB */}
       <button
         onClick={() => navigate('/taches/new')}
         className="fixed right-4 bg-vigne-700 text-white w-14 h-14 rounded-full

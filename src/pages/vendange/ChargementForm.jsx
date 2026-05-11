@@ -1,13 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm, useWatch } from 'react-hook-form'
-import { supabase } from '../../lib/supabase'
+import { api } from '../../lib/api'
 import PageHeader from '../../components/PageHeader'
 import { format } from 'date-fns'
 
-// Routes:
-//   new:  /vendange/:id/chargement/new        → params: { id }
-//   edit: /vendange/:vendangeId/chargement/:id/edit → params: { vendangeId, id }
 export default function ChargementForm() {
   const params = useParams()
   const isEdit = Boolean(params.vendangeId)
@@ -30,32 +27,24 @@ export default function ChargementForm() {
   })
 
   const nbCaisses = useWatch({ control, name: 'nombre_caisses' })
-  const poids = useWatch({ control, name: 'poids_kg' })
-  const moyenneParCaisse = nbCaisses && poids && Number(nbCaisses) > 0
-    ? (Number(poids) / Number(nbCaisses)).toFixed(1)
-    : null
+  const poids     = useWatch({ control, name: 'poids_kg' })
+  const moyenne   = nbCaisses && poids && Number(nbCaisses) > 0
+    ? (Number(poids) / Number(nbCaisses)).toFixed(1) : null
 
   useEffect(() => {
-    async function load() {
-      const { data: v } = await supabase
-        .from('vendanges')
-        .select('*, parcelles(nom)')
-        .eq('id', vendangeId)
-        .single()
-      setVendange(v)
+    api.get(`/vendanges/${vendangeId}`).then(v => setVendange(v))
 
-      if (isEdit && chargementId) {
-        const { data: c } = await supabase.from('chargements').select('*').eq('id', chargementId).single()
+    if (isEdit && chargementId) {
+      api.get(`/chargements/${chargementId}`).then(c => {
         if (c) {
-          setValue('date_chargement', c.date_chargement)
-          setValue('nombre_caisses', c.nombre_caisses)
-          setValue('poids_kg', c.poids_kg)
-          setValue('heure_livraison', c.heure_livraison?.slice(0, 5) || '')
-          setValue('notes', c.notes || '')
+          setValue('date_chargement',  c.date_chargement)
+          setValue('nombre_caisses',   c.nombre_caisses)
+          setValue('poids_kg',         c.poids_kg)
+          setValue('heure_livraison',  c.heure_livraison?.slice(0, 5) || '')
+          setValue('notes',            c.notes || '')
         }
-      }
+      })
     }
-    load()
   }, [vendangeId, chargementId, isEdit, setValue])
 
   async function onSubmit(data) {
@@ -63,18 +52,18 @@ export default function ChargementForm() {
     setError('')
     try {
       const payload = {
-        vendange_id: vendangeId,
-        nombre_caisses: parseInt(data.nombre_caisses),
-        poids_kg: parseFloat(data.poids_kg),
+        vendange_id:     vendangeId,
+        nombre_caisses:  parseInt(data.nombre_caisses),
+        poids_kg:        parseFloat(data.poids_kg),
         date_chargement: data.date_chargement,
         heure_livraison: data.heure_livraison || null,
-        notes: data.notes || null,
+        notes:           data.notes || null,
       }
 
       if (isEdit && chargementId) {
-        await supabase.from('chargements').update(payload).eq('id', chargementId)
+        await api.put(`/chargements/${chargementId}`, payload)
       } else {
-        await supabase.from('chargements').insert(payload)
+        await api.post('/chargements', payload)
       }
       navigate(`/vendange/${vendangeId}`)
     } catch (e) {
@@ -119,49 +108,37 @@ export default function ChargementForm() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Nombre de caisses *</label>
-            <input
-              type="number"
-              inputMode="numeric"
-              className="input text-center text-3xl font-bold h-16"
-              min="0"
-              placeholder="24"
-              {...register('nombre_caisses', { required: true, min: 1 })}
-            />
+            <input type="number" inputMode="numeric"
+                   className="input text-center text-3xl font-bold h-16"
+                   min="1" placeholder="24"
+                   {...register('nombre_caisses', { required: true, min: 1 })} />
           </div>
           <div>
             <label className="label">Poids (kg) *</label>
-            <input
-              type="number"
-              inputMode="decimal"
-              step="0.1"
-              className="input text-center text-3xl font-bold h-16"
-              min="0"
-              placeholder="1014"
-              {...register('poids_kg', { required: true, min: 0 })}
-            />
+            <input type="number" inputMode="decimal" step="0.1"
+                   className="input text-center text-3xl font-bold h-16"
+                   min="0" placeholder="1014"
+                   {...register('poids_kg', { required: true, min: 0 })} />
           </div>
         </div>
 
-        {/* Poids moyen par caisse */}
-        {moyenneParCaisse && (
+        {moyenne && (
           <div className="bg-vigne-50 border border-vigne-200 rounded-xl px-4 py-3 text-center">
             <p className="text-vigne-700 font-semibold">
-              Moyenne : <span className="text-vigne-800 text-lg">{moyenneParCaisse} kg/caisse</span>
+              Moyenne : <span className="text-vigne-800 text-lg">{moyenne} kg/caisse</span>
             </p>
           </div>
         )}
 
         <div>
           <label className="label">Notes</label>
-          <input className="input" placeholder="Remarques sur ce chargement..." {...register('notes')} />
+          <input className="input" placeholder="Remarques..." {...register('notes')} />
         </div>
 
-        <button
-          type="submit"
-          className="w-full bg-amber-500 text-white px-4 py-3 rounded-xl font-semibold
-                     active:scale-95 transition-transform disabled:opacity-50"
-          disabled={saving}
-        >
+        <button type="submit"
+                className="w-full bg-amber-500 text-white px-4 py-3 rounded-xl font-semibold
+                           active:scale-95 transition-transform disabled:opacity-50"
+                disabled={saving}>
           {saving ? 'Enregistrement...' : isEdit ? 'Enregistrer les modifications' : 'Ajouter ce chargement'}
         </button>
       </form>

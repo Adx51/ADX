@@ -1,15 +1,16 @@
 {
   "name": "adx-vignoble",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "node server/index.js",
+    "server:dev": "node --watch server/index.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
     "date-fns": "^3.6.0",
     "idb": "^8.0.0",
     "lucide-react": "^0.446.0",
