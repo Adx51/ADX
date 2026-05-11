@@ -1,15 +1,14 @@
 # ── Stage 1 : build du frontend React ────────────────────────
 FROM node:22-alpine AS builder
 
-RUN apk add --no-cache wget
+RUN apk add --no-cache git
 
 WORKDIR /build
 
 ARG REPO_BRANCH=claude/vineyard-management-app-x5DHq
-RUN wget -qO /tmp/repo.tar.gz \
-      "https://github.com/Adx51/ADX/archive/refs/heads/${REPO_BRANCH}.tar.gz" && \
-    tar xzf /tmp/repo.tar.gz -C /build --strip-components=1 && \
-    rm /tmp/repo.tar.gz
+RUN git clone --depth=1 --branch "${REPO_BRANCH}" \
+      https://github.com/Adx51/ADX.git . && \
+    rm -rf .git
 
 RUN npm ci && npm run build
 
