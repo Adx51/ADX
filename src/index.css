@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-vigne-50 text-gray-900 font-sans;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-vigne-700 text-white px-4 py-3 rounded-xl font-semibold
+           active:scale-95 transition-transform duration-100
+           disabled:opacity-50 disabled:cursor-not-allowed w-full;
+  }
+  .btn-secondary {
+    @apply bg-white text-vigne-700 border-2 border-vigne-700 px-4 py-3 rounded-xl font-semibold
+           active:scale-95 transition-transform duration-100 w-full;
+  }
+  .btn-danger {
+    @apply bg-red-600 text-white px-4 py-3 rounded-xl font-semibold
+           active:scale-95 transition-transform duration-100 w-full;
+  }
+  .card {
+    @apply bg-white rounded-2xl shadow-sm border border-vigne-100 p-4;
+  }
+  .input {
+    @apply w-full border border-gray-300 rounded-xl px-4 py-3 text-base
+           focus:outline-none focus:ring-2 focus:ring-vigne-500 focus:border-transparent
+           bg-white;
+  }
+  .label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+  .page-header {
+    @apply bg-vigne-700 text-white px-4 py-4 sticky top-0 z-10 safe-top;
+  }
+  .safe-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #86efac; border-radius: 2px; }
+
+/* Page bottom padding to avoid nav overlap */
+.page-content {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+}
+
+/* Skeleton loading animation */
+@keyframes shimmer {
+  0% { background-position: -468px 0; }
+  100% { background-position: 468px 0; }
+}
+.skeleton {
+  background: linear-gradient(to right, #f0fdf4 8%, #dcfce7 18%, #f0fdf4 33%);
+  background-size: 800px 104px;
+  animation: shimmer 1.2s infinite linear;
+}
