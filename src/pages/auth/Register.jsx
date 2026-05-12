@@ -23,7 +23,7 @@ export default function Register() {
     <div className="min-h-screen bg-vigne-700 flex flex-col items-center justify-center px-6">
       <div className="text-center mb-8">
         <div className="text-6xl mb-3">🍇</div>
-        <h1 className="text-2xl font-bold text-white">ADX Vignoble</h1>
+        <h1 className="text-2xl font-bold text-white">LF-Boyer Vignoble</h1>
       </div>
 
       <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl">

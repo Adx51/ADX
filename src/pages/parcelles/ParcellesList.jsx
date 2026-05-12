@@ -67,7 +67,7 @@ export default function ParcellesList() {
     <div>
       <div className="page-header flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">🍇 Mes Parcelles</h1>
+          <h1 className="text-xl font-bold">🍇 LF-Boyer</h1>
           <p className="text-vigne-200 text-xs mt-0.5">
             {user?.prenom ? `${user.prenom} ${user.nom}` : user?.email}
           </p>

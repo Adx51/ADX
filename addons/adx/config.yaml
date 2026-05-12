@@ -1,5 +1,5 @@
-name: "ADX Vignoble"
-description: "Gestion de vignoble : parcelles, tâches, vendanges et rendements"
+name: "LF-Boyer Vignoble"
+description: "Gestion du vignoble LF-Boyer : parcelles, tâches, vendanges et rendements"
 version: "0.2.0"
 slug: "adx_vignoble"
 url: "https://github.com/Adx51/ADX"
@@ -15,7 +15,7 @@ arch:
 ports:
   3001/tcp: 3001
 ports_description:
-  3001/tcp: "ADX Vignoble (interface web + API)"
+  3001/tcp: "LF-Boyer Vignoble (interface web + API)"
 
 map:
   - data:rw

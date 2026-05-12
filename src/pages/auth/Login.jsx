@@ -25,7 +25,7 @@ export default function Login() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-8">
         <div className="text-center mb-10">
           <div className="text-7xl mb-4">🍇</div>
-          <h1 className="text-3xl font-bold text-white">ADX Vignoble</h1>
+          <h1 className="text-3xl font-bold text-white">LF-Boyer Vignoble</h1>
           <p className="text-vigne-200 mt-2">Gestion de votre domaine</p>
         </div>
 

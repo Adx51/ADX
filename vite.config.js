@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'vine-icon.svg'],
       manifest: {
-        name: 'ADX Vignoble',
-        short_name: 'ADX',
-        description: 'Gestion de vignoble',
+        name: 'LF-Boyer Vignoble',
+        short_name: 'LF-Boyer',
+        description: 'Gestion du vignoble LF-Boyer',
         theme_color: '#15803d',
         background_color: '#f0fdf4',
         display: 'standalone',
