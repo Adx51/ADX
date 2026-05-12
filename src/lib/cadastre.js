@@ -1,7 +1,6 @@
 const IGN_API = 'https://apicarto.ign.fr/api/cadastre/parcelle'
 
 function parseRef(raw) {
-  // Accept "AE0314", "AE 0314", "AE 314" — section = letters, numero = digits (padded to 4)
   const m = raw.trim().match(/^([A-Z]{1,3})\s*(\d{1,4})$/i)
   if (!m) return null
   return { section: m[1].toUpperCase(), numero: m[2].padStart(4, '0') }
@@ -16,20 +15,20 @@ function collectCoords(feature) {
 }
 
 async function fetchFeatures(codeInsee, section, numero) {
-  // The IGN API requires prefixe=000 (feuille cadastrale) in most cases
-  const urls = [
-    `${IGN_API}?code_insee=${codeInsee}&prefixe=000&section=${section}&numero=${numero}`,
-    `${IGN_API}?code_insee=${codeInsee}&section=${section}&numero=${numero}`,
+  const attempts = [
+    { prefixe: '000', url: `${IGN_API}?code_insee=${codeInsee}&prefixe=000&section=${section}&numero=${numero}` },
+    { prefixe: null,  url: `${IGN_API}?code_insee=${codeInsee}&section=${section}&numero=${numero}` },
   ]
-  for (const url of urls) {
+  for (const attempt of attempts) {
     try {
-      const resp = await fetch(url)
+      const resp = await fetch(attempt.url)
       if (!resp.ok) continue
       const data = await resp.json()
-      if (data.features?.length) return data.features
+      if (data.features?.length) return { features: data.features, testedUrl: attempt.url }
     } catch {}
   }
-  return []
+  // Return last URL tried so user can inspect it
+  return { features: [], testedUrl: attempts[0].url }
 }
 
 export async function locateFromCadastre(codeInsee, referenceStr) {
@@ -39,9 +38,11 @@ export async function locateFromCadastre(codeInsee, referenceStr) {
 
   const allCoords = []
   const notFound = []
+  let sampleUrl = ''
 
   for (const { section, numero } of refs) {
-    const features = await fetchFeatures(codeInsee, section, numero)
+    const { features, testedUrl } = await fetchFeatures(codeInsee, section, numero)
+    if (!sampleUrl) sampleUrl = testedUrl
     if (!features.length) {
       notFound.push(`${section} ${numero}`)
     } else {
@@ -50,10 +51,14 @@ export async function locateFromCadastre(codeInsee, referenceStr) {
   }
 
   if (!allCoords.length) {
-    throw new Error(
-      `Parcelle(s) introuvable(s) : ${notFound.join(', ')} — ` +
-      `vérifiez le code INSEE ${codeInsee} dans Admin → Référentiels → Communes.`
-    )
+    const lines = [
+      `Parcelle(s) introuvable(s) : ${notFound.join(', ')}`,
+      ``,
+      `URL testée : ${sampleUrl}`,
+      `→ Ouvrez ce lien dans votre navigateur pour voir la réponse brute de l'IGN.`,
+      `→ Si la réponse est vide, vérifiez le code INSEE ${codeInsee} (Admin → Référentiels → Communes).`,
+    ]
+    throw new Error(lines.join('\n'))
   }
 
   const lat = allCoords.reduce((s, c) => s + c[0], 0) / allCoords.length
