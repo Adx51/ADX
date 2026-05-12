@@ -1,10 +1,9 @@
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation } from 'lucide-react'
 import { api } from '../../lib/api'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
-import MapPicker from '../../components/MapPicker'
 
 export default function ParcelleDetail() {
   const { id } = useParams()
@@ -109,11 +108,11 @@ export default function ParcelleDetail() {
                 </p>
               </div>
             </div>
-            <MapPicker
-              lat={String(parcelle.gps_lat)}
-              lng={String(parcelle.gps_lng)}
-              onChange={() => {}}
-              readOnly
+            <iframe
+              title="Carte"
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${parcelle.gps_lng - 0.003}%2C${parcelle.gps_lat - 0.002}%2C${parcelle.gps_lng + 0.003}%2C${parcelle.gps_lat + 0.002}&layer=mapnik&marker=${parcelle.gps_lat}%2C${parcelle.gps_lng}`}
+              style={{ width: '100%', height: '224px', border: 0, borderRadius: '12px' }}
+              loading="lazy"
             />
             <div className="grid grid-cols-3 gap-2">
               <button onClick={navigateToParcel}
