@@ -67,7 +67,8 @@ export default function MapPicker({ lat, lng, onChange, geoFeatures, readOnly = 
     mapRef.current = map
 
     // Force recalcul des dimensions après le premier paint (mobile)
-    setTimeout(() => map.invalidateSize(), 100)
+    setTimeout(() => map.invalidateSize(), 50)
+    setTimeout(() => map.invalidateSize(), 300)
 
     return () => {
       map.remove()
@@ -101,9 +102,12 @@ export default function MapPicker({ lat, lng, onChange, geoFeatures, readOnly = 
   }, [geoFeatures])
 
   return (
-    <div className="space-y-1">
-      <div ref={containerRef} className="h-72 rounded-xl border border-gray-200 overflow-hidden" style={{ zIndex: 0 }} />
-      {!readOnly && <p className="text-xs text-gray-400 text-center">Appuyez sur la carte pour ajuster la position</p>}
+    <div>
+      <div
+        ref={containerRef}
+        style={{ height: '288px', width: '100%', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden', position: 'relative', zIndex: 0 }}
+      />
+      {!readOnly && <p className="text-xs text-gray-400 text-center mt-1">Appuyez sur la carte pour ajuster la position</p>}
     </div>
   )
 }
