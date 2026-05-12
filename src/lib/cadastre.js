@@ -32,8 +32,8 @@ async function fetchFeatures(codeInsee, section, numero) {
 }
 
 export async function locateFromCadastre(codeInsee, referenceStr) {
-  const refs = referenceStr.split(',').map(parseRef).filter(Boolean)
-  if (!refs.length) throw new Error('Format invalide. Attendu : AE 0314 ou AE0314')
+  const refs = referenceStr.split(/[,;]/).map(parseRef).filter(Boolean)
+  if (!refs.length) throw new Error('Format invalide. Attendu : AE0314 ou AE 0314, séparés par , ou ;')
   if (!codeInsee) throw new Error('Code INSEE manquant pour cette commune — configurez-le dans Admin → Référentiels.')
 
   const allCoords = []

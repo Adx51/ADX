@@ -207,7 +207,7 @@ export default function ParcelleForm() {
             {cadastreLoading ? 'Localisation cadastrale...' : 'Localiser depuis le cadastre'}
           </button>
           <p className="text-xs text-gray-400 mt-0.5">
-            Plusieurs références séparées par des virgules — la position GPS sera calculée automatiquement via l'IGN.
+            Plusieurs références séparées par , ou ; — ex : AV0259;AV0260 — position GPS calculée via l'IGN.
           </p>
         </div>
 
