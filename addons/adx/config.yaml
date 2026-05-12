@@ -19,9 +19,14 @@ ports_description:
 
 map:
   - data:rw
+  - ssl:ro
 
 options:
   jwt_secret: ""
+  ssl_cert: ""
+  ssl_key: ""
 
 schema:
   jwt_secret: "str?"
+  ssl_cert: "str?"
+  ssl_key: "str?"

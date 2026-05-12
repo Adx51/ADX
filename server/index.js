@@ -52,7 +52,22 @@ if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')))
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ ADX Server démarré sur http://0.0.0.0:${PORT}`)
-  console.log(`   Mode: ${process.env.NODE_ENV || 'development'}`)
-})
+const SSL_CERT = process.env.SSL_CERT_PATH
+const SSL_KEY  = process.env.SSL_KEY_PATH
+
+if (SSL_CERT && SSL_KEY && fs.existsSync(SSL_CERT) && fs.existsSync(SSL_KEY)) {
+  const { createServer } = await import('https')
+  const httpsOptions = {
+    cert: fs.readFileSync(SSL_CERT),
+    key:  fs.readFileSync(SSL_KEY),
+  }
+  createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ ADX Server démarré sur https://0.0.0.0:${PORT}`)
+    console.log(`   Mode: ${process.env.NODE_ENV || 'development'} | SSL: ${SSL_CERT}`)
+  })
+} else {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ ADX Server démarré sur http://0.0.0.0:${PORT}`)
+    console.log(`   Mode: ${process.env.NODE_ENV || 'development'}`)
+  })
+}

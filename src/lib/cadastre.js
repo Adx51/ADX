@@ -11,7 +11,7 @@ function collectCoords(feature) {
   const rings =
     g.type === 'Polygon' ? [g.coordinates[0]] :
     g.type === 'MultiPolygon' ? g.coordinates.map(p => p[0]) : []
-  return rings.flatMap(([lng, lat]) => [[lat, lng]])
+  return rings.flatMap(ring => ring.map(([lng, lat]) => [lat, lng]))
 }
 
 async function fetchFeatures(codeInsee, section, numero) {
