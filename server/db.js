@@ -143,5 +143,10 @@ if (schemaVersion < 2) {
   db.pragma('user_version = 2')
 }
 
+if (schemaVersion < 3) {
+  try { db.exec(`ALTER TABLE parcelles ADD COLUMN reference_cadastrale TEXT`) } catch {}
+  db.pragma('user_version = 3')
+}
+
 export { ADMIN_EMAIL }
 export default db

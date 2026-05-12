@@ -62,6 +62,7 @@ export default function ParcelleForm() {
       setValue('gps_lat', data.gps_lat || '')
       setValue('gps_lng', data.gps_lng || '')
       setValue('notes', data.notes || '')
+      setValue('reference_cadastrale', data.reference_cadastrale || '')
       setCepagesSelected(Array.isArray(data.cepages) ? data.cepages : [])
       setExistingPhotoUrl(data.photo_url)
     })
@@ -116,7 +117,8 @@ export default function ParcelleForm() {
         gps_lat: data.gps_lat ? parseFloat(data.gps_lat) : null,
         gps_lng: data.gps_lng ? parseFloat(data.gps_lng) : null,
         photo_url,
-        notes: data.notes || null
+        notes: data.notes || null,
+        reference_cadastrale: data.reference_cadastrale || null
       }
 
       if (isEdit) {
@@ -153,6 +155,12 @@ export default function ParcelleForm() {
             <option value="">— Sélectionner —</option>
             {communes.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
+        </div>
+
+        {/* Référence cadastrale */}
+        <div>
+          <label className="label">Référence cadastrale</label>
+          <input className="input" placeholder="ex: AB 0012" {...register('reference_cadastrale')} />
         </div>
 
         {/* Surface totale */}

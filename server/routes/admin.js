@@ -15,6 +15,20 @@ router.get('/users', (req, res) => {
   res.json(users)
 })
 
+router.put('/users/:id', (req, res) => {
+  const { prenom, nom, email } = req.body
+  if (!prenom?.trim() || !nom?.trim() || !email?.trim()) {
+    return res.status(400).json({ error: 'Prénom, nom et email sont requis' })
+  }
+  const u = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.id)
+  if (!u) return res.status(404).json({ error: 'Utilisateur introuvable' })
+  const conflict = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(email.trim(), req.params.id)
+  if (conflict) return res.status(409).json({ error: 'Cet email est déjà utilisé' })
+  db.prepare('UPDATE users SET prenom = ?, nom = ?, email = ? WHERE id = ?')
+    .run(prenom.trim(), nom.trim(), email.trim(), req.params.id)
+  res.json(db.prepare('SELECT id, email, prenom, nom, role, created_at FROM users WHERE id = ?').get(req.params.id))
+})
+
 router.put('/users/:id/role', (req, res) => {
   const { role } = req.body
   if (!['admin', 'user'].includes(role)) {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare } from 'lucide-react'
+import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation } from 'lucide-react'
 import { api } from '../../lib/api'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
@@ -23,15 +23,23 @@ export default function ParcelleDetail() {
     return `https://maps.google.com/?q=${parcelle.gps_lat},${parcelle.gps_lng}`
   }
 
-  function shareGPS() {
+  function navigateToParcel() {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${parcelle.gps_lat},${parcelle.gps_lng}`
+    window.open(url, '_blank')
+  }
+
+  async function shareGPS() {
     if (!parcelle?.gps_lat || !parcelle?.gps_lng) return
     const url = mapsUrl()
-    const text = `📍 Parcelle ${parcelle.nom} — ${url}`
-    if (navigator.share) {
-      navigator.share({ title: parcelle.nom, text, url })
-    } else {
-      navigator.clipboard.writeText(url).then(() => alert('Lien GPS copié'))
-    }
+    const text = `📍 Parcelle ${parcelle.nom} : ${url}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: parcelle.nom, text, url })
+        return
+      }
+    } catch {}
+    // Fallback: open SMS app with pre-filled message
+    window.open(`sms:?body=${encodeURIComponent(text)}`, '_blank')
   }
 
   function sendSMS() {
@@ -76,11 +84,15 @@ export default function ParcelleDetail() {
 
       <div className="px-4 pt-4 space-y-4">
         <div className="card space-y-3">
-          <InfoRow label="Surface totale"   value={caToDisplay(parcelle.surface_totale_ca)} />
-          <InfoRow label="Surface plantée"  value={caToDisplay(parcelle.surface_plantee_ca)} />
-          {parcelle.nombre_routes && <InfoRow label="Nombre de routes" value={`${parcelle.nombre_routes} routes`} />}
-          {parcelle.cepage         && <InfoRow label="Cépage"          value={parcelle.cepage} />}
-          {parcelle.notes          && <InfoRow label="Notes"           value={parcelle.notes} />}
+          <InfoRow label="Surface totale"  value={caToDisplay(parcelle.surface_totale_ca)} />
+          <InfoRow label="Surface plantée" value={caToDisplay(parcelle.surface_plantee_ca)} />
+          {parcelle.commune             && <InfoRow label="Commune"           value={parcelle.commune} />}
+          {parcelle.reference_cadastrale && <InfoRow label="Réf. cadastrale"  value={parcelle.reference_cadastrale} />}
+          {parcelle.nombre_routes       && <InfoRow label="Nombre de routes"  value={`${parcelle.nombre_routes} routes`} />}
+          {Array.isArray(parcelle.cepages) && parcelle.cepages.length > 0 &&
+            <InfoRow label="Cépages" value={parcelle.cepages.join(', ')} />}
+          {parcelle.annee_plantation    && <InfoRow label={parcelle.statut === 'replantee' ? 'Année plantation' : 'Année arrachage'} value={parcelle.annee_plantation} />}
+          {parcelle.notes               && <InfoRow label="Notes"             value={parcelle.notes} />}
         </div>
 
         {parcelle.gps_lat && (
@@ -96,16 +108,21 @@ export default function ParcelleDetail() {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-3 gap-2">
+              <button onClick={navigateToParcel}
+                      className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-medium active:bg-blue-700">
+                <Navigation size={16} />
+                Y aller
+              </button>
               <button onClick={shareGPS}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 active:bg-gray-50">
-                <Share2 size={15} />
+                      className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 active:bg-gray-50">
+                <Share2 size={16} />
                 Partager
               </button>
               <button onClick={sendSMS}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 active:bg-gray-50">
-                <MessageSquare size={15} />
-                Envoyer par SMS
+                      className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 active:bg-gray-50">
+                <MessageSquare size={16} />
+                SMS
               </button>
             </div>
           </div>
