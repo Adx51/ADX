@@ -4,6 +4,7 @@ import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navi
 import { api } from '../../lib/api'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
+import MapPicker from '../../components/MapPicker'
 
 export default function ParcelleDetail() {
   const { id } = useParams()
@@ -108,13 +109,7 @@ export default function ParcelleDetail() {
                 </p>
               </div>
             </div>
-            <div style={{ height: '224px', width: '100%', borderRadius: '12px', overflow: 'hidden', background: '#e5e7eb' }}>
-              <iframe
-                title="Carte"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${parcelle.gps_lng - 0.003}%2C${parcelle.gps_lat - 0.002}%2C${parcelle.gps_lng + 0.003}%2C${parcelle.gps_lat + 0.002}&layer=mapnik&marker=${parcelle.gps_lat}%2C${parcelle.gps_lng}`}
-                style={{ width: '100%', height: '100%', border: 'none' }}
-              />
-            </div>
+            <MapPicker lat={parcelle.gps_lat} lng={parcelle.gps_lng} readOnly />
             <div className="grid grid-cols-3 gap-2">
               <button onClick={navigateToParcel}
                       className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-medium active:bg-blue-700">
