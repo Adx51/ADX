@@ -73,6 +73,9 @@ export default function VendangeDetail() {
   const campagne  = vendange.campagne
   const chargements = vendange.chargements || []
   const rendement = rendementKgHa(vendange.poids_total, parcelle?.surface_totale_ca)
+  const kgParCaisse = vendange.nb_caisses_total > 0
+    ? (vendange.poids_total / vendange.nb_caisses_total).toFixed(1)
+    : null
 
   // kg attendu = rendement attendu × surface totale
   const kgAttendu = campagne?.rendement_attendu_kgha && parcelle?.surface_totale_ca
@@ -105,7 +108,7 @@ export default function VendangeDetail() {
 
         {/* Récap */}
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-          <div className="grid grid-cols-3 gap-3 text-center">
+          <div className="grid grid-cols-2 gap-3 text-center">
             <div>
               <p className="text-2xl font-bold text-amber-800">{poidsReel.toFixed(0)}</p>
               <p className="text-xs text-amber-600 mt-0.5">kg total</p>
@@ -119,6 +122,12 @@ export default function VendangeDetail() {
                 {rendement ? rendement.toLocaleString('fr-FR') : '—'}
               </p>
               <p className="text-xs text-vigne-600 mt-0.5">kg/ha</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-amber-700">
+                {kgParCaisse ?? '—'}
+              </p>
+              <p className="text-xs text-amber-600 mt-0.5">kg/caisse</p>
             </div>
           </div>
 

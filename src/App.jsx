@@ -18,6 +18,7 @@ import CampagnesList from './pages/vendange/CampagnesList'
 import CampagneDetail from './pages/vendange/CampagneDetail'
 import CampagneForm from './pages/vendange/CampagneForm'
 import CampagneExport from './pages/vendange/CampagneExport'
+import CampagneExportJournalier from './pages/vendange/CampagneExportJournalier'
 import VendangeDetail from './pages/vendange/VendangeDetail'
 import ChargementForm from './pages/vendange/ChargementForm'
 
@@ -56,6 +57,7 @@ export default function App() {
                 <Route path="/vendange/:annee"         element={<CampagneDetail />} />
                 <Route path="/vendange/:annee/edit"    element={<CampagneForm />} />
                 <Route path="/vendange/:annee/export"  element={<CampagneExport />} />
+                <Route path="/vendange/:annee/export-journalier" element={<CampagneExportJournalier />} />
 
                 {/* Admin */}
                 <Route path="/admin" element={<AdminPage />} />

@@ -220,6 +220,46 @@ router.get('/:annee/export', (req, res) => {
   res.json({ campagne, groupes })
 })
 
+// Export journalier : chargements groupés par date
+router.get('/:annee/export-journalier', (req, res) => {
+  const annee = parseInt(req.params.annee)
+  const campagne = db.prepare('SELECT * FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
+  if (!campagne) return res.status(404).json({ error: 'Campagne introuvable' })
+
+  const rows = db.prepare(`
+    SELECT ch.id, ch.date_chargement, ch.heure_livraison,
+           ch.nombre_caisses, ch.poids_kg, ch.notes,
+           COALESCE(p.nom, v.parcelle_nom) AS parcelle_nom,
+           COALESCE(p.commune_pressoir, p.commune, '') AS pressoir,
+           COALESCE(p.commune, '') AS commune
+    FROM chargements ch
+    JOIN vendanges v ON v.id = ch.vendange_id
+    LEFT JOIN parcelles p ON p.id = v.parcelle_id
+    WHERE v.user_id = ? AND v.annee = ?
+    ORDER BY ch.date_chargement ASC, ch.heure_livraison ASC NULLS LAST, parcelle_nom ASC
+  `).all(req.userId, annee)
+
+  const byDate = {}
+  for (const row of rows) {
+    if (!byDate[row.date_chargement]) byDate[row.date_chargement] = []
+    byDate[row.date_chargement].push(row)
+  }
+
+  const jours = Object.entries(byDate).map(([date, chargements]) => ({
+    date,
+    chargements,
+    total_caisses: chargements.reduce((s, c) => s + (c.nombre_caisses || 0), 0),
+    total_poids:   chargements.reduce((s, c) => s + (c.poids_kg || 0), 0),
+  }))
+
+  res.json({
+    campagne,
+    jours,
+    total_caisses: jours.reduce((s, j) => s + j.total_caisses, 0),
+    total_poids:   jours.reduce((s, j) => s + j.total_poids, 0),
+  })
+})
+
 router.delete('/:annee', (req, res) => {
   const annee = parseInt(req.params.annee)
   const c = db.prepare('SELECT id FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
