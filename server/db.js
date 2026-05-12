@@ -10,9 +10,10 @@ const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../data/adx.db')
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
 
 const db = Database(DB_PATH)
-db.pragma('journal_mode = WAL')
+// DELETE mode: données toujours dans le fichier principal, pas de WAL à désynchroniser
+db.pragma('journal_mode = DELETE')
 db.pragma('foreign_keys = ON')
-db.pragma('wal_autocheckpoint = 100')
+db.pragma('synchronous = FULL')
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
