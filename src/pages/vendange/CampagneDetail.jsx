@@ -209,33 +209,33 @@ export default function CampagneDetail() {
             <div className="space-y-1">
               {/* Vendanges actives en haut */}
               {actives.length > 0 && (
-                <>
-                  <SectionLabel label="En cours" />
+                <div className="space-y-2">
+                  <SectionLabel label="En cours" count={actives.length} />
                   <ParcelleSection parcelles={actives} attendu={attendu} campagneClosed={isClosed}
                     onOpen={p => openParcelle(p.id, p.vendange_id)}
                     onAdd={p => quickChargement(p.id, p.vendange_id)} />
-                </>
+                </div>
               )}
 
               {/* Non commencées */}
               {nonLancees.length > 0 && (
-                <>
-                  <SectionLabel label="À vendanger" className={actives.length > 0 ? 'mt-4' : ''} />
+                <div className="space-y-2">
+                  <SectionLabel label="À vendanger" count={nonLancees.length} className={actives.length > 0 ? 'mt-3' : ''} />
                   <ParcelleSection parcelles={nonLancees} attendu={attendu} campagneClosed={isClosed}
                     onOpen={p => openParcelle(p.id, p.vendange_id)}
                     onAdd={p => quickChargement(p.id, p.vendange_id)} />
-                </>
+                </div>
               )}
 
               {/* Clôturées en bas */}
               {clotsurees.length > 0 && (
-                <>
-                  <SectionLabel label="Clôturées" icon={<Lock size={11} />} className="mt-4" />
+                <div className="space-y-2">
+                  <SectionLabel label="Clôturées" icon={<Lock size={14} className="text-gray-400" />} count={clotsurees.length} className="mt-3" />
                   <ParcelleSection parcelles={clotsurees} attendu={attendu} campagneClosed={isClosed}
                     closed
                     onOpen={p => openParcelle(p.id, p.vendange_id)}
                     onAdd={null} />
-                </>
+                </div>
               )}
             </div>
           )}
@@ -321,11 +321,18 @@ export default function CampagneDetail() {
   )
 }
 
-function SectionLabel({ label, icon, className = '' }) {
+function SectionLabel({ label, icon, count, className = '' }) {
   return (
-    <p className={`text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5 pt-2 ${className}`}>
-      {icon}{label}
-    </p>
+    <div className={`flex items-center gap-2 ${className}`}>
+      <div className="flex items-center gap-1.5">
+        {icon}
+        <span className="text-sm font-bold text-gray-700">{label}</span>
+        {count != null && (
+          <span className="text-xs font-semibold text-gray-400">({count})</span>
+        )}
+      </div>
+      <div className="flex-1 h-px bg-gray-200" />
+    </div>
   )
 }
 
