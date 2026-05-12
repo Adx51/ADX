@@ -120,7 +120,11 @@ db.exec(`
     updated_at       TEXT DEFAULT (datetime('now'))
   );
 
-  CREATE TRIGGER IF NOT EXISTS vendange_totaux_insert
+  DROP TRIGGER IF EXISTS vendange_totaux_insert;
+  DROP TRIGGER IF EXISTS vendange_totaux_update;
+  DROP TRIGGER IF EXISTS vendange_totaux_delete;
+
+  CREATE TRIGGER vendange_totaux_insert
   AFTER INSERT ON chargements BEGIN
     UPDATE vendanges SET
       poids_total      = (SELECT COALESCE(SUM(poids_kg),0)       FROM chargements WHERE vendange_id = NEW.vendange_id),
@@ -129,7 +133,7 @@ db.exec(`
     WHERE id = NEW.vendange_id;
   END;
 
-  CREATE TRIGGER IF NOT EXISTS vendange_totaux_update
+  CREATE TRIGGER vendange_totaux_update
   AFTER UPDATE ON chargements BEGIN
     UPDATE vendanges SET
       poids_total      = (SELECT COALESCE(SUM(poids_kg),0)       FROM chargements WHERE vendange_id = NEW.vendange_id),
@@ -138,7 +142,7 @@ db.exec(`
     WHERE id = NEW.vendange_id;
   END;
 
-  CREATE TRIGGER IF NOT EXISTS vendange_totaux_delete
+  CREATE TRIGGER vendange_totaux_delete
   AFTER DELETE ON chargements BEGIN
     UPDATE vendanges SET
       poids_total      = (SELECT COALESCE(SUM(poids_kg),0)       FROM chargements WHERE vendange_id = OLD.vendange_id),
@@ -267,12 +271,14 @@ if (schemaVersion < 8) {
           )`)
 
           if (tables.includes('vendanges')) {
+            // Ne pas référencer v.statut / v.date_cloture : colonnes absentes
+            // si la backup est antérieure à la migration v7
             db.exec(`INSERT INTO vendanges_new
               (id, user_id, parcelle_id, parcelle_nom, annee,
                poids_total, nb_caisses_total, statut, date_cloture, notes, created_at, updated_at)
               SELECT v.id, v.user_id, v.parcelle_id, p.nom,
                 v.annee, v.poids_total, v.nb_caisses_total,
-                COALESCE(v.statut,'en_cours'), v.date_cloture,
+                'en_cours', NULL,
                 v.notes, v.created_at, v.updated_at
               FROM vendanges v
               LEFT JOIN parcelles p ON p.id = v.parcelle_id`)
