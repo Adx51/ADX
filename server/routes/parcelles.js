@@ -6,29 +6,44 @@ import { requireAuth } from '../middleware/auth.js'
 const router = Router()
 router.use(requireAuth)
 
+function parseParcelle(p) {
+  if (!p) return p
+  return {
+    ...p,
+    cepages: p.cepages ? (() => { try { return JSON.parse(p.cepages) } catch { return [] } })() : []
+  }
+}
+
 router.get('/', (req, res) => {
   const rows = db.prepare(`
     SELECT * FROM parcelles WHERE user_id = ? ORDER BY nom
   `).all(req.userId)
-  res.json(rows)
+  res.json(rows.map(parseParcelle))
 })
 
 router.post('/', (req, res) => {
   const { nom, surface_totale_ca, surface_plantee_ca, nombre_routes,
-          cepage, gps_lat, gps_lng, photo_url, notes } = req.body
+          commune, cepages, statut, annee_plantation,
+          gps_lat, gps_lng, photo_url, notes } = req.body
   if (!nom) return res.status(400).json({ error: 'Le nom est requis' })
+  if (!surface_totale_ca) return res.status(400).json({ error: 'La surface totale est requise' })
 
   const id = uuidv4()
+  const cepagesStr = Array.isArray(cepages) ? JSON.stringify(cepages) : '[]'
+
   db.prepare(`
     INSERT INTO parcelles
       (id, user_id, nom, surface_totale_ca, surface_plantee_ca,
-       nombre_routes, cepage, gps_lat, gps_lng, photo_url, notes)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)
-  `).run(id, req.userId, nom, surface_totale_ca ?? null, surface_plantee_ca ?? null,
-         nombre_routes ?? null, cepage ?? null, gps_lat ?? null, gps_lng ?? null,
-         photo_url ?? null, notes ?? null)
+       nombre_routes, commune, cepages, statut, annee_plantation,
+       gps_lat, gps_lng, photo_url, notes)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+  `).run(id, req.userId, nom,
+    surface_totale_ca ?? null, surface_plantee_ca ?? null,
+    nombre_routes ?? null, commune ?? null, cepagesStr,
+    statut ?? 'en_production', annee_plantation ?? null,
+    gps_lat ?? null, gps_lng ?? null, photo_url ?? null, notes ?? null)
 
-  res.json(db.prepare('SELECT * FROM parcelles WHERE id = ?').get(id))
+  res.json(parseParcelle(db.prepare('SELECT * FROM parcelles WHERE id = ?').get(id)))
 })
 
 router.get('/:id', (req, res) => {
@@ -39,7 +54,7 @@ router.get('/:id', (req, res) => {
     SELECT * FROM vendanges WHERE parcelle_id = ? ORDER BY annee DESC
   `).all(req.params.id)
 
-  res.json({ ...p, vendanges })
+  res.json({ ...parseParcelle(p), vendanges })
 })
 
 router.put('/:id', (req, res) => {
@@ -47,19 +62,22 @@ router.put('/:id', (req, res) => {
   if (!p) return res.status(404).json({ error: 'Parcelle introuvable' })
 
   const { nom, surface_totale_ca, surface_plantee_ca, nombre_routes,
-          cepage, gps_lat, gps_lng, photo_url, notes } = req.body
+          commune, cepages, statut, annee_plantation,
+          gps_lat, gps_lng, photo_url, notes } = req.body
+  const cepagesStr = Array.isArray(cepages) ? JSON.stringify(cepages) : '[]'
 
   db.prepare(`
     UPDATE parcelles SET
       nom = ?, surface_totale_ca = ?, surface_plantee_ca = ?,
-      nombre_routes = ?, cepage = ?, gps_lat = ?, gps_lng = ?,
-      photo_url = ?, notes = ?, updated_at = datetime('now')
+      nombre_routes = ?, commune = ?, cepages = ?, statut = ?, annee_plantation = ?,
+      gps_lat = ?, gps_lng = ?, photo_url = ?, notes = ?, updated_at = datetime('now')
     WHERE id = ?
   `).run(nom, surface_totale_ca ?? null, surface_plantee_ca ?? null,
-         nombre_routes ?? null, cepage ?? null, gps_lat ?? null, gps_lng ?? null,
-         photo_url ?? null, notes ?? null, req.params.id)
+    nombre_routes ?? null, commune ?? null, cepagesStr,
+    statut ?? 'en_production', annee_plantation ?? null,
+    gps_lat ?? null, gps_lng ?? null, photo_url ?? null, notes ?? null, req.params.id)
 
-  res.json(db.prepare('SELECT * FROM parcelles WHERE id = ?').get(req.params.id))
+  res.json(parseParcelle(db.prepare('SELECT * FROM parcelles WHERE id = ?').get(req.params.id)))
 })
 
 router.delete('/:id', (req, res) => {

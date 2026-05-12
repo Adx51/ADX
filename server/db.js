@@ -109,4 +109,23 @@ db.exec(`
   END;
 `)
 
+// ─── Migrations ──────────────────────────────────────────────────────────────
+
+const ADMIN_EMAIL = 'antoinex.dufour@gmail.com'
+
+const schemaVersion = db.pragma('user_version', { simple: true })
+
+if (schemaVersion < 1) {
+  try { db.exec(`ALTER TABLE users ADD COLUMN prenom TEXT NOT NULL DEFAULT ''`) } catch {}
+  try { db.exec(`ALTER TABLE users ADD COLUMN nom TEXT NOT NULL DEFAULT ''`) } catch {}
+  try { db.exec(`ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`) } catch {}
+  try { db.exec(`ALTER TABLE parcelles ADD COLUMN commune TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE parcelles ADD COLUMN cepages TEXT DEFAULT '[]'`) } catch {}
+  try { db.exec(`ALTER TABLE parcelles ADD COLUMN statut TEXT DEFAULT 'en_production'`) } catch {}
+  try { db.exec(`ALTER TABLE parcelles ADD COLUMN annee_plantation INTEGER`) } catch {}
+  db.prepare(`UPDATE users SET role = 'admin' WHERE email = ?`).run(ADMIN_EMAIL)
+  db.pragma('user_version = 1')
+}
+
+export { ADMIN_EMAIL }
 export default db

@@ -8,6 +8,23 @@ import { parseToCa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
 import PhotoInput from '../../components/PhotoInput'
 
+const COMMUNES = [
+  'Avenay-Val-d\'Or', 'Avize', 'Ay', 'Bouzy', 'Chamery', 'Chigny-les-Roses',
+  'Chouilly', 'Cramant', 'Cumières', 'Dizy', 'Épernay', 'Festigny',
+  'Hautvillers', 'Leuvrigny', 'Louvois', 'Mareuil-sur-Ay', 'Mutigny',
+  'Oger', 'Le Mesnil-sur-Oger', 'Oiry', 'Reims', 'Rilly-la-Montagne',
+  'Tauxières-Mutry', 'Tours-sur-Marne', 'Trépail', 'Verzénay', 'Verzy',
+  'Villers-Marmery', 'Villeneuve-Renneville-Chevigny',
+]
+
+const CEPAGES = ['Pinot Noir', 'Pinot Meunier', 'Chardonnay', 'Pinot Blanc', 'Pinot Gris', 'Arbane', 'Petit Meslier']
+
+const STATUTS = [
+  { value: 'en_production', label: 'En production', color: 'text-green-700' },
+  { value: 'replantee', label: 'Replantée (jeune vigne)', color: 'text-amber-700' },
+  { value: 'au_repos', label: 'Au repos / arrachée', color: 'text-gray-500' },
+]
+
 export default function ParcelleForm() {
   const { id } = useParams()
   const isEdit = Boolean(id)
@@ -17,9 +34,13 @@ export default function ParcelleForm() {
   const [gpsLoading, setGpsLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [cepagesSelected, setCepagesSelected] = useState([])
 
-  const { register, handleSubmit, setValue } = useForm({
-    defaultValues: { ares: '', centiares: '', ares_p: '', centiares_p: '' }
+  const { register, handleSubmit, setValue, watch } = useForm({
+    defaultValues: {
+      ares: '', centiares: '', ares_p: '', centiares_p: '',
+      statut: 'en_production', commune: ''
+    }
   })
 
   useEffect(() => {
@@ -32,15 +53,28 @@ export default function ParcelleForm() {
       setValue('ares_p',     Math.floor((data.surface_plantee_ca || 0) / 100))
       setValue('centiares_p',(data.surface_plantee_ca || 0) % 100 || '')
       setValue('nombre_routes', data.nombre_routes || '')
-      setValue('cepage',    data.cepage || '')
+      setValue('commune', data.commune || '')
+      setValue('statut', data.statut || 'en_production')
+      setValue('annee_plantation', data.annee_plantation || '')
       setValue('gps_lat',   data.gps_lat || '')
       setValue('gps_lng',   data.gps_lng || '')
       setValue('notes',     data.notes || '')
+      setCepagesSelected(Array.isArray(data.cepages) ? data.cepages : [])
       setExistingPhotoUrl(data.photo_url)
     })
   }, [id, isEdit, setValue])
 
+  function toggleCepage(c) {
+    setCepagesSelected(prev =>
+      prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
+    )
+  }
+
   function getGPS() {
+    if (!navigator.geolocation) {
+      setError('La géolocalisation n\'est pas disponible. Saisissez les coordonnées manuellement.')
+      return
+    }
     setGpsLoading(true)
     navigator.geolocation.getCurrentPosition(
       pos => {
@@ -48,7 +82,13 @@ export default function ParcelleForm() {
         setValue('gps_lng', pos.coords.longitude.toFixed(8))
         setGpsLoading(false)
       },
-      () => { setError("Impossible d'obtenir la position GPS"); setGpsLoading(false) },
+      err => {
+        const msg = err.code === 1
+          ? 'Permission refusée. Activez la localisation ou saisissez les coordonnées manuellement (disponible sur Google Maps).'
+          : 'Impossible d\'obtenir la position GPS. Saisissez les coordonnées manuellement.'
+        setError(msg)
+        setGpsLoading(false)
+      },
       { enableHighAccuracy: true, timeout: 10000 }
     )
   }
@@ -63,9 +103,12 @@ export default function ParcelleForm() {
       const payload = {
         nom: data.nom,
         surface_totale_ca:  parseToCa(data.ares,   data.centiares),
-        surface_plantee_ca: parseToCa(data.ares_p, data.centiares_p),
+        surface_plantee_ca: parseToCa(data.ares_p, data.centiares_p) || null,
         nombre_routes: data.nombre_routes ? parseInt(data.nombre_routes) : null,
-        cepage:   data.cepage   || null,
+        commune: data.commune || null,
+        cepages: cepagesSelected,
+        statut: data.statut || 'en_production',
+        annee_plantation: data.annee_plantation ? parseInt(data.annee_plantation) : null,
         gps_lat:  data.gps_lat  ? parseFloat(data.gps_lat)  : null,
         gps_lng:  data.gps_lng  ? parseFloat(data.gps_lng)  : null,
         photo_url,
@@ -84,6 +127,8 @@ export default function ParcelleForm() {
     }
   }
 
+  const statut = watch('statut')
+
   return (
     <div>
       <PageHeader title={isEdit ? 'Modifier la parcelle' : 'Nouvelle parcelle'} back="/parcelles" />
@@ -91,26 +136,40 @@ export default function ParcelleForm() {
       <form onSubmit={handleSubmit(onSubmit)} className="px-4 pt-4 space-y-5 pb-8">
         {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>}
 
+        {/* Nom */}
         <div>
           <label className="label">Nom de la parcelle *</label>
           <input className="input" placeholder="ex: LOUTRETS" {...register('nom', { required: true })} />
         </div>
 
+        {/* Commune */}
         <div>
-          <label className="label">Surface totale</label>
+          <label className="label">Commune *</label>
+          <select className="input" {...register('commune', { required: true })}>
+            <option value="">— Sélectionner —</option>
+            {COMMUNES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
+        {/* Surface totale */}
+        <div>
+          <label className="label">Surface totale *</label>
           <div className="flex gap-2 items-center">
             <div className="flex-1">
-              <input className="input text-center" type="number" min="0" placeholder="0" {...register('ares')} />
+              <input className="input text-center" type="number" min="0" placeholder="0"
+                {...register('ares', { required: true, min: 0 })} />
               <p className="text-xs text-center text-gray-400 mt-1">Ares</p>
             </div>
             <span className="text-gray-400 font-bold pb-4">A</span>
             <div className="w-24">
-              <input className="input text-center" type="number" min="0" max="99" placeholder="00" {...register('centiares')} />
+              <input className="input text-center" type="number" min="0" max="99" placeholder="00"
+                {...register('centiares')} />
               <p className="text-xs text-center text-gray-400 mt-1">Centiares</p>
             </div>
           </div>
         </div>
 
+        {/* Surface plantée */}
         <div>
           <label className="label">Surface plantée</label>
           <div className="flex gap-2 items-center">
@@ -126,30 +185,71 @@ export default function ParcelleForm() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">Nombre de routes</label>
-            <input className="input" type="number" min="0" placeholder="ex: 21" {...register('nombre_routes')} />
-          </div>
-          <div>
-            <label className="label">Cépage</label>
-            <input className="input" placeholder="ex: Chardonnay" {...register('cepage')} />
+        {/* Cépages */}
+        <div>
+          <label className="label">Cépages</label>
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            {CEPAGES.map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => toggleCepage(c)}
+                className={`px-3 py-2 rounded-xl border text-sm font-medium text-left transition-colors ${
+                  cepagesSelected.includes(c)
+                    ? 'bg-vigne-700 text-white border-vigne-700'
+                    : 'bg-white text-gray-700 border-gray-200'
+                }`}
+              >
+                {c}
+              </button>
+            ))}
           </div>
         </div>
 
+        {/* Nombre de routes */}
+        <div>
+          <label className="label">Nombre de routes</label>
+          <input className="input" type="number" min="0" placeholder="ex: 21" {...register('nombre_routes')} />
+        </div>
+
+        {/* Statut */}
+        <div>
+          <label className="label">Statut de la parcelle</label>
+          <div className="space-y-2 mt-1">
+            {STATUTS.map(s => (
+              <label key={s.value} className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer">
+                <input type="radio" value={s.value} {...register('statut')} className="accent-vigne-700" />
+                <span className={`text-sm font-medium ${s.color}`}>{s.label}</span>
+              </label>
+            ))}
+          </div>
+          {(statut === 'replantee' || statut === 'au_repos') && (
+            <div className="mt-2">
+              <label className="label">Année {statut === 'replantee' ? 'de plantation' : 'd\'arrachage'}</label>
+              <input className="input" type="number" min="1980" max="2050" placeholder="ex: 2022"
+                {...register('annee_plantation')} />
+            </div>
+          )}
+        </div>
+
+        {/* GPS */}
         <div>
           <label className="label">Position GPS</label>
           <div className="flex gap-2">
-            <input className="input flex-1" placeholder="Latitude"  readOnly {...register('gps_lat')} />
-            <input className="input flex-1" placeholder="Longitude" readOnly {...register('gps_lng')} />
+            <input className="input flex-1" placeholder="Latitude" {...register('gps_lat')} />
+            <input className="input flex-1" placeholder="Longitude" {...register('gps_lng')} />
           </div>
           <button type="button" onClick={getGPS}
                   className="mt-2 flex items-center gap-2 text-vigne-700 font-medium text-sm py-2">
             {gpsLoading ? <Loader2 size={16} className="animate-spin" /> : <Locate size={16} />}
             {gpsLoading ? 'Localisation...' : 'Obtenir ma position'}
           </button>
+          <p className="text-xs text-gray-400 mt-1">
+            Si la géolocalisation ne fonctionne pas, copiez les coordonnées depuis Google Maps (clic droit → "C'est quoi ici ?").
+          </p>
         </div>
 
+        {/* Notes */}
         <div>
           <label className="label">Notes</label>
           <textarea className="input min-h-[80px]" placeholder="Informations complémentaires..." {...register('notes')} />

@@ -11,7 +11,7 @@ export default function Register() {
 
   async function onSubmit(data) {
     setError('')
-    const { error } = await signUp(data.email, data.password)
+    const { error } = await signUp(data.email, data.password, data.prenom, data.nom)
     if (error) {
       setError(error)
     } else {
@@ -36,6 +36,27 @@ export default function Register() {
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Prénom *</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Antoine"
+                {...register('prenom', { required: true })}
+              />
+            </div>
+            <div>
+              <label className="label">Nom *</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Dufour"
+                {...register('nom', { required: true })}
+              />
+            </div>
+          </div>
+
           <div>
             <label className="label">Email</label>
             <input
