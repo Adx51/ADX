@@ -9,7 +9,7 @@ RUN cd server && npm ci --omit=dev
 
 COPY dist ./dist
 
-COPY addons/adx/run.sh /run.sh
+COPY run.sh /run.sh
 RUN chmod a+x /run.sh
 
 EXPOSE 3001
