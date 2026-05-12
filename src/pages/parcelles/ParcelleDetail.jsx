@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation } from 'lucide-react'
 import { api } from '../../lib/api'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
+
+const MapPicker = lazy(() => import('../../components/MapPicker'))
 
 export default function ParcelleDetail() {
   const { id } = useParams()
@@ -108,6 +110,14 @@ export default function ParcelleDetail() {
                 </p>
               </div>
             </div>
+            <Suspense fallback={<div className="h-56 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 text-sm">Chargement de la carte...</div>}>
+              <MapPicker
+                lat={String(parcelle.gps_lat)}
+                lng={String(parcelle.gps_lng)}
+                onChange={() => {}}
+                readOnly
+              />
+            </Suspense>
             <div className="grid grid-cols-3 gap-2">
               <button onClick={navigateToParcel}
                       className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-medium active:bg-blue-700">

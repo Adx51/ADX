@@ -19,7 +19,7 @@ const OSM_URL      = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
 
 const PARCEL_STYLE = { color: '#15803d', weight: 2.5, opacity: 1, fillColor: '#16a34a', fillOpacity: 0.15 }
 
-export default function MapPicker({ lat, lng, onChange, geoFeatures }) {
+export default function MapPicker({ lat, lng, onChange, geoFeatures, readOnly = false }) {
   const containerRef  = useRef(null)
   const mapRef        = useRef(null)
   const markerRef     = useRef(null)
@@ -52,15 +52,17 @@ export default function MapPicker({ lat, lng, onChange, geoFeatures }) {
       markerRef.current = L.marker([parseFloat(lat), parseFloat(lng)]).addTo(map)
     }
 
-    map.on('click', e => {
-      const { lat: cLat, lng: cLng } = e.latlng
-      if (markerRef.current) {
-        markerRef.current.setLatLng([cLat, cLng])
-      } else {
-        markerRef.current = L.marker([cLat, cLng]).addTo(map)
-      }
-      onChange(cLat.toFixed(8), cLng.toFixed(8))
-    })
+    if (!readOnly) {
+      map.on('click', e => {
+        const { lat: cLat, lng: cLng } = e.latlng
+        if (markerRef.current) {
+          markerRef.current.setLatLng([cLat, cLng])
+        } else {
+          markerRef.current = L.marker([cLat, cLng]).addTo(map)
+        }
+        onChange(cLat.toFixed(8), cLng.toFixed(8))
+      })
+    }
 
     mapRef.current = map
 
@@ -98,7 +100,7 @@ export default function MapPicker({ lat, lng, onChange, geoFeatures }) {
   return (
     <div className="space-y-1">
       <div ref={containerRef} className="h-72 rounded-xl border border-gray-200 overflow-hidden" style={{ zIndex: 0 }} />
-      <p className="text-xs text-gray-400 text-center">Appuyez sur la carte pour ajuster la position</p>
+      {!readOnly && <p className="text-xs text-gray-400 text-center">Appuyez sur la carte pour ajuster la position</p>}
     </div>
   )
 }
