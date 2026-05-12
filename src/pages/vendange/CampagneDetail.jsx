@@ -97,7 +97,21 @@ export default function CampagneDetail() {
     .reduce((s, p) => s + (p.surface_totale_ca || 0), 0)
   const rendementMoyen = rendementKgHa(totalPoids, totalSurfaceCa)
   const attendu = campagne.rendement_attendu_kgha
-  const nbEnCours = parcelles.filter(p => p.vendange_id).length
+  const nbEnCours = parcelles.filter(p => p.vendange_id && p.vendange_statut !== 'cloturee').length
+
+  // Tri : en cours + non commencées en haut, clôturées en bas — puis par village, puis par nom
+  const sorted = [...parcelles].sort((a, b) => {
+    const aClose = a.vendange_statut === 'cloturee' ? 1 : 0
+    const bClose = b.vendange_statut === 'cloturee' ? 1 : 0
+    if (aClose !== bClose) return aClose - bClose
+    const cA = (a.commune || '').localeCompare(b.commune || '', 'fr')
+    if (cA !== 0) return cA
+    return a.nom.localeCompare(b.nom, 'fr')
+  })
+
+  // Groupes pour affichage avec en-tête village
+  const enCoursGroups = groupByCommune(sorted.filter(p => p.vendange_statut !== 'cloturee'))
+  const clotureesGroups = groupByCommune(sorted.filter(p => p.vendange_statut === 'cloturee'))
 
   return (
     <div>
@@ -179,7 +193,7 @@ export default function CampagneDetail() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-gray-900">Parcelles</h2>
             {!isClosed && (
-              <p className="text-xs text-gray-400">Appuyer sur + pour ajouter un chargement</p>
+              <p className="text-xs text-gray-400">+ = nouveau chargement</p>
             )}
           </div>
           {parcelles.length === 0 ? (
@@ -188,17 +202,50 @@ export default function CampagneDetail() {
               <p className="text-gray-500 text-sm">Aucune parcelle enregistrée</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {parcelles.map(p => (
-                <ParcelleRow
-                  key={p.id}
-                  parcelle={p}
-                  attendu={attendu}
-                  isClosed={isClosed}
-                  onOpen={() => openParcelle(p.id, p.vendange_id)}
-                  onAdd={() => quickChargement(p.id, p.vendange_id)}
-                />
-              ))}
+            <div className="space-y-4">
+              {/* En cours + non commencées */}
+              {enCoursGroups.length > 0 && (
+                <div className="space-y-3">
+                  {enCoursGroups.map(([commune, items]) => (
+                    <VillageGroup key={commune} commune={commune}>
+                      {items.map(p => (
+                        <ParcelleRow
+                          key={p.id}
+                          parcelle={p}
+                          attendu={attendu}
+                          campagneClosed={isClosed}
+                          onOpen={() => openParcelle(p.id, p.vendange_id)}
+                          onAdd={() => quickChargement(p.id, p.vendange_id)}
+                        />
+                      ))}
+                    </VillageGroup>
+                  ))}
+                </div>
+              )}
+
+              {/* Clôturées */}
+              {clotureesGroups.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                    <Lock size={11} /> Clôturées
+                  </p>
+                  {clotureesGroups.map(([commune, items]) => (
+                    <VillageGroup key={commune} commune={commune} muted>
+                      {items.map(p => (
+                        <ParcelleRow
+                          key={p.id}
+                          parcelle={p}
+                          attendu={attendu}
+                          campagneClosed={isClosed}
+                          closed
+                          onOpen={() => openParcelle(p.id, p.vendange_id)}
+                          onAdd={null}
+                        />
+                      ))}
+                    </VillageGroup>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -283,22 +330,46 @@ export default function CampagneDetail() {
   )
 }
 
-function ParcelleRow({ parcelle, attendu, isClosed, onOpen, onAdd }) {
+function groupByCommune(list) {
+  const map = new Map()
+  for (const p of list) {
+    const key = p.commune || 'Sans commune'
+    if (!map.has(key)) map.set(key, [])
+    map.get(key).push(p)
+  }
+  return [...map.entries()]
+}
+
+function VillageGroup({ commune, children, muted }) {
+  return (
+    <div>
+      <p className={`text-xs font-semibold uppercase tracking-wide mb-1.5 ${muted ? 'text-gray-300' : 'text-gray-400'}`}>
+        {commune}
+      </p>
+      <div className="space-y-2">{children}</div>
+    </div>
+  )
+}
+
+function ParcelleRow({ parcelle, attendu, campagneClosed, closed, onOpen, onAdd }) {
   const hasVendange = Boolean(parcelle.vendange_id)
-  const rendement = hasVendange ? rendementKgHa(parcelle.poids_total, parcelle.surface_totale_ca) : null
+  const rendement   = hasVendange ? rendementKgHa(parcelle.poids_total, parcelle.surface_totale_ca) : null
+  const canAdd      = !campagneClosed && !closed && onAdd
 
   return (
-    <div className={`card p-0 overflow-hidden flex items-stretch ${!hasVendange && isClosed ? 'opacity-50' : ''}`}>
-      {/* Zone principale — ouvre le détail */}
+    <div className={`card p-0 overflow-hidden flex items-stretch ${closed ? 'opacity-60' : ''}`}>
       <button
-        onClick={(!hasVendange && isClosed) ? undefined : onOpen}
-        disabled={!hasVendange && isClosed}
+        onClick={(!hasVendange && campagneClosed) ? undefined : onOpen}
+        disabled={!hasVendange && campagneClosed}
         className="flex items-center gap-3 flex-1 text-left p-4 active:bg-gray-50"
       >
         <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
-          hasVendange ? 'bg-amber-100' : 'bg-gray-100'
+          closed ? 'bg-gray-100' : hasVendange ? 'bg-amber-100' : 'bg-gray-100'
         }`}>
-          <Grape size={20} className={hasVendange ? 'text-amber-700' : 'text-gray-400'} />
+          {closed
+            ? <Lock size={16} className="text-gray-400" />
+            : <Grape size={20} className={hasVendange ? 'text-amber-700' : 'text-gray-400'} />
+          }
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-gray-900 truncate">{parcelle.nom}</p>
@@ -315,15 +386,14 @@ function ParcelleRow({ parcelle, attendu, isClosed, onOpen, onAdd }) {
           ) : (
             <p className="text-xs text-gray-400 mt-0.5">
               {caToDisplay(parcelle.surface_totale_ca)}
-              {!isClosed && <span className="text-amber-600 font-medium"> · Tap + pour commencer</span>}
+              {!campagneClosed && <span className="text-amber-600 font-medium"> · Tap + pour commencer</span>}
             </p>
           )}
         </div>
         <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
       </button>
 
-      {/* Bouton + chargement rapide */}
-      {!isClosed && (
+      {canAdd && (
         <button
           onClick={onAdd}
           className="flex items-center justify-center w-14 border-l border-gray-100 bg-amber-50 active:bg-amber-100 flex-shrink-0"

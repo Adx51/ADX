@@ -46,7 +46,8 @@ router.get('/:annee', (req, res) => {
 
   const parcelles = db.prepare(`
     SELECT p.id, p.nom, p.surface_plantee_ca, p.surface_totale_ca, p.commune, p.cepages, p.statut,
-           v.id AS vendange_id, v.poids_total, v.nb_caisses_total, v.notes AS vendange_notes
+           v.id AS vendange_id, v.poids_total, v.nb_caisses_total, v.notes AS vendange_notes,
+           v.statut AS vendange_statut
     FROM parcelles p
     LEFT JOIN vendanges v ON v.parcelle_id = p.id AND v.annee = ? AND v.user_id = p.user_id
     WHERE p.user_id = ?

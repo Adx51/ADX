@@ -224,6 +224,12 @@ if (schemaVersion < 6) {
   db.pragma('user_version = 6')
 }
 
+if (schemaVersion < 7) {
+  try { db.exec(`ALTER TABLE vendanges ADD COLUMN statut TEXT NOT NULL DEFAULT 'en_cours'`) } catch {}
+  try { db.exec(`ALTER TABLE vendanges ADD COLUMN date_cloture TEXT`) } catch {}
+  db.pragma('user_version = 7')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5

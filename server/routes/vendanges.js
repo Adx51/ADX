@@ -45,9 +45,12 @@ router.post('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const v = db.prepare(`
     SELECT v.*, p.nom as parcelle_nom, p.surface_plantee_ca,
-           p.surface_totale_ca, p.cepage, p.nombre_routes, p.gps_lat, p.gps_lng
+           p.surface_totale_ca, p.cepage, p.nombre_routes, p.gps_lat, p.gps_lng,
+           c.rendement_attendu_kgha AS campagne_rendement_attendu,
+           c.statut AS campagne_statut
     FROM vendanges v
     JOIN parcelles p ON p.id = v.parcelle_id
+    LEFT JOIN campagnes c ON c.user_id = v.user_id AND c.annee = v.annee
     WHERE v.id = ? AND v.user_id = ?
   `).get(req.params.id, req.userId)
   if (!v) return res.status(404).json({ error: 'Vendange introuvable' })
@@ -57,10 +60,12 @@ router.get('/:id', (req, res) => {
     ORDER BY date_chargement ASC, heure_livraison ASC NULLS LAST
   `).all(req.params.id)
 
-  const { parcelle_nom, surface_plantee_ca, surface_totale_ca, cepage, nombre_routes, gps_lat, gps_lng, ...rest } = v
+  const { parcelle_nom, surface_plantee_ca, surface_totale_ca, cepage, nombre_routes, gps_lat, gps_lng,
+          campagne_rendement_attendu, campagne_statut, ...rest } = v
   res.json({
     ...rest,
     parcelles: { nom: parcelle_nom, surface_plantee_ca, surface_totale_ca, cepage, nombre_routes, gps_lat, gps_lng },
+    campagne: { rendement_attendu_kgha: campagne_rendement_attendu, statut: campagne_statut },
     chargements
   })
 })
@@ -82,6 +87,26 @@ router.delete('/:id', (req, res) => {
   if (!v) return res.status(404).json({ error: 'Vendange introuvable' })
   db.prepare('DELETE FROM vendanges WHERE id = ?').run(req.params.id)
   res.json({ success: true })
+})
+
+router.post('/:id/cloturer', (req, res) => {
+  const v = db.prepare('SELECT id FROM vendanges WHERE id = ? AND user_id = ?').get(req.params.id, req.userId)
+  if (!v) return res.status(404).json({ error: 'Vendange introuvable' })
+  db.prepare(`
+    UPDATE vendanges SET statut = 'cloturee', date_cloture = datetime('now'), updated_at = datetime('now')
+    WHERE id = ?
+  `).run(req.params.id)
+  res.json(db.prepare('SELECT * FROM vendanges WHERE id = ?').get(req.params.id))
+})
+
+router.post('/:id/rouvrir', (req, res) => {
+  const v = db.prepare('SELECT id FROM vendanges WHERE id = ? AND user_id = ?').get(req.params.id, req.userId)
+  if (!v) return res.status(404).json({ error: 'Vendange introuvable' })
+  db.prepare(`
+    UPDATE vendanges SET statut = 'en_cours', date_cloture = NULL, updated_at = datetime('now')
+    WHERE id = ?
+  `).run(req.params.id)
+  res.json(db.prepare('SELECT * FROM vendanges WHERE id = ?').get(req.params.id))
 })
 
 export default router
