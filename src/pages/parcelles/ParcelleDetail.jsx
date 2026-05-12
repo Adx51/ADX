@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight } from 'lucide-react'
+import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare } from 'lucide-react'
 import { api } from '../../lib/api'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
@@ -19,15 +19,25 @@ export default function ParcelleDetail() {
     })
   }, [id])
 
+  function mapsUrl() {
+    return `https://maps.google.com/?q=${parcelle.gps_lat},${parcelle.gps_lng}`
+  }
+
   function shareGPS() {
     if (!parcelle?.gps_lat || !parcelle?.gps_lng) return
-    const url = `https://maps.google.com/?q=${parcelle.gps_lat},${parcelle.gps_lng}`
+    const url = mapsUrl()
+    const text = `📍 Parcelle ${parcelle.nom} — ${url}`
     if (navigator.share) {
-      navigator.share({ title: parcelle.nom, url })
+      navigator.share({ title: parcelle.nom, text, url })
     } else {
-      navigator.clipboard.writeText(url)
-      alert('Lien GPS copié dans le presse-papier')
+      navigator.clipboard.writeText(url).then(() => alert('Lien GPS copié'))
     }
+  }
+
+  function sendSMS() {
+    if (!parcelle?.gps_lat || !parcelle?.gps_lng) return
+    const text = `📍 Parcelle ${parcelle.nom} : ${mapsUrl()}`
+    window.open(`sms:?body=${encodeURIComponent(text)}`, '_blank')
   }
 
   async function deleteParcelle() {
@@ -74,19 +84,31 @@ export default function ParcelleDetail() {
         </div>
 
         {parcelle.gps_lat && (
-          <button onClick={shareGPS}
-                  className="card w-full flex items-center gap-3 text-left active:scale-[0.99] transition-transform">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-              <MapPin size={20} className="text-blue-600" />
+          <div className="card space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <MapPin size={20} className="text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-gray-900">Position GPS</p>
+                <p className="text-xs text-gray-400">
+                  {Number(parcelle.gps_lat).toFixed(6)}, {Number(parcelle.gps_lng).toFixed(6)}
+                </p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="font-medium text-gray-900">Position GPS</p>
-              <p className="text-xs text-gray-400">
-                {Number(parcelle.gps_lat).toFixed(6)}, {Number(parcelle.gps_lng).toFixed(6)}
-              </p>
+            <div className="flex gap-2">
+              <button onClick={shareGPS}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 active:bg-gray-50">
+                <Share2 size={15} />
+                Partager
+              </button>
+              <button onClick={sendSMS}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 active:bg-gray-50">
+                <MessageSquare size={15} />
+                Envoyer par SMS
+              </button>
             </div>
-            <Share2 size={18} className="text-gray-400" />
-          </button>
+          </div>
         )}
 
         {/* Historique vendanges */}

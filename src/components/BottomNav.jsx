@@ -1,13 +1,17 @@
 import { NavLink } from 'react-router-dom'
-import { Map, CheckSquare, Grape } from 'lucide-react'
-
-const tabs = [
-  { to: '/parcelles', icon: Map,         label: 'Parcelles' },
-  { to: '/taches',   icon: CheckSquare,  label: 'Tâches'    },
-  { to: '/vendange', icon: Grape,        label: 'Vendange'  },
-]
+import { Map, CheckSquare, Grape, Settings } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function BottomNav() {
+  const { user } = useAuth()
+
+  const tabs = [
+    { to: '/parcelles', icon: Map,         label: 'Parcelles' },
+    { to: '/taches',   icon: CheckSquare,  label: 'Tâches'    },
+    { to: '/vendange', icon: Grape,        label: 'Vendange'  },
+    ...(user?.role === 'admin' ? [{ to: '/admin', icon: Settings, label: 'Admin' }] : []),
+  ]
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20"
          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>

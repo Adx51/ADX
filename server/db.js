@@ -127,5 +127,21 @@ if (schemaVersion < 1) {
   db.pragma('user_version = 1')
 }
 
+if (schemaVersion < 2) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS referentiels (
+      id     INTEGER PRIMARY KEY AUTOINCREMENT,
+      type   TEXT NOT NULL,
+      valeur TEXT NOT NULL,
+      ordre  INTEGER DEFAULT 0,
+      UNIQUE(type, valeur)
+    )
+  `)
+  const ins = db.prepare(`INSERT OR IGNORE INTO referentiels (type, valeur, ordre) VALUES (?, ?, ?)`)
+  ;['Chouilly', 'Hautvillers'].forEach((v, i) => ins.run('commune', v, i))
+  ;['Pinot Noir', 'Pinot Meunier', 'Chardonnay', 'Pinot Blanc', 'Pinot Gris', 'Arbane', 'Petit Meslier'].forEach((v, i) => ins.run('cepage', v, i))
+  db.pragma('user_version = 2')
+}
+
 export { ADMIN_EMAIL }
 export default db

@@ -1,16 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Locate, Loader2 } from 'lucide-react'
+import { Locate, Loader2, MapPin, Map } from 'lucide-react'
 import { api } from '../../lib/api'
 import { uploadPhoto } from '../../lib/uploadPhoto'
 import { parseToCa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
 import PhotoInput from '../../components/PhotoInput'
 
-const COMMUNES = ['Chouilly', 'Hautvillers']
-
-const CEPAGES = ['Pinot Noir', 'Pinot Meunier', 'Chardonnay', 'Pinot Blanc', 'Pinot Gris', 'Arbane', 'Petit Meslier']
+const MapPicker = lazy(() => import('../../components/MapPicker'))
 
 const STATUTS = [
   { value: 'en_production', label: 'En production', color: 'text-green-700' },
@@ -28,47 +26,59 @@ export default function ParcelleForm() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [cepagesSelected, setCepagesSelected] = useState([])
+  const [showMap, setShowMap] = useState(false)
+  const [communes, setCommunes] = useState([])
+  const [cepages, setCepages] = useState([])
 
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       ares: '', centiares: '', ares_p: '', centiares_p: '',
-      statut: 'en_production', commune: ''
+      statut: 'en_production', commune: '', gps_lat: '', gps_lng: ''
     }
   })
+
+  const gpsLat = watch('gps_lat')
+  const gpsLng = watch('gps_lng')
+  const statut = watch('statut')
+
+  useEffect(() => {
+    api.get('/referentiels/commune').then(data => setCommunes(data || []))
+    api.get('/referentiels/cepage').then(data => setCepages(data || []))
+  }, [])
 
   useEffect(() => {
     if (!isEdit) return
     api.get(`/parcelles/${id}`).then(data => {
       if (!data) return
       setValue('nom', data.nom)
-      setValue('ares',       Math.floor((data.surface_totale_ca || 0) / 100))
-      setValue('centiares',  (data.surface_totale_ca || 0) % 100 || '')
-      setValue('ares_p',     Math.floor((data.surface_plantee_ca || 0) / 100))
-      setValue('centiares_p',(data.surface_plantee_ca || 0) % 100 || '')
+      setValue('ares',         Math.floor((data.surface_totale_ca || 0) / 100))
+      setValue('centiares',    (data.surface_totale_ca || 0) % 100 || '')
+      setValue('ares_p',       Math.floor((data.surface_plantee_ca || 0) / 100))
+      setValue('centiares_p',  (data.surface_plantee_ca || 0) % 100 || '')
       setValue('nombre_routes', data.nombre_routes || '')
       setValue('commune', data.commune || '')
       setValue('statut', data.statut || 'en_production')
       setValue('annee_plantation', data.annee_plantation || '')
-      setValue('gps_lat',   data.gps_lat || '')
-      setValue('gps_lng',   data.gps_lng || '')
-      setValue('notes',     data.notes || '')
+      setValue('gps_lat', data.gps_lat || '')
+      setValue('gps_lng', data.gps_lng || '')
+      setValue('notes', data.notes || '')
       setCepagesSelected(Array.isArray(data.cepages) ? data.cepages : [])
       setExistingPhotoUrl(data.photo_url)
     })
   }, [id, isEdit, setValue])
 
   function toggleCepage(c) {
-    setCepagesSelected(prev =>
-      prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
-    )
+    setCepagesSelected(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])
   }
 
   function getGPS() {
     if (!navigator.geolocation) {
-      setError('La géolocalisation n\'est pas disponible. Saisissez les coordonnées manuellement.')
+      setError('Géolocalisation non disponible. Utilisez la carte ci-dessous ou saisissez les coordonnées manuellement.')
+      setShowMap(true)
       return
     }
     setGpsLoading(true)
+    setError('')
     navigator.geolocation.getCurrentPosition(
       pos => {
         setValue('gps_lat', pos.coords.latitude.toFixed(8))
@@ -76,10 +86,11 @@ export default function ParcelleForm() {
         setGpsLoading(false)
       },
       err => {
-        const msg = err.code === 1
-          ? 'Permission refusée. Activez la localisation ou saisissez les coordonnées manuellement (disponible sur Google Maps).'
-          : 'Impossible d\'obtenir la position GPS. Saisissez les coordonnées manuellement.'
-        setError(msg)
+        const isHttps = err.code === 1
+          ? 'Permission refusée. '
+          : 'Position non disponible (HTTP bloque la géolocalisation). '
+        setError(isHttps + 'Utilisez la carte ci-dessous pour placer votre parcelle.')
+        setShowMap(true)
         setGpsLoading(false)
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -102,8 +113,8 @@ export default function ParcelleForm() {
         cepages: cepagesSelected,
         statut: data.statut || 'en_production',
         annee_plantation: data.annee_plantation ? parseInt(data.annee_plantation) : null,
-        gps_lat:  data.gps_lat  ? parseFloat(data.gps_lat)  : null,
-        gps_lng:  data.gps_lng  ? parseFloat(data.gps_lng)  : null,
+        gps_lat: data.gps_lat ? parseFloat(data.gps_lat) : null,
+        gps_lng: data.gps_lng ? parseFloat(data.gps_lng) : null,
         photo_url,
         notes: data.notes || null
       }
@@ -120,14 +131,14 @@ export default function ParcelleForm() {
     }
   }
 
-  const statut = watch('statut')
-
   return (
     <div>
       <PageHeader title={isEdit ? 'Modifier la parcelle' : 'Nouvelle parcelle'} back="/parcelles" />
 
       <form onSubmit={handleSubmit(onSubmit)} className="px-4 pt-4 space-y-5 pb-8">
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>
+        )}
 
         {/* Nom */}
         <div>
@@ -140,7 +151,7 @@ export default function ParcelleForm() {
           <label className="label">Commune *</label>
           <select className="input" {...register('commune', { required: true })}>
             <option value="">— Sélectionner —</option>
-            {COMMUNES.map(c => <option key={c} value={c}>{c}</option>)}
+            {communes.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 
@@ -182,7 +193,7 @@ export default function ParcelleForm() {
         <div>
           <label className="label">Cépages</label>
           <div className="grid grid-cols-2 gap-2 mt-1">
-            {CEPAGES.map(c => (
+            {cepages.map(c => (
               <button
                 key={c}
                 type="button"
@@ -232,14 +243,38 @@ export default function ParcelleForm() {
             <input className="input flex-1" placeholder="Latitude" {...register('gps_lat')} />
             <input className="input flex-1" placeholder="Longitude" {...register('gps_lng')} />
           </div>
-          <button type="button" onClick={getGPS}
-                  className="mt-2 flex items-center gap-2 text-vigne-700 font-medium text-sm py-2">
-            {gpsLoading ? <Loader2 size={16} className="animate-spin" /> : <Locate size={16} />}
-            {gpsLoading ? 'Localisation...' : 'Obtenir ma position'}
-          </button>
-          <p className="text-xs text-gray-400 mt-1">
-            Si la géolocalisation ne fonctionne pas, copiez les coordonnées depuis Google Maps (clic droit → "C'est quoi ici ?").
-          </p>
+          <div className="flex gap-2 mt-2">
+            <button type="button" onClick={getGPS}
+                    className="flex items-center gap-1.5 text-vigne-700 font-medium text-sm py-2">
+              {gpsLoading ? <Loader2 size={16} className="animate-spin" /> : <Locate size={16} />}
+              {gpsLoading ? 'Localisation...' : 'Ma position'}
+            </button>
+            <button type="button" onClick={() => setShowMap(v => !v)}
+                    className="flex items-center gap-1.5 text-vigne-700 font-medium text-sm py-2 ml-2">
+              <Map size={16} />
+              {showMap ? 'Masquer la carte' : 'Choisir sur la carte'}
+            </button>
+          </div>
+          {showMap && (
+            <div className="mt-2">
+              <Suspense fallback={<div className="h-56 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 text-sm">Chargement de la carte...</div>}>
+                <MapPicker
+                  lat={gpsLat}
+                  lng={gpsLng}
+                  onChange={(lat, lng) => {
+                    setValue('gps_lat', lat)
+                    setValue('gps_lng', lng)
+                  }}
+                />
+              </Suspense>
+            </div>
+          )}
+          {(gpsLat || gpsLng) && (
+            <div className="flex items-center gap-1 mt-1">
+              <MapPin size={12} className="text-vigne-600" />
+              <p className="text-xs text-vigne-600">{gpsLat}, {gpsLng}</p>
+            </div>
+          )}
         </div>
 
         {/* Notes */}

@@ -19,6 +19,8 @@ import VendangeDetail from './pages/vendange/VendangeDetail'
 import VendangeForm from './pages/vendange/VendangeForm'
 import ChargementForm from './pages/vendange/ChargementForm'
 
+import AdminPage from './pages/admin/AdminPage'
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -50,6 +52,9 @@ export default function App() {
                 <Route path="/vendange/:id/edit" element={<VendangeForm />} />
                 <Route path="/vendange/:id/chargement/new" element={<ChargementForm />} />
                 <Route path="/vendange/:vendangeId/chargement/:id/edit" element={<ChargementForm />} />
+
+                {/* Admin */}
+                <Route path="/admin" element={<AdminPage />} />
               </Route>
             </Route>
 

@@ -11,6 +11,20 @@ const STATUT_BADGE = {
   au_repos: { label: 'Au repos', cls: 'bg-gray-100 text-gray-500' },
 }
 
+const COMMUNE_ORDER = ['Chouilly', 'Hautvillers']
+
+function groupByCommune(parcelles) {
+  const groups = {}
+  for (const p of parcelles) {
+    const key = p.commune || 'Autre'
+    if (!groups[key]) groups[key] = []
+    groups[key].push(p)
+  }
+  const known = COMMUNE_ORDER.filter(c => groups[c])
+  const other = Object.keys(groups).filter(c => !COMMUNE_ORDER.includes(c)).sort()
+  return [...known, ...other].map(commune => ({ commune, parcelles: groups[commune] }))
+}
+
 export default function ParcellesList() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
@@ -23,6 +37,8 @@ export default function ParcellesList() {
       setLoading(false)
     })
   }, [])
+
+  const groups = groupByCommune(parcelles)
 
   return (
     <div>
@@ -38,7 +54,7 @@ export default function ParcellesList() {
         </button>
       </div>
 
-      <div className="px-4 pt-4 space-y-3">
+      <div className="px-4 pt-4 pb-4 space-y-5">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => <div key={i} className="card skeleton h-20" />)
         ) : parcelles.length === 0 ? (
@@ -48,48 +64,56 @@ export default function ParcellesList() {
             <p className="text-gray-400 text-sm mt-1">Ajoutez votre première parcelle</p>
           </div>
         ) : (
-          parcelles.map(p => {
-            const badge = STATUT_BADGE[p.statut]
-            const cepagesDisplay = Array.isArray(p.cepages) && p.cepages.length > 0
-              ? p.cepages.join(' · ')
-              : null
-            return (
-              <button
-                key={p.id}
-                onClick={() => navigate(`/parcelles/${p.id}`)}
-                className="card w-full text-left flex items-center gap-3 active:scale-[0.99] transition-transform"
-              >
-                {p.photo_url ? (
-                  <img src={p.photo_url} alt={p.nom} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
-                ) : (
-                  <div className="w-14 h-14 rounded-xl bg-vigne-100 flex items-center justify-center flex-shrink-0">
-                    <Map size={24} className="text-vigne-500" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-gray-900 truncate">{p.nom}</p>
-                    {badge && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${badge.cls}`}>
-                        {badge.label}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-700 mt-0.5 font-medium">
-                    {caToDisplay(p.surface_totale_ca)}
-                    {p.commune && <span className="text-gray-400 font-normal"> · {p.commune}</span>}
-                  </p>
-                  {cepagesDisplay && (
-                    <p className="text-xs text-vigne-600 mt-0.5">{cepagesDisplay}</p>
-                  )}
-                  {p.nombre_routes && (
-                    <p className="text-xs text-gray-400">{p.nombre_routes} route{p.nombre_routes > 1 ? 's' : ''}</p>
-                  )}
-                </div>
-                <ChevronRight size={18} className="text-gray-300 flex-shrink-0" />
-              </button>
-            )
-          })
+          groups.map(({ commune, parcelles: list }) => (
+            <div key={commune}>
+              <h2 className="text-xs font-semibold text-vigne-700 uppercase tracking-wider mb-2 px-1">
+                {commune}
+              </h2>
+              <div className="space-y-3">
+                {list.map(p => {
+                  const badge = STATUT_BADGE[p.statut]
+                  const cepagesDisplay = Array.isArray(p.cepages) && p.cepages.length > 0
+                    ? p.cepages.join(' · ')
+                    : null
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => navigate(`/parcelles/${p.id}`)}
+                      className="card w-full text-left flex items-center gap-3 active:scale-[0.99] transition-transform"
+                    >
+                      {p.photo_url ? (
+                        <img src={p.photo_url} alt={p.nom} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                      ) : (
+                        <div className="w-14 h-14 rounded-xl bg-vigne-100 flex items-center justify-center flex-shrink-0">
+                          <Map size={24} className="text-vigne-500" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-gray-900 truncate">{p.nom}</p>
+                          {badge && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${badge.cls}`}>
+                              {badge.label}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-700 mt-0.5 font-medium">
+                          {caToDisplay(p.surface_totale_ca)}
+                        </p>
+                        {cepagesDisplay && (
+                          <p className="text-xs text-vigne-600 mt-0.5">{cepagesDisplay}</p>
+                        )}
+                        {p.nombre_routes && (
+                          <p className="text-xs text-gray-400">{p.nombre_routes} route{p.nombre_routes > 1 ? 's' : ''}</p>
+                        )}
+                      </div>
+                      <ChevronRight size={18} className="text-gray-300 flex-shrink-0" />
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))
         )}
       </div>
 

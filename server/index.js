@@ -5,12 +5,14 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs'
 
-import authRoutes      from './routes/auth.js'
-import parcellesRoutes from './routes/parcelles.js'
-import tachesRoutes    from './routes/taches.js'
-import vendangesRoutes from './routes/vendanges.js'
-import chargementsRoutes from './routes/chargements.js'
-import photosRoutes    from './routes/photos.js'
+import authRoutes         from './routes/auth.js'
+import parcellesRoutes    from './routes/parcelles.js'
+import tachesRoutes       from './routes/taches.js'
+import vendangesRoutes    from './routes/vendanges.js'
+import chargementsRoutes  from './routes/chargements.js'
+import photosRoutes       from './routes/photos.js'
+import adminRoutes        from './routes/admin.js'
+import referentielsRoutes from './routes/referentiels.js'
 
 const __dirname  = path.dirname(fileURLToPath(import.meta.url))
 const PORT       = process.env.PORT || 3001
@@ -34,12 +36,14 @@ fs.mkdirSync(PHOTOS_DIR, { recursive: true })
 app.use('/photos', express.static(PHOTOS_DIR))
 
 // API
-app.use('/api/auth',        authRoutes)
-app.use('/api/parcelles',   parcellesRoutes)
-app.use('/api/taches',      tachesRoutes)
-app.use('/api/vendanges',   vendangesRoutes)
-app.use('/api/chargements', chargementsRoutes)
-app.use('/api/photos',      photosRoutes)
+app.use('/api/auth',          authRoutes)
+app.use('/api/parcelles',     parcellesRoutes)
+app.use('/api/taches',        tachesRoutes)
+app.use('/api/vendanges',     vendangesRoutes)
+app.use('/api/chargements',   chargementsRoutes)
+app.use('/api/photos',        photosRoutes)
+app.use('/api/admin',         adminRoutes)
+app.use('/api/referentiels',  referentielsRoutes)
 
 // En production : servir l'app React buildée
 if (process.env.NODE_ENV === 'production') {
