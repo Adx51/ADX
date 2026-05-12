@@ -148,5 +148,12 @@ if (schemaVersion < 3) {
   db.pragma('user_version = 3')
 }
 
+if (schemaVersion < 4) {
+  try { db.exec(`ALTER TABLE referentiels ADD COLUMN code_insee TEXT`) } catch {}
+  db.prepare(`UPDATE referentiels SET code_insee = '51154' WHERE type = 'commune' AND valeur = 'Chouilly'`).run()
+  db.prepare(`UPDATE referentiels SET code_insee = '51301' WHERE type = 'commune' AND valeur = 'Hautvillers'`).run()
+  db.pragma('user_version = 4')
+}
+
 export { ADMIN_EMAIL }
 export default db

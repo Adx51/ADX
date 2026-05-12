@@ -1,10 +1,11 @@
 import { useEffect, useState, lazy, Suspense } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Locate, Loader2, MapPin, Map } from 'lucide-react'
+import { Locate, Loader2, MapPin, Map, Crosshair } from 'lucide-react'
 import { api } from '../../lib/api'
 import { uploadPhoto } from '../../lib/uploadPhoto'
 import { parseToCa } from '../../lib/surface'
+import { locateFromCadastre } from '../../lib/cadastre'
 import PageHeader from '../../components/PageHeader'
 import PhotoInput from '../../components/PhotoInput'
 
@@ -23,23 +24,27 @@ export default function ParcelleForm() {
   const [photo, setPhoto] = useState(null)
   const [existingPhotoUrl, setExistingPhotoUrl] = useState(null)
   const [gpsLoading, setGpsLoading] = useState(false)
+  const [cadastreLoading, setCadastreLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [cepagesSelected, setCepagesSelected] = useState([])
   const [showMap, setShowMap] = useState(false)
-  const [communes, setCommunes] = useState([])
-  const [cepages, setCepages] = useState([])
+  const [communes, setCommunes] = useState([])   // [{valeur, code_insee}]
+  const [cepages, setCepages] = useState([])      // [{valeur}]
 
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       ares: '', centiares: '', ares_p: '', centiares_p: '',
-      statut: 'en_production', commune: '', gps_lat: '', gps_lng: ''
+      statut: 'en_production', commune: '', gps_lat: '', gps_lng: '',
+      reference_cadastrale: ''
     }
   })
 
   const gpsLat = watch('gps_lat')
   const gpsLng = watch('gps_lng')
   const statut = watch('statut')
+  const communeVal = watch('commune')
+  const refCadastrale = watch('reference_cadastrale')
 
   useEffect(() => {
     api.get('/referentiels/commune').then(data => setCommunes(data || []))
@@ -74,7 +79,7 @@ export default function ParcelleForm() {
 
   function getGPS() {
     if (!navigator.geolocation) {
-      setError('Géolocalisation non disponible. Utilisez la carte ci-dessous ou saisissez les coordonnées manuellement.')
+      setError('Géolocalisation non disponible. Utilisez la carte ou le cadastre ci-dessous.')
       setShowMap(true)
       return
     }
@@ -87,15 +92,40 @@ export default function ParcelleForm() {
         setGpsLoading(false)
       },
       err => {
-        const isHttps = err.code === 1
-          ? 'Permission refusée. '
-          : 'Position non disponible (HTTP bloque la géolocalisation). '
-        setError(isHttps + 'Utilisez la carte ci-dessous pour placer votre parcelle.')
+        const prefix = err.code === 1 ? 'Permission refusée. ' : 'Position non disponible (HTTP). '
+        setError(prefix + 'Utilisez la carte ou le cadastre ci-dessous.')
         setShowMap(true)
         setGpsLoading(false)
       },
       { enableHighAccuracy: true, timeout: 10000 }
     )
+  }
+
+  async function locateByCadastre() {
+    setError('')
+    if (!refCadastrale?.trim()) {
+      setError('Saisissez d\'abord la référence cadastrale (ex : AB 0012)')
+      return
+    }
+    const commune = communes.find(c => c.valeur === communeVal)
+    if (!commune?.code_insee) {
+      setError('Code INSEE manquant pour cette commune. Configurez-le dans l\'admin → Référentiels.')
+      return
+    }
+    setCadastreLoading(true)
+    try {
+      const { lat, lng, notFound } = await locateFromCadastre(commune.code_insee, refCadastrale)
+      setValue('gps_lat', lat)
+      setValue('gps_lng', lng)
+      setShowMap(true)
+      if (notFound.length) {
+        setError(`Localisation partielle — parcelle(s) non trouvée(s) : ${notFound.join(', ')}`)
+      }
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setCadastreLoading(false)
+    }
   }
 
   async function onSubmit(data) {
@@ -107,7 +137,7 @@ export default function ParcelleForm() {
 
       const payload = {
         nom: data.nom,
-        surface_totale_ca:  parseToCa(data.ares,   data.centiares),
+        surface_totale_ca:  parseToCa(data.ares, data.centiares),
         surface_plantee_ca: parseToCa(data.ares_p, data.centiares_p) || null,
         nombre_routes: data.nombre_routes ? parseInt(data.nombre_routes) : null,
         commune: data.commune || null,
@@ -153,14 +183,32 @@ export default function ParcelleForm() {
           <label className="label">Commune *</label>
           <select className="input" {...register('commune', { required: true })}>
             <option value="">— Sélectionner —</option>
-            {communes.map(c => <option key={c} value={c}>{c}</option>)}
+            {communes.map(c => <option key={c.valeur} value={c.valeur}>{c.valeur}</option>)}
           </select>
         </div>
 
         {/* Référence cadastrale */}
         <div>
-          <label className="label">Référence cadastrale</label>
-          <input className="input" placeholder="ex: AB 0012" {...register('reference_cadastrale')} />
+          <label className="label">Référence(s) cadastrale(s)</label>
+          <input
+            className="input"
+            placeholder="ex: AB 0012, AB 0013"
+            {...register('reference_cadastrale')}
+          />
+          <button
+            type="button"
+            onClick={locateByCadastre}
+            disabled={cadastreLoading || !refCadastrale?.trim()}
+            className="mt-2 flex items-center gap-1.5 text-vigne-700 font-medium text-sm py-1.5 disabled:opacity-40"
+          >
+            {cadastreLoading
+              ? <Loader2 size={15} className="animate-spin" />
+              : <Crosshair size={15} />}
+            {cadastreLoading ? 'Localisation cadastrale...' : 'Localiser depuis le cadastre'}
+          </button>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Plusieurs références séparées par des virgules — la position GPS sera calculée automatiquement via l'IGN.
+          </p>
         </div>
 
         {/* Surface totale */}
@@ -203,16 +251,16 @@ export default function ParcelleForm() {
           <div className="grid grid-cols-2 gap-2 mt-1">
             {cepages.map(c => (
               <button
-                key={c}
+                key={c.valeur}
                 type="button"
-                onClick={() => toggleCepage(c)}
+                onClick={() => toggleCepage(c.valeur)}
                 className={`px-3 py-2 rounded-xl border text-sm font-medium text-left transition-colors ${
-                  cepagesSelected.includes(c)
+                  cepagesSelected.includes(c.valeur)
                     ? 'bg-vigne-700 text-white border-vigne-700'
                     : 'bg-white text-gray-700 border-gray-200'
                 }`}
               >
-                {c}
+                {c.valeur}
               </button>
             ))}
           </div>
@@ -251,16 +299,16 @@ export default function ParcelleForm() {
             <input className="input flex-1" placeholder="Latitude" {...register('gps_lat')} />
             <input className="input flex-1" placeholder="Longitude" {...register('gps_lng')} />
           </div>
-          <div className="flex gap-2 mt-2">
+          <div className="flex gap-4 mt-2">
             <button type="button" onClick={getGPS}
-                    className="flex items-center gap-1.5 text-vigne-700 font-medium text-sm py-2">
+                    className="flex items-center gap-1.5 text-vigne-700 font-medium text-sm py-1.5">
               {gpsLoading ? <Loader2 size={16} className="animate-spin" /> : <Locate size={16} />}
               {gpsLoading ? 'Localisation...' : 'Ma position'}
             </button>
             <button type="button" onClick={() => setShowMap(v => !v)}
-                    className="flex items-center gap-1.5 text-vigne-700 font-medium text-sm py-2 ml-2">
+                    className="flex items-center gap-1.5 text-vigne-700 font-medium text-sm py-1.5">
               <Map size={16} />
-              {showMap ? 'Masquer la carte' : 'Choisir sur la carte'}
+              {showMap ? 'Masquer la carte' : 'Carte'}
             </button>
           </div>
           {showMap && (

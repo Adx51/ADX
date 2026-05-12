@@ -207,16 +207,19 @@ function EditUserForm({ user, onSave, onCancel }) {
 function RefsTab() {
   return (
     <div className="space-y-6">
-      <RefSection type="commune" label="Communes" />
+      <RefSection type="commune" label="Communes" withInsee />
       <RefSection type="cepage" label="Cépages" />
     </div>
   )
 }
 
-function RefSection({ type, label }) {
+function RefSection({ type, label, withInsee = false }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [newVal, setNewVal] = useState('')
+  const [newInsee, setNewInsee] = useState('')
+  const [editInseeId, setEditInseeId] = useState(null)
+  const [editInseeVal, setEditInseeVal] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -229,9 +232,23 @@ function RefSection({ type, label }) {
     if (!val) return
     setError('')
     try {
-      const item = await api.post(`/admin/referentiels/${type}`, { valeur: val })
+      const item = await api.post(`/admin/referentiels/${type}`, {
+        valeur: val,
+        ...(withInsee ? { code_insee: newInsee } : {})
+      })
       setItems(prev => [...prev, item])
       setNewVal('')
+      setNewInsee('')
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  async function saveInsee(item) {
+    try {
+      const updated = await api.put(`/admin/referentiels/${item.id}`, { code_insee: editInseeVal })
+      setItems(prev => prev.map(x => x.id === item.id ? updated : x))
+      setEditInseeId(null)
     } catch (e) {
       setError(e.message)
     }
@@ -249,31 +266,76 @@ function RefSection({ type, label }) {
   return (
     <div>
       <h2 className="font-bold text-gray-900 mb-3">{label}</h2>
+      {withInsee && (
+        <p className="text-xs text-gray-400 mb-2">Le code INSEE est requis pour la localisation automatique depuis le cadastre.</p>
+      )}
       {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
       {loading ? (
         <div className="card skeleton h-20" />
       ) : (
         <div className="card space-y-2">
           {items.map(item => (
-            <div key={item.id} className="flex items-center justify-between gap-2">
-              <span className="text-sm text-gray-800">{item.valeur}</span>
-              <button onClick={() => remove(item)} className="p-1.5 text-red-400 active:bg-red-50 rounded-lg">
-                <X size={14} />
-              </button>
+            <div key={item.id}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm text-gray-800">{item.valeur}</span>
+                  {withInsee && (
+                    editInseeId === item.id ? (
+                      <div className="flex gap-1 mt-1">
+                        <input
+                          value={editInseeVal}
+                          onChange={e => setEditInseeVal(e.target.value)}
+                          className="input py-1 text-xs w-28"
+                          placeholder="51154"
+                          onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), saveInsee(item))}
+                        />
+                        <button onClick={() => saveInsee(item)}
+                                className="p-1 text-vigne-700 active:bg-vigne-50 rounded">
+                          <Check size={14} />
+                        </button>
+                        <button onClick={() => setEditInseeId(null)}
+                                className="p-1 text-gray-400 active:bg-gray-50 rounded">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setEditInseeId(item.id); setEditInseeVal(item.code_insee || '') }}
+                        className="block text-xs text-gray-400 mt-0.5 hover:text-vigne-600"
+                      >
+                        INSEE : {item.code_insee || <span className="text-amber-500">non défini — cliquer pour ajouter</span>}
+                      </button>
+                    )
+                  )}
+                </div>
+                <button onClick={() => remove(item)} className="p-1.5 text-red-400 active:bg-red-50 rounded-lg flex-shrink-0">
+                  <X size={14} />
+                </button>
+              </div>
             </div>
           ))}
           {items.length === 0 && <p className="text-sm text-gray-400 text-center py-2">Aucune entrée</p>}
-          <div className="flex gap-2 pt-2 border-t border-gray-100">
-            <input
-              value={newVal}
-              onChange={e => setNewVal(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), add())}
-              className="input flex-1 py-2"
-              placeholder={`Ajouter un${type === 'commune' ? 'e commune' : ' cépage'}...`}
-            />
-            <button onClick={add} className="bg-vigne-700 text-white px-3 rounded-xl active:bg-vigne-800">
-              <Plus size={18} />
-            </button>
+          <div className="pt-2 border-t border-gray-100 space-y-2">
+            {withInsee && (
+              <input
+                value={newInsee}
+                onChange={e => setNewInsee(e.target.value)}
+                className="input py-2 text-sm"
+                placeholder="Code INSEE (ex : 51154)"
+              />
+            )}
+            <div className="flex gap-2">
+              <input
+                value={newVal}
+                onChange={e => setNewVal(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), add())}
+                className="input flex-1 py-2"
+                placeholder={`Ajouter un${type === 'commune' ? 'e commune' : ' cépage'}...`}
+              />
+              <button onClick={add} className="bg-vigne-700 text-white px-3 rounded-xl active:bg-vigne-800">
+                <Plus size={18} />
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -7,9 +7,9 @@ router.use(requireAuth)
 
 router.get('/:type', (req, res) => {
   const rows = db.prepare(
-    'SELECT valeur FROM referentiels WHERE type = ? ORDER BY ordre, valeur'
+    'SELECT valeur, code_insee FROM referentiels WHERE type = ? ORDER BY ordre, valeur'
   ).all(req.params.type)
-  res.json(rows.map(r => r.valeur))
+  res.json(rows)
 })
 
 export default router

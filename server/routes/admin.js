@@ -66,19 +66,27 @@ router.get('/referentiels/:type', (req, res) => {
 })
 
 router.post('/referentiels/:type', (req, res) => {
-  const { valeur } = req.body
+  const { valeur, code_insee } = req.body
   if (!valeur?.trim()) return res.status(400).json({ error: 'La valeur est requise' })
   const { next } = db.prepare(
     'SELECT COALESCE(MAX(ordre), -1) + 1 AS next FROM referentiels WHERE type = ?'
   ).get(req.params.type)
   try {
     const info = db.prepare(
-      'INSERT INTO referentiels (type, valeur, ordre) VALUES (?, ?, ?)'
-    ).run(req.params.type, valeur.trim(), next)
+      'INSERT INTO referentiels (type, valeur, ordre, code_insee) VALUES (?, ?, ?, ?)'
+    ).run(req.params.type, valeur.trim(), next, code_insee?.trim() || null)
     res.json(db.prepare('SELECT * FROM referentiels WHERE id = ?').get(info.lastInsertRowid))
   } catch {
     res.status(409).json({ error: 'Cette valeur existe déjà' })
   }
+})
+
+router.put('/referentiels/:id', (req, res) => {
+  const { code_insee } = req.body
+  const r = db.prepare('SELECT id FROM referentiels WHERE id = ?').get(req.params.id)
+  if (!r) return res.status(404).json({ error: 'Référentiel introuvable' })
+  db.prepare('UPDATE referentiels SET code_insee = ? WHERE id = ?').run(code_insee?.trim() || null, req.params.id)
+  res.json(db.prepare('SELECT * FROM referentiels WHERE id = ?').get(req.params.id))
 })
 
 router.delete('/referentiels/:id', (req, res) => {
