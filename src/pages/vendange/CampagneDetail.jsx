@@ -222,28 +222,6 @@ export default function CampagneDetail() {
             </div>
           )}
 
-          {/* Comparaison N-1 */}
-          {campagne.prevStats && campagne.prevStats.poids_total > 0 && (
-            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-amber-200">
-              <PrevDelta
-                label="vs poids N-1"
-                current={totalPoids}
-                prev={campagne.prevStats.poids_total}
-                prevAnnee={campagne.prevStats.annee}
-                unit="kg"
-              />
-              {rendementMoyen != null && campagne.prevStats.rendement_kgha != null && (
-                <PrevDelta
-                  label="vs kg/ha N-1"
-                  current={rendementMoyen}
-                  prev={campagne.prevStats.rendement_kgha}
-                  prevAnnee={campagne.prevStats.annee}
-                  unit="kg/ha"
-                />
-              )}
-            </div>
-          )}
-
           {attendu && rendementMoyen != null && (
             <RendementComparison reel={rendementMoyen} attendu={attendu} />
           )}
@@ -490,22 +468,6 @@ function ParcelleRow({ parcelle, attendu, campagneClosed, closed, onOpen, onAdd 
           <Plus size={20} className="text-amber-600" />
         </button>
       )}
-    </div>
-  )
-}
-
-function PrevDelta({ label, current, prev, prevAnnee, unit }) {
-  const pct = Math.round(((current - prev) / prev) * 100)
-  const positif = pct >= 0
-  const Icon = positif ? TrendingUp : TrendingDown
-  const color = positif ? 'text-vigne-700' : 'text-orange-600'
-  return (
-    <div className="text-center">
-      <p className={`text-sm font-bold flex items-center justify-center gap-1 ${color}`}>
-        <Icon size={13} />
-        {positif ? '+' : ''}{pct}%
-      </p>
-      <p className="text-xs text-amber-600">{label} ({prevAnnee})</p>
     </div>
   )
 }

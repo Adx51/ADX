@@ -159,37 +159,52 @@ export default function ParcelleDetail() {
               <p className="text-gray-500 text-sm">Aucune vendange enregistrée</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {parcelle.vendanges.map((v, i) => {
-                const rendement = rendementKgHa(v.poids_total, parcelle.surface_totale_ca)
-                // Tendance vs année précédente (array est trié DESC, donc i+1 = année d'avant)
-                const prev = parcelle.vendanges[i + 1]
-                const trendPct = prev && prev.poids_total > 0
-                  ? Math.round(((v.poids_total - prev.poids_total) / prev.poids_total) * 100)
-                  : null
-                return (
-                  <button key={v.id} onClick={() => navigate(`/vendange/parcelle/${v.id}`)}
-                          className="card w-full text-left flex items-center gap-3 active:scale-[0.99] transition-transform">
-                    <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
-                      <span className="font-bold text-amber-700 text-sm">{v.annee}</span>
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{Number(v.poids_total || 0).toFixed(0)} kg</p>
-                      <p className="text-xs text-gray-500">
-                        {v.nb_caisses_total || 0} caisses
-                        {rendement && <span className="text-vigne-600"> · {rendement.toLocaleString('fr-FR')} kg/ha</span>}
-                        {trendPct !== null && (
-                          <span className={`ml-1 font-medium ${trendPct >= 0 ? 'text-vigne-600' : 'text-orange-500'}`}>
-                            {' '}({trendPct >= 0 ? '+' : ''}{trendPct}% N-1)
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                    <ChevronRight size={18} className="text-gray-300" />
-                  </button>
-                )
-              })}
-            </div>
+            <>
+              {parcelle.vendanges.length >= 2 && (
+                <div className="card mb-3 p-3">
+                  <VendangeChart vendanges={parcelle.vendanges} surfaceCa={parcelle.surface_totale_ca} />
+                  <div className="flex items-center gap-4 mt-2 justify-center">
+                    <span className="flex items-center gap-1 text-xs text-gray-500">
+                      <span className="inline-block w-3 h-3 rounded-sm bg-amber-400" /> kg/ha réalisé
+                    </span>
+                    <span className="flex items-center gap-1 text-xs text-gray-500">
+                      <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#9ca3af" strokeWidth="1.5" strokeDasharray="4,2"/></svg>
+                      objectif
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                {parcelle.vendanges.map((v, i) => {
+                  const rendement = rendementKgHa(v.poids_total, parcelle.surface_totale_ca)
+                  const prev = parcelle.vendanges[i + 1]
+                  const trendPct = prev && prev.poids_total > 0
+                    ? Math.round(((v.poids_total - prev.poids_total) / prev.poids_total) * 100)
+                    : null
+                  return (
+                    <button key={v.id} onClick={() => navigate(`/vendange/parcelle/${v.id}`)}
+                            className="card w-full text-left flex items-center gap-3 active:scale-[0.99] transition-transform">
+                      <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <span className="font-bold text-amber-700 text-sm">{v.annee}</span>
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">{Number(v.poids_total || 0).toFixed(0)} kg</p>
+                        <p className="text-xs text-gray-500">
+                          {v.nb_caisses_total || 0} caisses
+                          {rendement && <span className="text-vigne-600"> · {rendement.toLocaleString('fr-FR')} kg/ha</span>}
+                          {trendPct !== null && (
+                            <span className={`ml-1 font-medium ${trendPct >= 0 ? 'text-vigne-600' : 'text-orange-500'}`}>
+                              {' '}({trendPct >= 0 ? '+' : ''}{trendPct}% N-1)
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <ChevronRight size={18} className="text-gray-300" />
+                    </button>
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
 
@@ -212,6 +227,121 @@ export default function ParcelleDetail() {
         )}
       </div>
     </div>
+  )
+}
+
+function VendangeChart({ vendanges, surfaceCa }) {
+  // Affiche max 6 ans, ordre chronologique (ASC)
+  const data = [...vendanges].reverse().slice(-6)
+  if (data.length < 2) return null
+
+  const W = 320, H = 140
+  const PAD = { top: 20, right: 10, bottom: 24, left: 10 }
+  const CW = W - PAD.left - PAD.right
+  const CH = H - PAD.top - PAD.bottom
+
+  const kgHaValues = data.map(d =>
+    surfaceCa > 0 && d.poids_total ? Math.round(d.poids_total / (surfaceCa / 10000)) : 0
+  )
+  const attenduValues = data.map(d => d.rendement_attendu_kgha || 0)
+  const maxY = Math.max(...kgHaValues, ...attenduValues, 1) * 1.2
+
+  const xStep = CW / data.length
+  const xPos  = i => PAD.left + i * xStep + xStep / 2
+  const yPos  = v => PAD.top + CH - (v / maxY) * CH
+
+  const barW  = xStep * 0.55
+
+  // Polyline points for kg/ha réalisé
+  const linePoints = data
+    .map((_, i) => kgHaValues[i] > 0 ? `${xPos(i)},${yPos(kgHaValues[i])}` : null)
+    .filter(Boolean)
+    .join(' ')
+
+  // Polyline points for rendement attendu (only where defined)
+  const attenduSegs = []
+  let seg = []
+  data.forEach((d, i) => {
+    if (d.rendement_attendu_kgha) {
+      seg.push(`${xPos(i)},${yPos(d.rendement_attendu_kgha)}`)
+    } else if (seg.length) {
+      attenduSegs.push(seg.join(' '))
+      seg = []
+    }
+  })
+  if (seg.length) attenduSegs.push(seg.join(' '))
+
+  // Y axis labels (2 guides)
+  const yGuides = [0.5, 1].map(f => ({ pct: f, val: Math.round(maxY * f) }))
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ display: 'block' }}>
+      {/* Grid lines + left labels */}
+      {yGuides.map(({ pct, val }) => {
+        const y = yPos(maxY * pct)
+        return (
+          <g key={pct}>
+            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y}
+                  stroke="#f3f4f6" strokeWidth="1" />
+            <text x={PAD.left + 2} y={y - 2} fontSize="8" fill="#d1d5db" textAnchor="start">
+              {val >= 1000 ? `${Math.round(val / 1000)}k` : val}
+            </text>
+          </g>
+        )
+      })}
+
+      {/* Bars (kg/ha réalisé) */}
+      {data.map((d, i) => {
+        const kgha = kgHaValues[i]
+        if (!kgha) return null
+        const bh = (kgha / maxY) * CH
+        return (
+          <rect key={d.annee}
+            x={xPos(i) - barW / 2} y={yPos(kgha)}
+            width={barW} height={bh}
+            rx="3" fill="#fbbf24" opacity="0.75"
+          />
+        )
+      })}
+
+      {/* Ligne kg/ha réalisé */}
+      {linePoints && (
+        <polyline points={linePoints} fill="none"
+          stroke="#d97706" strokeWidth="1.8"
+          strokeLinecap="round" strokeLinejoin="round" />
+      )}
+      {data.map((d, i) => {
+        const kgha = kgHaValues[i]
+        if (!kgha) return null
+        return <circle key={d.annee} cx={xPos(i)} cy={yPos(kgha)} r="3" fill="#d97706" />
+      })}
+
+      {/* Valeur kg/ha au-dessus de chaque barre */}
+      {data.map((d, i) => {
+        const kgha = kgHaValues[i]
+        if (!kgha) return null
+        return (
+          <text key={d.annee} x={xPos(i)} y={yPos(kgha) - 5}
+                textAnchor="middle" fontSize="8.5" fill="#92400e" fontWeight="600">
+            {kgha >= 1000 ? `${Math.round(kgha / 100) / 10}k` : kgha}
+          </text>
+        )
+      })}
+
+      {/* Ligne objectif (pointillée) */}
+      {attenduSegs.map((pts, si) => (
+        <polyline key={si} points={pts} fill="none"
+          stroke="#9ca3af" strokeWidth="1.5" strokeDasharray="4,3" />
+      ))}
+
+      {/* X axis (années) */}
+      {data.map((d, i) => (
+        <text key={d.annee} x={xPos(i)} y={H - 6}
+              textAnchor="middle" fontSize="10" fill="#6b7280">
+          {d.annee}
+        </text>
+      ))}
+    </svg>
   )
 }
 

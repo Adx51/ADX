@@ -49,7 +49,13 @@ router.get('/:id', (req, res) => {
   const p = db.prepare('SELECT * FROM parcelles WHERE id = ? AND user_id = ?').get(req.params.id, req.userId)
   if (!p) return res.status(404).json({ error: 'Parcelle introuvable' })
 
-  const vendanges = db.prepare(`SELECT * FROM vendanges WHERE parcelle_id = ? ORDER BY annee DESC`).all(req.params.id)
+  const vendanges = db.prepare(`
+    SELECT v.*, c.rendement_attendu_kgha
+    FROM vendanges v
+    LEFT JOIN campagnes c ON c.user_id = v.user_id AND c.annee = v.annee
+    WHERE v.parcelle_id = ?
+    ORDER BY v.annee DESC
+  `).all(req.params.id)
 
   res.json({ ...parseParcelle(p), vendanges })
 })
