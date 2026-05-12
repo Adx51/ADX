@@ -66,6 +66,9 @@ export default function MapPicker({ lat, lng, onChange, geoFeatures, readOnly = 
 
     mapRef.current = map
 
+    // Force recalcul des dimensions après le premier paint (mobile)
+    setTimeout(() => map.invalidateSize(), 100)
+
     return () => {
       map.remove()
       mapRef.current   = null
