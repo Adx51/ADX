@@ -22,8 +22,12 @@ export JWT_SECRET="$JWT_SECRET"
 export DB_PATH=/data/adx.db
 export PHOTOS_DIR=/data/photos
 
-# SSL : copier le cert/key depuis /ssl/ si configurés
-if [ -n "$SSL_CERT" ] && [ -n "$SSL_KEY" ]; then
+# SSL : priorité aux fichiers fixes adx.crt/adx.key, sinon options.json
+if [ -f "/ssl/adx.crt" ] && [ -f "/ssl/adx.key" ]; then
+  export SSL_CERT_PATH="/ssl/adx.crt"
+  export SSL_KEY_PATH="/ssl/adx.key"
+  echo "ADX Vignoble : HTTPS activé (adx.crt)"
+elif [ -n "$SSL_CERT" ] && [ -n "$SSL_KEY" ]; then
   if [ -f "/ssl/$SSL_CERT" ] && [ -f "/ssl/$SSL_KEY" ]; then
     export SSL_CERT_PATH="/ssl/$SSL_CERT"
     export SSL_KEY_PATH="/ssl/$SSL_KEY"
