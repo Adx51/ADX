@@ -1,20 +1,27 @@
-# ── Image unique : serveur + frontend pré-compilé ────────────
+# ── Stage 1 : build frontend ──────────────────────────────────
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY index.html vite.config.js tailwind.config.js postcss.config.js ./
+COPY public ./public
+COPY src ./src
+RUN npm run build
+
+# ── Stage 2 : serveur de production ───────────────────────────
 FROM node:22-alpine
 
-# Dépendances natives pour better-sqlite3
 RUN apk add --no-cache python3 make g++ sqlite-libs
 
 WORKDIR /app
 
-# Serveur Node.js (source copiée depuis le build context)
 COPY server ./server
 RUN cd server && npm ci --omit=dev
 
-# Frontend pré-compilé (dist/ inclus dans l'add-on)
-COPY dist ./dist
+COPY --from=builder /app/dist ./dist
 
-# Script de démarrage
-COPY run.sh /run.sh
+COPY addons/adx/run.sh /run.sh
 RUN chmod a+x /run.sh
 
 EXPOSE 3001
