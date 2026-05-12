@@ -8,14 +8,7 @@ import { parseToCa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
 import PhotoInput from '../../components/PhotoInput'
 
-const COMMUNES = [
-  'Avenay-Val-d\'Or', 'Avize', 'Ay', 'Bouzy', 'Chamery', 'Chigny-les-Roses',
-  'Chouilly', 'Cramant', 'Cumières', 'Dizy', 'Épernay', 'Festigny',
-  'Hautvillers', 'Leuvrigny', 'Louvois', 'Mareuil-sur-Ay', 'Mutigny',
-  'Oger', 'Le Mesnil-sur-Oger', 'Oiry', 'Reims', 'Rilly-la-Montagne',
-  'Tauxières-Mutry', 'Tours-sur-Marne', 'Trépail', 'Verzénay', 'Verzy',
-  'Villers-Marmery', 'Villeneuve-Renneville-Chevigny',
-]
+const COMMUNES = ['Chouilly', 'Hautvillers']
 
 const CEPAGES = ['Pinot Noir', 'Pinot Meunier', 'Chardonnay', 'Pinot Blanc', 'Pinot Gris', 'Arbane', 'Petit Meslier']
 
