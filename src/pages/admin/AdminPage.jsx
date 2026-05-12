@@ -19,7 +19,7 @@ export default function AdminPage() {
 
   return (
     <div>
-      <PageHeader title="Administration" back="/parcelles" />
+      <PageHeader title={`Administration · v${APP_VERSION}`} back="/parcelles" />
 
       <div className="flex border-b border-gray-200 sticky top-0 bg-white z-10">
         <TabBtn active={tab === 'users'} onClick={() => setTab('users')}>
