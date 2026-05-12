@@ -15,6 +15,7 @@ import chargementsRoutes  from './routes/chargements.js'
 import photosRoutes       from './routes/photos.js'
 import adminRoutes        from './routes/admin.js'
 import referentielsRoutes from './routes/referentiels.js'
+import dashboardRoutes    from './routes/dashboard.js'
 
 const __dirname  = path.dirname(fileURLToPath(import.meta.url))
 const PORT       = process.env.PORT || 3001
@@ -47,6 +48,7 @@ app.use('/api/chargements',   chargementsRoutes)
 app.use('/api/photos',        photosRoutes)
 app.use('/api/admin',         adminRoutes)
 app.use('/api/referentiels',  referentielsRoutes)
+app.use('/api/dashboard',     dashboardRoutes)
 
 // En production : servir l'app React buildée
 if (process.env.NODE_ENV === 'production') {

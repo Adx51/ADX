@@ -23,6 +23,7 @@ import VendangeDetail from './pages/vendange/VendangeDetail'
 import ChargementForm from './pages/vendange/ChargementForm'
 
 import AdminPage from './pages/admin/AdminPage'
+import DashboardPage from './pages/dashboard/DashboardPage'
 
 export default function App() {
   return (
@@ -35,7 +36,7 @@ export default function App() {
 
             <Route element={<PrivateRoute />}>
               <Route element={<Layout />}>
-                <Route index element={<Navigate to="/parcelles" replace />} />
+                <Route index element={<DashboardPage />} />
 
                 {/* Parcelles */}
                 <Route path="/parcelles" element={<ParcellesList />} />
