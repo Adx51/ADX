@@ -230,6 +230,74 @@ if (schemaVersion < 7) {
   db.pragma('user_version = 7')
 }
 
+if (schemaVersion < 8) {
+  // Snapshot totals sur campagnes (figés à la clôture)
+  try { db.exec(`ALTER TABLE campagnes ADD COLUMN poids_total_cloture REAL`) } catch {}
+  try { db.exec(`ALTER TABLE campagnes ADD COLUMN kg_attendu_cloture REAL`) } catch {}
+
+  // Recréer vendanges avec FK SET NULL + colonne parcelle_nom (persistance historique)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS vendanges_new (
+      id               TEXT PRIMARY KEY,
+      user_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      parcelle_id      TEXT REFERENCES parcelles(id) ON DELETE SET NULL,
+      parcelle_nom     TEXT,
+      annee            INTEGER NOT NULL,
+      poids_total      REAL DEFAULT 0,
+      nb_caisses_total INTEGER DEFAULT 0,
+      statut           TEXT NOT NULL DEFAULT 'en_cours',
+      date_cloture     TEXT,
+      notes            TEXT,
+      created_at       TEXT DEFAULT (datetime('now')),
+      updated_at       TEXT DEFAULT (datetime('now'))
+    );
+
+    INSERT INTO vendanges_new (id, user_id, parcelle_id, parcelle_nom, annee,
+      poids_total, nb_caisses_total, statut, date_cloture, notes, created_at, updated_at)
+    SELECT v.id, v.user_id, v.parcelle_id, p.nom,
+      v.annee, v.poids_total, v.nb_caisses_total,
+      COALESCE(v.statut, 'en_cours'), v.date_cloture,
+      v.notes, v.created_at, v.updated_at
+    FROM vendanges v
+    LEFT JOIN parcelles p ON p.id = v.parcelle_id;
+
+    DROP TABLE vendanges;
+    ALTER TABLE vendanges_new RENAME TO vendanges;
+
+    DROP TRIGGER IF EXISTS vendange_totaux_insert;
+    DROP TRIGGER IF EXISTS vendange_totaux_update;
+    DROP TRIGGER IF EXISTS vendange_totaux_delete;
+
+    CREATE TRIGGER vendange_totaux_insert
+    AFTER INSERT ON chargements BEGIN
+      UPDATE vendanges SET
+        poids_total      = (SELECT COALESCE(SUM(poids_kg),0)       FROM chargements WHERE vendange_id = NEW.vendange_id),
+        nb_caisses_total = (SELECT COALESCE(SUM(nombre_caisses),0) FROM chargements WHERE vendange_id = NEW.vendange_id),
+        updated_at       = datetime('now')
+      WHERE id = NEW.vendange_id;
+    END;
+
+    CREATE TRIGGER vendange_totaux_update
+    AFTER UPDATE ON chargements BEGIN
+      UPDATE vendanges SET
+        poids_total      = (SELECT COALESCE(SUM(poids_kg),0)       FROM chargements WHERE vendange_id = NEW.vendange_id),
+        nb_caisses_total = (SELECT COALESCE(SUM(nombre_caisses),0) FROM chargements WHERE vendange_id = NEW.vendange_id),
+        updated_at       = datetime('now')
+      WHERE id = NEW.vendange_id;
+    END;
+
+    CREATE TRIGGER vendange_totaux_delete
+    AFTER DELETE ON chargements BEGIN
+      UPDATE vendanges SET
+        poids_total      = (SELECT COALESCE(SUM(poids_kg),0)       FROM chargements WHERE vendange_id = OLD.vendange_id),
+        nb_caisses_total = (SELECT COALESCE(SUM(nombre_caisses),0) FROM chargements WHERE vendange_id = OLD.vendange_id),
+        updated_at       = datetime('now')
+      WHERE id = OLD.vendange_id;
+    END;
+  `)
+  db.pragma('user_version = 8')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5

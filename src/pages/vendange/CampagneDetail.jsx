@@ -90,13 +90,30 @@ export default function CampagneDetail() {
 
   const isClosed = campagne.statut === 'cloturee'
   const parcelles = campagne.parcelles || []
-  const totalPoids   = parcelles.reduce((s, p) => s + (p.poids_total || 0), 0)
+
+  // Quand clôturée : utiliser les valeurs figées au moment de la clôture
+  const totalPoids = isClosed && campagne.poids_total_cloture != null
+    ? campagne.poids_total_cloture
+    : parcelles.reduce((s, p) => s + (p.poids_total || 0), 0)
+
   const totalCaisses = parcelles.reduce((s, p) => s + (p.nb_caisses_total || 0), 0)
-  const totalSurfaceCa = parcelles
+
+  const totalSurfaceActiveCa = parcelles
     .filter(p => p.vendange_id)
     .reduce((s, p) => s + (p.surface_totale_ca || 0), 0)
-  const rendementMoyen = rendementKgHa(totalPoids, totalSurfaceCa)
+  const rendementMoyen = rendementKgHa(totalPoids, totalSurfaceActiveCa)
+
   const attendu = campagne.rendement_attendu_kgha
+
+  // Total kg attendu sur toutes les parcelles de la campagne
+  const kgAttenduTotal = isClosed && campagne.kg_attendu_cloture != null
+    ? campagne.kg_attendu_cloture
+    : attendu
+      ? Math.round(attendu * parcelles.reduce((s, p) => s + (p.surface_totale_ca || 0), 0) / 10000)
+      : null
+
+  const pctTotal = kgAttenduTotal ? Math.min(Math.round((totalPoids / kgAttenduTotal) * 100), 999) : null
+
   const nbEnCours = parcelles.filter(p => p.vendange_id && p.vendange_statut !== 'cloturee').length
 
   // Score tri : vendange active=0, non commencée=1, clôturée=2
@@ -165,11 +182,11 @@ export default function CampagneDetail() {
         )}
 
         {/* Stats globales */}
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <p className="text-2xl font-bold text-amber-800">{totalPoids.toFixed(0)}</p>
-              <p className="text-xs text-amber-600 mt-0.5">kg total</p>
+              <p className="text-2xl font-bold text-amber-800">{Number(totalPoids).toFixed(0)}</p>
+              <p className="text-xs text-amber-600 mt-0.5">kg récolté</p>
             </div>
             <div>
               <p className="text-2xl font-bold text-amber-800">{totalCaisses}</p>
@@ -182,11 +199,34 @@ export default function CampagneDetail() {
               <p className="text-xs text-vigne-600 mt-0.5">kg/ha moyen</p>
             </div>
           </div>
-          {attendu && rendementMoyen != null && (
-            <RendementComparison reel={rendementMoyen} attendu={attendu} className="mt-3" />
+
+          {/* Barre total récolté / attendu */}
+          {kgAttenduTotal != null && (
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="font-semibold text-amber-800">
+                  {Number(totalPoids).toLocaleString('fr-FR')} kg récoltés
+                  {isClosed && <span className="text-gray-400 font-normal ml-1">(figé)</span>}
+                </span>
+                <span className="text-amber-600">
+                  {kgAttenduTotal.toLocaleString('fr-FR')} kg attendus
+                </span>
+              </div>
+              <div className="h-2.5 bg-amber-200 rounded-full overflow-hidden">
+                <div className="h-full bg-amber-600 rounded-full transition-all"
+                     style={{ width: `${Math.min(pctTotal, 100)}%` }} />
+              </div>
+              <p className="text-xs text-center text-amber-700 font-semibold mt-1">
+                {pctTotal}% de l'objectif campagne
+              </p>
+            </div>
           )}
-          {nbEnCours > 0 && (
-            <p className="text-xs text-center text-amber-600 mt-2">
+
+          {attendu && rendementMoyen != null && (
+            <RendementComparison reel={rendementMoyen} attendu={attendu} />
+          )}
+          {!isClosed && nbEnCours > 0 && (
+            <p className="text-xs text-center text-amber-600">
               {nbEnCours} / {parcelles.length} parcelle{parcelles.length > 1 ? 's' : ''} commencée{nbEnCours > 1 ? 's' : ''}
             </p>
           )}

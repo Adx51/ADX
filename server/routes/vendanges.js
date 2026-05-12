@@ -33,11 +33,12 @@ router.post('/', (req, res) => {
   const existing = db.prepare('SELECT id FROM vendanges WHERE parcelle_id = ? AND annee = ?').get(parcelle_id, annee)
   if (existing) return res.status(409).json({ error: 'Une vendange existe déjà pour cette parcelle et cette année' })
 
+  const parcelleFull = db.prepare('SELECT nom FROM parcelles WHERE id = ?').get(parcelle_id)
   const id = uuidv4()
   db.prepare(`
-    INSERT INTO vendanges (id, user_id, parcelle_id, annee, notes)
-    VALUES (?,?,?,?,?)
-  `).run(id, req.userId, parcelle_id, annee, notes || null)
+    INSERT INTO vendanges (id, user_id, parcelle_id, parcelle_nom, annee, notes)
+    VALUES (?,?,?,?,?,?)
+  `).run(id, req.userId, parcelle_id, parcelleFull?.nom || null, annee, notes || null)
 
   res.json(db.prepare('SELECT * FROM vendanges WHERE id = ?').get(id))
 })

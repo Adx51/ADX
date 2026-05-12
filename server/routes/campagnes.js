@@ -38,21 +38,50 @@ router.post('/', (req, res) => {
   res.json(db.prepare('SELECT * FROM campagnes WHERE id = ?').get(id))
 })
 
-// Détail d'une campagne : infos + toutes les parcelles de l'utilisateur avec leur vendange éventuelle
+// Détail d'une campagne
 router.get('/:annee', (req, res) => {
   const annee = parseInt(req.params.annee)
   const campagne = db.prepare('SELECT * FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
   if (!campagne) return res.status(404).json({ error: 'Campagne introuvable' })
 
-  const parcelles = db.prepare(`
-    SELECT p.id, p.nom, p.surface_plantee_ca, p.surface_totale_ca, p.commune, p.cepages, p.statut,
-           v.id AS vendange_id, v.poids_total, v.nb_caisses_total, v.notes AS vendange_notes,
-           v.statut AS vendange_statut
-    FROM parcelles p
-    LEFT JOIN vendanges v ON v.parcelle_id = p.id AND v.annee = ? AND v.user_id = p.user_id
-    WHERE p.user_id = ?
-    ORDER BY p.nom
-  `).all(annee, req.userId).map(p => ({
+  let parcelles
+
+  if (campagne.statut === 'cloturee') {
+    // Campagne clôturée : on liste uniquement les vendanges existantes (snapshot figé)
+    // Même si une parcelle est supprimée depuis, on utilise parcelle_nom comme fallback
+    parcelles = db.prepare(`
+      SELECT
+        COALESCE(p.id, v.parcelle_id)       AS id,
+        COALESCE(p.nom, v.parcelle_nom)     AS nom,
+        COALESCE(p.surface_totale_ca, 0)    AS surface_totale_ca,
+        COALESCE(p.surface_plantee_ca, 0)   AS surface_plantee_ca,
+        COALESCE(p.commune, '')             AS commune,
+        COALESCE(p.cepages, '[]')           AS cepages,
+        p.statut,
+        v.id   AS vendange_id,
+        v.poids_total,
+        v.nb_caisses_total,
+        v.notes AS vendange_notes,
+        v.statut AS vendange_statut
+      FROM vendanges v
+      LEFT JOIN parcelles p ON p.id = v.parcelle_id
+      WHERE v.user_id = ? AND v.annee = ?
+      ORDER BY nom
+    `).all(req.userId, annee)
+  } else {
+    // Campagne en cours : toutes les parcelles de l'utilisateur, avec vendange si elle existe
+    parcelles = db.prepare(`
+      SELECT p.id, p.nom, p.surface_plantee_ca, p.surface_totale_ca, p.commune, p.cepages, p.statut,
+             v.id AS vendange_id, v.poids_total, v.nb_caisses_total, v.notes AS vendange_notes,
+             v.statut AS vendange_statut
+      FROM parcelles p
+      LEFT JOIN vendanges v ON v.parcelle_id = p.id AND v.annee = ? AND v.user_id = p.user_id
+      WHERE p.user_id = ?
+      ORDER BY p.nom
+    `).all(annee, req.userId)
+  }
+
+  parcelles = parcelles.map(p => ({
     ...p,
     cepages: p.cepages ? (() => { try { return JSON.parse(p.cepages) } catch { return [] } })() : [],
   }))
@@ -88,12 +117,32 @@ router.put('/:annee', (req, res) => {
 
 router.post('/:annee/cloturer', (req, res) => {
   const annee = parseInt(req.params.annee)
-  const c = db.prepare('SELECT id FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
+  const c = db.prepare('SELECT * FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
   if (!c) return res.status(404).json({ error: 'Campagne introuvable' })
+
+  // Snapshot : total kg récolté + total kg attendu au moment de la clôture
+  const totals = db.prepare(`
+    SELECT COALESCE(SUM(v.poids_total), 0) AS poids_total,
+           COALESCE(SUM(p.surface_totale_ca), 0) AS surface_ca
+    FROM vendanges v
+    LEFT JOIN parcelles p ON p.id = v.parcelle_id
+    WHERE v.user_id = ? AND v.annee = ?
+  `).get(req.userId, annee)
+
+  const kgAttendu = c.rendement_attendu_kgha && totals.surface_ca
+    ? Math.round(c.rendement_attendu_kgha * totals.surface_ca / 10000)
+    : null
+
   db.prepare(`
-    UPDATE campagnes SET statut = 'cloturee', date_cloture = datetime('now'), updated_at = datetime('now')
+    UPDATE campagnes SET
+      statut = 'cloturee',
+      date_cloture = datetime('now'),
+      poids_total_cloture = ?,
+      kg_attendu_cloture = ?,
+      updated_at = datetime('now')
     WHERE id = ?
-  `).run(c.id)
+  `).run(totals.poids_total, kgAttendu, c.id)
+
   res.json(db.prepare('SELECT * FROM campagnes WHERE id = ?').get(c.id))
 })
 
