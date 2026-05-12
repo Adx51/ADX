@@ -12,6 +12,7 @@ fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
 const db = Database(DB_PATH)
 db.pragma('journal_mode = WAL')
 db.pragma('foreign_keys = ON')
+db.pragma('wal_autocheckpoint = 100')
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -153,6 +154,12 @@ if (schemaVersion < 4) {
   db.prepare(`UPDATE referentiels SET code_insee = '51154' WHERE type = 'commune' AND valeur = 'Chouilly'`).run()
   db.prepare(`UPDATE referentiels SET code_insee = '51301' WHERE type = 'commune' AND valeur = 'Hautvillers'`).run()
   db.pragma('user_version = 4')
+}
+
+export function checkpointDb() {
+  try {
+    db.pragma('wal_checkpoint(FULL)')
+  } catch {}
 }
 
 export { ADMIN_EMAIL }

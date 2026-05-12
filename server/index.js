@@ -5,6 +5,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs'
 
+import db, { checkpointDb } from './db.js'
 import authRoutes         from './routes/auth.js'
 import parcellesRoutes    from './routes/parcelles.js'
 import tachesRoutes       from './routes/taches.js'
@@ -51,6 +52,18 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(distPath))
   app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')))
 }
+
+// Checkpoint WAL toutes les 30 minutes
+setInterval(checkpointDb, 30 * 60 * 1000)
+
+// Checkpoint + fermeture propre à l'arrêt du container
+function shutdown() {
+  checkpointDb()
+  db.close()
+  process.exit(0)
+}
+process.on('SIGTERM', shutdown)
+process.on('SIGINT',  shutdown)
 
 const SSL_CERT = process.env.SSL_CERT_PATH
 const SSL_KEY  = process.env.SSL_KEY_PATH
