@@ -15,7 +15,11 @@ router.get('/', (req, res) => {
       (SELECT COALESCE(SUM(v.nb_caisses_total), 0)
          FROM vendanges v WHERE v.user_id = c.user_id AND v.annee = c.annee) AS caisses_total,
       (SELECT COUNT(*)
-         FROM vendanges v WHERE v.user_id = c.user_id AND v.annee = c.annee) AS nb_vendanges
+         FROM vendanges v WHERE v.user_id = c.user_id AND v.annee = c.annee) AS nb_vendanges,
+      (SELECT COALESCE(SUM(p.surface_totale_ca), 0)
+         FROM vendanges v
+         JOIN parcelles p ON p.id = v.parcelle_id
+         WHERE v.user_id = c.user_id AND v.annee = c.annee) AS surface_totale_ca
     FROM campagnes c
     WHERE c.user_id = ?
     ORDER BY c.annee DESC

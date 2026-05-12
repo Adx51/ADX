@@ -10,6 +10,18 @@ export function caToDisplay(ca) {
   return `${ares} A ${String(centi).padStart(2, '0')}`
 }
 
+// Affiche en ha quand la surface dépasse 100 A (10 000 ca)
+export function caToDisplayHa(ca) {
+  if (!ca && ca !== 0) return '—'
+  if (ca < 10000) return caToDisplay(ca)
+  const ha = Math.floor(ca / 10000)
+  const ares = Math.floor((ca % 10000) / 100)
+  const centi = ca % 100
+  if (ares === 0 && centi === 0) return `${ha} ha`
+  if (centi === 0) return `${ha} ha ${ares} A`
+  return `${ha} ha ${ares} A ${String(centi).padStart(2, '0')}`
+}
+
 export function caToHa(ca) {
   if (!ca && ca !== 0) return 0
   return ca / 10000

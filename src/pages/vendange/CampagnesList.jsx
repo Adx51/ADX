@@ -3,6 +3,57 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Grape, ChevronRight, Lock } from 'lucide-react'
 import { api } from '../../lib/api'
 
+function CardStats({ c }) {
+  const isClosed = c.statut === 'cloturee'
+
+  // Kg récoltés : snapshot si clôturée, live sinon
+  const kgRecolt = isClosed && c.poids_total_cloture != null
+    ? c.poids_total_cloture
+    : (c.poids_total || 0)
+
+  // Kg attendus : snapshot si clôturée, calculé sinon
+  const kgAttendu = isClosed && c.kg_attendu_cloture != null
+    ? c.kg_attendu_cloture
+    : (c.rendement_attendu_kgha && c.surface_totale_ca
+        ? Math.round(c.rendement_attendu_kgha * c.surface_totale_ca / 10000)
+        : null)
+
+  // Rendement moyen réel
+  const kgHaMoyen = c.surface_totale_ca > 0
+    ? Math.round(kgRecolt / (c.surface_totale_ca / 10000))
+    : null
+
+  const pct = kgAttendu > 0 ? Math.min(Math.round(kgRecolt / kgAttendu * 100), 100) : null
+
+  return (
+    <div className="flex-1 min-w-0">
+      <p className="font-semibold text-gray-900">
+        Vendanges {c.annee}
+        {isClosed && <span className="text-xs text-gray-400 ml-2 font-normal">(clôturée)</span>}
+      </p>
+      <p className="text-sm text-gray-600 mt-0.5">
+        {Number(kgRecolt).toLocaleString('fr-FR')} kg
+        {kgHaMoyen ? <> · <span className="text-vigne-700 font-medium">{kgHaMoyen.toLocaleString('fr-FR')} kg/ha</span></> : null}
+        {' · '}{c.nb_vendanges || 0} parcelle{c.nb_vendanges > 1 ? 's' : ''}
+      </p>
+
+      {kgAttendu > 0 && (
+        <div className="mt-1.5 space-y-0.5">
+          <div className="h-1.5 bg-amber-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-amber-500 rounded-full transition-all"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="text-xs text-gray-400">
+            {pct}% · {Number(kgAttendu).toLocaleString('fr-FR')} kg attendus
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function CampagnesList() {
   const navigate = useNavigate()
   const [campagnes, setCampagnes] = useState([])
@@ -45,20 +96,7 @@ export default function CampagnesList() {
                   }`}>{c.annee}</span>
                   {c.statut === 'cloturee' && <Lock size={10} className="text-gray-400 mt-1" />}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900">
-                    Campagne {c.annee}
-                    {c.statut === 'cloturee' && <span className="text-xs text-gray-400 ml-2 font-normal">(clôturée)</span>}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-0.5">
-                    {Number(c.poids_total || 0).toFixed(0)} kg · {c.caisses_total || 0} caisses · {c.nb_vendanges || 0} parcelle{c.nb_vendanges > 1 ? 's' : ''}
-                  </p>
-                  {c.rendement_attendu_kgha && (
-                    <p className="text-xs text-vigne-600 mt-0.5">
-                      Objectif : {Number(c.rendement_attendu_kgha).toLocaleString('fr-FR')} kg/ha
-                    </p>
-                  )}
-                </div>
+                <CardStats c={c} />
                 <ChevronRight size={18} className="text-gray-300 flex-shrink-0" />
               </div>
             </button>

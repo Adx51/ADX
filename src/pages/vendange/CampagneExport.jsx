@@ -4,7 +4,7 @@ import { Printer, ArrowLeft, Loader2 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { api } from '../../lib/api'
-import { caToDisplay, rendementKgHa } from '../../lib/surface'
+import { caToDisplayHa, rendementKgHa } from '../../lib/surface'
 
 export default function CampagneExport() {
   const { annee } = useParams()
@@ -93,7 +93,7 @@ function GroupeSection({ groupe, annee }) {
           {/* Ligne total */}
           <tr className="border border-gray-900 bg-gray-50">
             <td className="border border-gray-900 px-3 py-2 font-bold uppercase">
-              TOTAL — {caToDisplay(totalSurface)}
+              TOTAL — {caToDisplayHa(totalSurface)}
             </td>
             <td className="border border-gray-900 px-3 py-2 text-center font-bold">
               {totalCaisses}c &nbsp; {totalPoids.toFixed(0)} kg
@@ -119,7 +119,7 @@ function ParcelleRows({ parcelle }) {
     return (
       <tr className="border border-gray-300">
         <td className="border border-gray-300 px-3 py-2 text-gray-400 italic">
-          {parcelle.nom} — {caToDisplay(parcelle.surface_totale_ca)}
+          {parcelle.nom} — {caToDisplayHa(parcelle.surface_totale_ca)}
         </td>
         <td className="border border-gray-300 px-3 py-2 text-center text-gray-400 text-xs italic">
           Non commencé
@@ -135,7 +135,7 @@ function ParcelleRows({ parcelle }) {
         <td className="border border-gray-300 px-3 py-2 font-semibold uppercase">
           {parcelle.nom}
           <br />
-          <span className="font-normal text-xs text-gray-500">{caToDisplay(parcelle.surface_totale_ca)}</span>
+          <span className="font-normal text-xs text-gray-500">{caToDisplayHa(parcelle.surface_totale_ca)}</span>
         </td>
         <td className="border border-gray-300 px-3 py-2 text-center text-gray-400 text-xs italic">
           Aucun chargement
@@ -155,7 +155,7 @@ function ParcelleRows({ parcelle }) {
               rowSpan={chargements.length}>
             {parcelle.nom}
             <br />
-            <span className="font-normal text-xs text-gray-500">{caToDisplay(parcelle.surface_totale_ca)}</span>
+            <span className="font-normal text-xs text-gray-500">{caToDisplayHa(parcelle.surface_totale_ca)}</span>
           </td>
         )}
         <td className="border border-gray-300 px-3 py-1.5">

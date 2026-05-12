@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Map, LogOut, ChevronRight, ChevronDown, Search, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
-import { caToDisplay } from '../../lib/surface'
+import { caToDisplay, caToDisplayHa } from '../../lib/surface'
 
 const STATUT_BADGE = {
   en_production: null,
@@ -111,6 +111,7 @@ export default function ParcellesList() {
         ) : (
           groups.map(({ commune, parcelles: list }) => {
             const isOpen = isSearch || !collapsed.has(commune)
+            const totalSurface = list.reduce((s, p) => s + (p.surface_totale_ca || 0), 0)
             return (
               <div key={commune}>
                 {/* Commune header — clickable to collapse */}
@@ -121,7 +122,7 @@ export default function ParcellesList() {
                   <h2 className="text-xs font-semibold text-vigne-700 uppercase tracking-wider">
                     {commune}
                     <span className="text-gray-400 font-normal normal-case ml-1.5">
-                      ({list.length} parcelle{list.length > 1 ? 's' : ''})
+                      ({list.length} parcelle{list.length > 1 ? 's' : ''} · {caToDisplayHa(totalSurface)})
                     </span>
                   </h2>
                   <ChevronDown
