@@ -29,6 +29,7 @@ export default function ParcelleForm() {
   const [error, setError] = useState('')
   const [cepagesSelected, setCepagesSelected] = useState([])
   const [showMap, setShowMap] = useState(false)
+  const [cadastreFeatures, setCadastreFeatures] = useState(null)
   const [communes, setCommunes] = useState([])   // [{valeur, code_insee}]
   const [cepages, setCepages] = useState([])      // [{valeur}]
 
@@ -114,12 +115,13 @@ export default function ParcelleForm() {
     }
     setCadastreLoading(true)
     try {
-      const { lat, lng, notFound } = await locateFromCadastre(commune.code_insee, refCadastrale)
+      const { lat, lng, notFound, features } = await locateFromCadastre(commune.code_insee, refCadastrale)
       setValue('gps_lat', lat)
       setValue('gps_lng', lng)
+      setCadastreFeatures(features)
       setShowMap(true)
       if (notFound.length) {
-        setError(`Localisation partielle — parcelle(s) non trouvée(s) : ${notFound.join(', ')}`)
+        setError(`Localisation partielle — introuvable(s) : ${notFound.join(', ')}`)
       }
     } catch (e) {
       setError(e.message)
@@ -317,6 +319,7 @@ export default function ParcelleForm() {
                 <MapPicker
                   lat={gpsLat}
                   lng={gpsLng}
+                  geoFeatures={cadastreFeatures}
                   onChange={(lat, lng) => {
                     setValue('gps_lat', lat)
                     setValue('gps_lng', lng)
