@@ -148,8 +148,8 @@ export default function ParcelleDetail() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-gray-900">Historique vendanges</h2>
-            <Link to={`/vendange/new?parcelle=${id}`} className="text-vigne-700 text-sm font-semibold">
-              + Ajouter
+            <Link to="/vendange" className="text-vigne-700 text-sm font-semibold">
+              + Voir
             </Link>
           </div>
 
@@ -163,7 +163,7 @@ export default function ParcelleDetail() {
               {parcelle.vendanges.map(v => {
                 const rendement = rendementKgHa(v.poids_total, parcelle.surface_plantee_ca)
                 return (
-                  <button key={v.id} onClick={() => navigate(`/vendange/${v.id}`)}
+                  <button key={v.id} onClick={() => navigate(`/vendange/parcelle/${v.id}`)}
                           className="card w-full text-left flex items-center gap-3 active:scale-[0.99] transition-transform">
                     <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
                       <span className="font-bold text-amber-700 text-sm">{v.annee}</span>

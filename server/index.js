@@ -9,6 +9,7 @@ import db, { backupDb } from './db.js'
 import authRoutes         from './routes/auth.js'
 import parcellesRoutes    from './routes/parcelles.js'
 import tachesRoutes       from './routes/taches.js'
+import campagnesRoutes    from './routes/campagnes.js'
 import vendangesRoutes    from './routes/vendanges.js'
 import chargementsRoutes  from './routes/chargements.js'
 import photosRoutes       from './routes/photos.js'
@@ -40,6 +41,7 @@ app.use('/photos', express.static(PHOTOS_DIR))
 app.use('/api/auth',          authRoutes)
 app.use('/api/parcelles',     parcellesRoutes)
 app.use('/api/taches',        tachesRoutes)
+app.use('/api/campagnes',     campagnesRoutes)
 app.use('/api/vendanges',     vendangesRoutes)
 app.use('/api/chargements',   chargementsRoutes)
 app.use('/api/photos',        photosRoutes)

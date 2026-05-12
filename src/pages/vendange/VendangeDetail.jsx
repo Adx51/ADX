@@ -30,7 +30,7 @@ export default function VendangeDetail() {
 
   async function deleteVendange() {
     await api.delete(`/vendanges/${id}`)
-    navigate('/vendange')
+    navigate(vendange?.annee ? `/vendange/${vendange.annee}` : '/vendange')
   }
 
   if (loading) return (
@@ -49,6 +49,8 @@ export default function VendangeDetail() {
     </div>
   )
 
+  const backUrl = `/vendange/${vendange.annee}`
+
   const parcelle = vendange.parcelles
   const chargements = vendange.chargements || []
   const rendement = rendementKgHa(vendange.poids_total, parcelle?.surface_plantee_ca)
@@ -62,12 +64,7 @@ export default function VendangeDetail() {
 
   return (
     <div>
-      <PageHeader title={`${parcelle?.nom} — ${vendange.annee}`} back="/vendange">
-        <button onClick={() => navigate(`/vendange/${id}/edit`)}
-                className="p-2 rounded-full active:bg-vigne-600">
-          <Edit2 size={18} />
-        </button>
-      </PageHeader>
+      <PageHeader title={`${parcelle?.nom} — ${vendange.annee}`} back={backUrl} />
 
       <div className="px-4 pt-4 space-y-4">
         {/* Récap */}
@@ -106,7 +103,7 @@ export default function VendangeDetail() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-gray-900">Chargements au pressoir</h2>
-            <button onClick={() => navigate(`/vendange/${id}/chargement/new`)}
+            <button onClick={() => navigate(`/vendange/parcelle/${id}/chargement/new`)}
                     className="flex items-center gap-1 text-amber-600 font-semibold text-sm">
               <Plus size={18} />
               Ajouter
@@ -117,7 +114,7 @@ export default function VendangeDetail() {
             <div className="card text-center py-8">
               <Package size={32} className="mx-auto text-gray-300 mb-2" />
               <p className="text-gray-500 text-sm">Aucun chargement enregistré</p>
-              <button onClick={() => navigate(`/vendange/${id}/chargement/new`)}
+              <button onClick={() => navigate(`/vendange/parcelle/${id}/chargement/new`)}
                       className="mt-3 text-amber-600 font-medium text-sm">
                 Ajouter le premier chargement
               </button>
@@ -168,7 +165,7 @@ export default function VendangeDetail() {
                               <span className="font-bold text-amber-700">{c.poids_kg} kg</span>
                             </div>
                             <div className="flex gap-1">
-                              <button onClick={() => navigate(`/vendange/${id}/chargement/${c.id}/edit`)}
+                              <button onClick={() => navigate(`/vendange/parcelle/${id}/chargement/${c.id}/edit`)}
                                       className="p-2 text-gray-400 active:text-vigne-700">
                                 <Edit2 size={16} />
                               </button>

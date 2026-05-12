@@ -65,7 +65,7 @@ export default function ChargementForm() {
       } else {
         await api.post('/chargements', payload)
       }
-      navigate(`/vendange/${vendangeId}`)
+      navigate(`/vendange/parcelle/${vendangeId}`)
     } catch (e) {
       setError(e.message)
       setSaving(false)
@@ -76,7 +76,7 @@ export default function ChargementForm() {
     <div>
       <PageHeader
         title={isEdit ? 'Modifier le chargement' : 'Nouveau chargement'}
-        back={`/vendange/${vendangeId}`}
+        back={`/vendange/parcelle/${vendangeId}`}
       />
 
       <div className="px-4 pt-3">

@@ -194,6 +194,26 @@ if (schemaVersion < 4) {
   db.pragma('user_version = 4')
 }
 
+if (schemaVersion < 5) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS campagnes (
+      id                      TEXT PRIMARY KEY,
+      user_id                 TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      annee                   INTEGER NOT NULL,
+      date_debut              TEXT,
+      rendement_attendu_kgha  INTEGER,
+      statut                  TEXT NOT NULL DEFAULT 'en_cours'
+                                CHECK (statut IN ('en_cours','cloturee')),
+      date_cloture            TEXT,
+      note_bilan              TEXT,
+      created_at              TEXT DEFAULT (datetime('now')),
+      updated_at              TEXT DEFAULT (datetime('now')),
+      UNIQUE (user_id, annee)
+    )
+  `)
+  db.pragma('user_version = 5')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5
