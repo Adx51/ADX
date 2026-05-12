@@ -243,8 +243,14 @@ if (schemaVersion < 8) {
     db.prepare(`PRAGMA table_info(vendanges)`).all().some(c => c.name === 'parcelle_nom')
 
   if (!hasParcellenom) {
-    // Exécuter chaque statement individuellement (exec() interdit dans db.transaction())
     db.pragma('foreign_keys = OFF')
+
+    // SQLite >= 3.26 valide les références des triggers lors d'un ALTER TABLE RENAME.
+    // Si les triggers existent et que vendanges est droppée juste avant le RENAME,
+    // SQLite lève "no such table: main.vendanges". On doit les dropper en premier.
+    db.exec(`DROP TRIGGER IF EXISTS vendange_totaux_insert`)
+    db.exec(`DROP TRIGGER IF EXISTS vendange_totaux_update`)
+    db.exec(`DROP TRIGGER IF EXISTS vendange_totaux_delete`)
 
     if (tbls.includes('vendanges_new')) {
       // Migration précédente avortée : vendanges_new a les données, on renomme
