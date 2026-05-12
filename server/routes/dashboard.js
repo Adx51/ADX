@@ -74,20 +74,25 @@ function parseRSS(xml) {
       const r = body.match(new RegExp(`<${tag}[^>]*>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?<\\/${tag}>`))
       return r ? r[1].trim() : ''
     }
-    const title = get('title')
-    const link  = get('link') || body.match(/<link\s*\/>[\s]*([^\s<]+)/)?.[1] || ''
-    const pub   = get('pubDate')
-    const src   = body.match(/<source[^>]*>([^<]*)<\/source>/)?.[1] || ''
-    if (title.length > 8) items.push({ title, link, pubDate: pub ? new Date(pub).getTime() : 0, source: src })
+    const title  = get('title')
+    const link   = get('link') || body.match(/<link\s*\/>[\s]*([^\s<]+)/)?.[1] || ''
+    const pub    = get('pubDate')
+    // Extraire le nom ET l'URL du tag <source url="...">Nom</source>
+    const srcTag = body.match(/<source[^>]*url="([^"]*)"[^>]*>([^<]*)<\/source>/)
+    const src    = srcTag?.[2]?.trim() || ''
+    const srcUrl = srcTag?.[1] || ''
+    const srcDomain = (() => { try { return new URL(srcUrl).hostname.replace(/^www\./, '') } catch { return '' } })()
+    if (title.length > 8) items.push({ title, link, pubDate: pub ? new Date(pub).getTime() : 0, source: src, srcDomain })
   }
   return items
 }
 
-// Sources connues pour être derrière un paywall
-const PAYWALL_SOURCES = new Set([
-  'Le Monde', 'Le Figaro', 'Les Échos', "L'Express", 'Le Point',
-  "L'Obs", 'Challenges', 'Capital', 'Marianne', 'La Croix',
-  "L'Opinion", 'La Tribune', 'Mediapart', 'Libération',
+// Domaines connus derrière paywall (plus fiable que le nom de source)
+const PAYWALL_DOMAINS = new Set([
+  'lemonde.fr', 'lefigaro.fr', 'lesechos.fr', 'lexpress.fr', 'lepoint.fr',
+  'challenges.fr', 'capital.fr', 'latribune.fr', 'mediapart.fr',
+  'liberation.fr', 'lacroix.com', 'marianne.net', 'lopinion.fr',
+  'nouvelobs.com', 'leparisien.fr', 'lejdd.fr', 'lecho.be',
 ])
 
 const FEEDS = [
@@ -99,7 +104,7 @@ const FEEDS = [
 
 // GET /api/dashboard/news
 router.get('/news', async (req, res) => {
-  const cached = fromCache('news', 30 * 60 * 1000)
+  const cached = fromCache('news_v2', 30 * 60 * 1000)
   if (cached) return res.json(cached)
 
   const all = []
@@ -110,19 +115,19 @@ router.get('/news', async (req, res) => {
         signal: AbortSignal.timeout(7000),
       })
       const text = await r.text()
-      parseRSS(text).slice(0, 4).forEach(item => all.push({ ...item, tag }))
+      parseRSS(text).slice(0, 5).forEach(item => all.push({ ...item, tag }))
     } catch {}
   }))
 
   const seen = new Set()
   const news = all
-    .filter(item => !PAYWALL_SOURCES.has(item.source))
+    .filter(item => !PAYWALL_DOMAINS.has(item.srcDomain))
     .filter(item => { const k = item.title.toLowerCase().slice(0, 50); if (seen.has(k)) return false; seen.add(k); return true })
     .sort((a, b) => b.pubDate - a.pubDate)
     .slice(0, 10)
     .map(({ title, link, pubDate, source, tag }) => ({ title, link, pubDate, source, tag }))
 
-  setCache('news', news)
+  setCache('news_v2', news)
   res.json(news)
 })
 
