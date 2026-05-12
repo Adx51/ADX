@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, List, Trash2, Crown, User, Plus, X, Edit2, Check, Database, Download } from 'lucide-react'
+import { Users, List, Trash2, Crown, User, Plus, X, Edit2, Check, Database, Download, RefreshCw } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import PageHeader from '../../components/PageHeader'
+import { APP_VERSION } from '../../lib/version'
 
 export default function AdminPage() {
   const { user } = useAuth()
@@ -267,6 +268,32 @@ function BackupTab() {
         Sauvegarde automatique toutes les 30 minutes côté serveur (5 dernières conservées dans <code>/data/backups</code>).
         Restauration automatique au démarrage si la base est vide.
       </p>
+
+      {/* Version + Forcer mise à jour */}
+      <div className="card space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-semibold text-gray-900">Version de l'application</p>
+            <p className="text-xs text-gray-500 mt-0.5">LF-Boyer Vignoble <span className="font-mono text-vigne-700">v{APP_VERSION}</span></p>
+          </div>
+        </div>
+        <button
+          onClick={async () => {
+            if ('serviceWorker' in navigator) {
+              const regs = await navigator.serviceWorker.getRegistrations()
+              await Promise.all(regs.map(r => r.unregister()))
+            }
+            window.location.reload()
+          }}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 text-gray-700 text-sm font-medium active:bg-gray-50"
+        >
+          <RefreshCw size={16} />
+          Forcer la mise à jour
+        </button>
+        <p className="text-xs text-gray-400">
+          Si l'appli semble bloquée sur une ancienne version, ce bouton efface le cache du navigateur et recharge.
+        </p>
+      </div>
     </div>
   )
 }
