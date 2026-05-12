@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, List, Trash2, Crown, User, Plus, X, Edit2, Check } from 'lucide-react'
+import { Users, List, Trash2, Crown, User, Plus, X, Edit2, Check, Database, Download } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import PageHeader from '../../components/PageHeader'
@@ -27,10 +27,15 @@ export default function AdminPage() {
         <TabBtn active={tab === 'refs'} onClick={() => setTab('refs')}>
           <List size={16} /> Référentiels
         </TabBtn>
+        <TabBtn active={tab === 'backup'} onClick={() => setTab('backup')}>
+          <Database size={16} /> Sauvegarde
+        </TabBtn>
       </div>
 
       <div className="px-4 pt-4 pb-8">
-        {tab === 'users' ? <UsersTab /> : <RefsTab />}
+        {tab === 'users' && <UsersTab />}
+        {tab === 'refs'  && <RefsTab />}
+        {tab === 'backup' && <BackupTab />}
       </div>
     </div>
   )
@@ -199,6 +204,70 @@ function EditUserForm({ user, onSave, onCancel }) {
         </button>
       </div>
     </form>
+  )
+}
+
+// ── Backup tab ───────────────────────────────────────────────────────────────
+
+function BackupTab() {
+  const [busy, setBusy] = useState('')
+  const [error, setError] = useState('')
+
+  async function download(endpoint, label) {
+    setBusy(endpoint)
+    setError('')
+    try {
+      const token = localStorage.getItem('adx_token')
+      const res = await fetch(`/api${endpoint}`, { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) throw new Error(`Erreur ${res.status}`)
+      const blob = await res.blob()
+      const cd = res.headers.get('Content-Disposition') || ''
+      const m = cd.match(/filename="?([^"]+)"?/)
+      const filename = m?.[1] || `lf-boyer-${Date.now()}.bin`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = filename
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setError(`${label} : ${e.message}`)
+    } finally {
+      setBusy('')
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>
+      )}
+      <div className="card space-y-3">
+        <div>
+          <p className="font-semibold text-gray-900">Sauvegarde complète (.db)</p>
+          <p className="text-xs text-gray-500 mt-1">Fichier SQLite brut — toutes les données, photos exclues.</p>
+        </div>
+        <button onClick={() => download('/admin/backup', 'Sauvegarde')} disabled={busy === '/admin/backup'}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-vigne-700 text-white text-sm font-medium active:bg-vigne-800 disabled:opacity-60">
+          <Download size={16} />
+          {busy === '/admin/backup' ? 'Préparation...' : 'Télécharger la base'}
+        </button>
+      </div>
+      <div className="card space-y-3">
+        <div>
+          <p className="font-semibold text-gray-900">Export JSON</p>
+          <p className="text-xs text-gray-500 mt-1">Format lisible — utile pour archivage hors-ligne ou consultation.</p>
+        </div>
+        <button onClick={() => download('/admin/export', 'Export JSON')} disabled={busy === '/admin/export'}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 text-gray-700 text-sm font-medium active:bg-gray-50 disabled:opacity-60">
+          <Download size={16} />
+          {busy === '/admin/export' ? 'Préparation...' : 'Télécharger l\'export JSON'}
+        </button>
+      </div>
+      <p className="text-xs text-gray-400 px-2">
+        Sauvegarde automatique toutes les 30 minutes côté serveur (5 dernières conservées dans <code>/data/backups</code>).
+        Restauration automatique au démarrage si la base est vide.
+      </p>
+    </div>
   )
 }
 

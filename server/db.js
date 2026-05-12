@@ -4,13 +4,51 @@ import { fileURLToPath } from 'url'
 import fs from 'fs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../data/adx.db')
+const DB_PATH    = process.env.DB_PATH || path.join(__dirname, '../data/adx.db')
+const BACKUP_DIR = path.join(path.dirname(DB_PATH), 'backups')
 
-// Ensure data directory exists
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true })
+fs.mkdirSync(BACKUP_DIR, { recursive: true })
+
+// ─── Auto-restore : si la BDD principale est vide/absente, restaurer le backup ──
+function dbHasData(filePath) {
+  try {
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).size < 1024) return false
+    const probe = Database(filePath, { readonly: true })
+    const row = probe.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='users' LIMIT 1`).get()
+    let count = 0
+    if (row) {
+      count = probe.prepare(`SELECT COUNT(*) AS n FROM users`).get().n
+    }
+    probe.close()
+    return count > 0
+  } catch {
+    return false
+  }
+}
+
+function latestBackup() {
+  try {
+    const files = fs.readdirSync(BACKUP_DIR)
+      .filter(f => f.endsWith('.db'))
+      .map(f => ({ f, t: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
+      .sort((a, b) => b.t - a.t)
+    return files[0] ? path.join(BACKUP_DIR, files[0].f) : null
+  } catch { return null }
+}
+
+if (!dbHasData(DB_PATH)) {
+  const backup = latestBackup()
+  if (backup && dbHasData(backup)) {
+    console.log(`⚠ BDD principale vide — restauration depuis ${backup}`)
+    fs.copyFileSync(backup, DB_PATH)
+  }
+}
+
+// ─── Ouverture BDD ────────────────────────────────────────────────────────────
 
 const db = Database(DB_PATH)
-// DELETE mode: données toujours dans le fichier principal, pas de WAL à désynchroniser
+// DELETE mode : données toujours dans le fichier principal, pas de WAL à désynchroniser
 db.pragma('journal_mode = DELETE')
 db.pragma('foreign_keys = ON')
 db.pragma('synchronous = FULL')
@@ -82,7 +120,6 @@ db.exec(`
     updated_at       TEXT DEFAULT (datetime('now'))
   );
 
-  -- Triggers: recalcule automatiquement les totaux vendange
   CREATE TRIGGER IF NOT EXISTS vendange_totaux_insert
   AFTER INSERT ON chargements BEGIN
     UPDATE vendanges SET
@@ -157,11 +194,36 @@ if (schemaVersion < 4) {
   db.pragma('user_version = 4')
 }
 
-export function checkpointDb() {
+// ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
+
+const MAX_BACKUPS = 5
+
+export async function backupDb() {
   try {
-    db.pragma('wal_checkpoint(FULL)')
-  } catch {}
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const dest  = path.join(BACKUP_DIR, `adx-${stamp}.db`)
+    await db.backup(dest)
+    // Rotation : ne garder que les MAX_BACKUPS plus récents
+    const files = fs.readdirSync(BACKUP_DIR)
+      .filter(f => f.endsWith('.db'))
+      .map(f => ({ f, t: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
+      .sort((a, b) => b.t - a.t)
+    for (const old of files.slice(MAX_BACKUPS)) {
+      try { fs.unlinkSync(path.join(BACKUP_DIR, old.f)) } catch {}
+    }
+    return dest
+  } catch (e) {
+    console.error('Backup BDD échoué :', e.message)
+    return null
+  }
 }
+
+// Backup initial au démarrage + toutes les 30 minutes
+backupDb()
+setInterval(backupDb, 30 * 60 * 1000)
+
+// Backwards-compat : ancien export utilisé par index.js
+export function checkpointDb() { backupDb() }
 
 export { ADMIN_EMAIL }
 export default db

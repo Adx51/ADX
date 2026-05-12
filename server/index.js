@@ -5,7 +5,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs'
 
-import db, { checkpointDb } from './db.js'
+import db, { backupDb } from './db.js'
 import authRoutes         from './routes/auth.js'
 import parcellesRoutes    from './routes/parcelles.js'
 import tachesRoutes       from './routes/taches.js'
@@ -53,12 +53,10 @@ if (process.env.NODE_ENV === 'production') {
   app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')))
 }
 
-// Checkpoint WAL toutes les 30 minutes
-setInterval(checkpointDb, 30 * 60 * 1000)
-
-// Checkpoint + fermeture propre à l'arrêt du container
-function shutdown() {
-  checkpointDb()
+// Backup + fermeture propre à l'arrêt du container
+async function shutdown() {
+  console.log('→ Arrêt en cours, backup final...')
+  await backupDb()
   db.close()
   process.exit(0)
 }

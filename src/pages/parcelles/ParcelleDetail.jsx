@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation } from 'lucide-react'
 import { api } from '../../lib/api'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
+import { locateFromCadastre } from '../../lib/cadastre'
 import PageHeader from '../../components/PageHeader'
 import MapPicker from '../../components/MapPicker'
 
@@ -12,6 +13,7 @@ export default function ParcelleDetail() {
   const [parcelle, setParcelle] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [geoFeatures, setGeoFeatures] = useState(null)
 
   useEffect(() => {
     api.get(`/parcelles/${id}`).then(data => {
@@ -19,6 +21,20 @@ export default function ParcelleDetail() {
       setLoading(false)
     })
   }, [id])
+
+  // Récupère le polygone cadastral pour l'afficher en vert sur la carte
+  useEffect(() => {
+    if (!parcelle?.reference_cadastrale || !parcelle?.commune) return
+    let cancelled = false
+    api.get('/referentiels/commune').then(communes => {
+      const commune = communes?.find(c => c.valeur === parcelle.commune)
+      if (!commune?.code_insee) return
+      locateFromCadastre(commune.code_insee, parcelle.reference_cadastrale)
+        .then(({ features }) => { if (!cancelled) setGeoFeatures(features) })
+        .catch(() => {})
+    })
+    return () => { cancelled = true }
+  }, [parcelle?.reference_cadastrale, parcelle?.commune])
 
   function mapsUrl() {
     return `https://maps.google.com/?q=${parcelle.gps_lat},${parcelle.gps_lng}`
@@ -39,7 +55,6 @@ export default function ParcelleDetail() {
         return
       }
     } catch {}
-    // Fallback: open SMS app with pre-filled message
     window.open(`sms:?body=${encodeURIComponent(text)}`, '_blank')
   }
 
@@ -87,13 +102,13 @@ export default function ParcelleDetail() {
         <div className="card space-y-3">
           <InfoRow label="Surface totale"  value={caToDisplay(parcelle.surface_totale_ca)} />
           <InfoRow label="Surface plantée" value={caToDisplay(parcelle.surface_plantee_ca)} />
-          {parcelle.commune             && <InfoRow label="Commune"           value={parcelle.commune} />}
+          <InfoRow label="Nombre de routes" value={parcelle.nombre_routes != null ? `${parcelle.nombre_routes} routes` : null} />
+          {parcelle.commune              && <InfoRow label="Commune"           value={parcelle.commune} />}
           {parcelle.reference_cadastrale && <InfoRow label="Réf. cadastrale"  value={parcelle.reference_cadastrale} />}
-          {parcelle.nombre_routes       && <InfoRow label="Nombre de routes"  value={`${parcelle.nombre_routes} routes`} />}
           {Array.isArray(parcelle.cepages) && parcelle.cepages.length > 0 &&
             <InfoRow label="Cépages" value={parcelle.cepages.join(', ')} />}
-          {parcelle.annee_plantation    && <InfoRow label={parcelle.statut === 'replantee' ? 'Année plantation' : 'Année arrachage'} value={parcelle.annee_plantation} />}
-          {parcelle.notes               && <InfoRow label="Notes"             value={parcelle.notes} />}
+          {parcelle.annee_plantation     && <InfoRow label={parcelle.statut === 'replantee' ? 'Année plantation' : 'Année arrachage'} value={parcelle.annee_plantation} />}
+          {parcelle.notes                && <InfoRow label="Notes"             value={parcelle.notes} />}
         </div>
 
         {parcelle.gps_lat && (
@@ -109,7 +124,7 @@ export default function ParcelleDetail() {
                 </p>
               </div>
             </div>
-            <MapPicker lat={parcelle.gps_lat} lng={parcelle.gps_lng} readOnly />
+            <MapPicker lat={parcelle.gps_lat} lng={parcelle.gps_lng} geoFeatures={geoFeatures} readOnly />
             <div className="grid grid-cols-3 gap-2">
               <button onClick={navigateToParcel}
                       className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-medium active:bg-blue-700">
@@ -130,7 +145,6 @@ export default function ParcelleDetail() {
           </div>
         )}
 
-        {/* Historique vendanges */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-gray-900">Historique vendanges</h2>

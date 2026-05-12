@@ -1,10 +1,33 @@
 import { Router } from 'express'
-import db, { ADMIN_EMAIL } from '../db.js'
+import path from 'path'
+import db, { ADMIN_EMAIL, backupDb } from '../db.js'
 import { requireAuth, requireAdmin } from '../middleware/auth.js'
 
 const router = Router()
 router.use(requireAuth)
 router.use(requireAdmin)
+
+// ── Backup / Export BDD ──────────────────────────────────────────────────────
+
+router.get('/backup', async (req, res) => {
+  const dest = await backupDb()
+  if (!dest) return res.status(500).json({ error: 'Backup échoué' })
+  res.download(dest, `lf-boyer-${path.basename(dest)}`)
+})
+
+router.get('/export', (req, res) => {
+  const data = {
+    exported_at: new Date().toISOString(),
+    users:        db.prepare('SELECT id, email, prenom, nom, role, created_at FROM users').all(),
+    parcelles:    db.prepare('SELECT * FROM parcelles').all(),
+    taches:       db.prepare('SELECT * FROM taches').all(),
+    vendanges:    db.prepare('SELECT * FROM vendanges').all(),
+    chargements:  db.prepare('SELECT * FROM chargements').all(),
+    referentiels: db.prepare('SELECT * FROM referentiels').all(),
+  }
+  res.setHeader('Content-Disposition', `attachment; filename="lf-boyer-export-${new Date().toISOString().slice(0,10)}.json"`)
+  res.json(data)
+})
 
 // ── Users ────────────────────────────────────────────────────────────────────
 
