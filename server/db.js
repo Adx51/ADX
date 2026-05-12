@@ -214,6 +214,16 @@ if (schemaVersion < 5) {
   db.pragma('user_version = 5')
 }
 
+if (schemaVersion < 6) {
+  try { db.exec(`ALTER TABLE parcelles ADD COLUMN commune_pressoir TEXT`) } catch {}
+  const ins = db.prepare(`INSERT OR IGNORE INTO referentiels (type, valeur, ordre) VALUES (?, ?, ?)`)
+  ;[['Cramant', 10], ['Dizy', 11], ['Épernay', 12], ['Mareuil-sur-Aÿ', 13]].forEach(([v, o]) => ins.run('commune', v, o))
+  db.prepare(`UPDATE referentiels SET code_insee = '51154' WHERE type = 'commune' AND valeur = 'Chouilly'`).run()
+  db.prepare(`UPDATE referentiels SET code_insee = '51301' WHERE type = 'commune' AND valeur = 'Hautvillers'`).run()
+  db.prepare(`UPDATE referentiels SET code_insee = '51154' WHERE type = 'commune' AND valeur = 'Cramant'`).run()
+  db.pragma('user_version = 6')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5

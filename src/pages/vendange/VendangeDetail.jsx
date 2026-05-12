@@ -16,6 +16,12 @@ export default function VendangeDetail() {
 
   useEffect(() => { load() }, [id])
 
+  useEffect(() => {
+    function onVisible() { if (!document.hidden) load() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [id])
+
   async function load() {
     const data = await api.get(`/vendanges/${id}`)
     setVendange(data)
@@ -53,7 +59,7 @@ export default function VendangeDetail() {
 
   const parcelle = vendange.parcelles
   const chargements = vendange.chargements || []
-  const rendement = rendementKgHa(vendange.poids_total, parcelle?.surface_plantee_ca)
+  const rendement = rendementKgHa(vendange.poids_total, parcelle?.surface_totale_ca)
 
   const byDate = chargements.reduce((acc, c) => {
     const key = c.date_chargement
@@ -85,9 +91,9 @@ export default function VendangeDetail() {
               <p className="text-xs text-vigne-600 mt-0.5">kg/ha</p>
             </div>
           </div>
-          {parcelle?.surface_plantee_ca && (
+          {parcelle?.surface_totale_ca && (
             <p className="text-xs text-center text-amber-600 mt-3">
-              Surface plantée : {caToDisplay(parcelle.surface_plantee_ca)}
+              Surface : {caToDisplay(parcelle.surface_totale_ca)}
             </p>
           )}
         </div>

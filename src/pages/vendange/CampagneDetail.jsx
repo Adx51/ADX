@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Edit2, Trash2, Lock, Unlock, ChevronRight, Grape, TrendingUp, TrendingDown, Calendar, Target } from 'lucide-react'
+import { Edit2, Trash2, Lock, Unlock, ChevronRight, Grape, TrendingUp, TrendingDown, Calendar, Target, Plus, Printer } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { api } from '../../lib/api'
@@ -18,6 +18,12 @@ export default function CampagneDetail() {
   const [bilanValue, setBilanValue] = useState('')
 
   useEffect(() => { load() }, [annee])
+
+  useEffect(() => {
+    function onVisible() { if (!document.hidden) load() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [annee])
 
   async function load() {
     const data = await api.get(`/campagnes/${annee}`)
@@ -48,9 +54,22 @@ export default function CampagneDetail() {
     load()
   }
 
-  async function createVendange(parcelle_id) {
-    const v = await api.post('/vendanges', { parcelle_id, annee: parseInt(annee) })
-    navigate(`/vendange/parcelle/${v.id}`)
+  async function openParcelle(parcelle_id, vendange_id) {
+    if (vendange_id) {
+      navigate(`/vendange/parcelle/${vendange_id}`)
+    } else {
+      const v = await api.post('/vendanges', { parcelle_id, annee: parseInt(annee) })
+      navigate(`/vendange/parcelle/${v.id}`)
+    }
+  }
+
+  async function quickChargement(parcelle_id, vendange_id) {
+    if (vendange_id) {
+      navigate(`/vendange/parcelle/${vendange_id}/chargement/new`)
+    } else {
+      const v = await api.post('/vendanges', { parcelle_id, annee: parseInt(annee) })
+      navigate(`/vendange/parcelle/${v.id}/chargement/new`)
+    }
   }
 
   if (loading) return (
@@ -73,15 +92,20 @@ export default function CampagneDetail() {
   const parcelles = campagne.parcelles || []
   const totalPoids   = parcelles.reduce((s, p) => s + (p.poids_total || 0), 0)
   const totalCaisses = parcelles.reduce((s, p) => s + (p.nb_caisses_total || 0), 0)
-  const totalSurfacePlanteeCa = parcelles
+  const totalSurfaceCa = parcelles
     .filter(p => p.vendange_id)
-    .reduce((s, p) => s + (p.surface_plantee_ca || 0), 0)
-  const rendementMoyen = rendementKgHa(totalPoids, totalSurfacePlanteeCa)
+    .reduce((s, p) => s + (p.surface_totale_ca || 0), 0)
+  const rendementMoyen = rendementKgHa(totalPoids, totalSurfaceCa)
   const attendu = campagne.rendement_attendu_kgha
+  const nbEnCours = parcelles.filter(p => p.vendange_id).length
 
   return (
     <div>
       <PageHeader title={`Vendange ${campagne.annee}`} back="/vendange">
+        <button onClick={() => navigate(`/vendange/${annee}/export`)}
+                className="p-2 rounded-full active:bg-vigne-600">
+          <Printer size={18} />
+        </button>
         {!isClosed && (
           <button onClick={() => navigate(`/vendange/${annee}/edit`)}
                   className="p-2 rounded-full active:bg-vigne-600">
@@ -90,35 +114,37 @@ export default function CampagneDetail() {
         )}
       </PageHeader>
 
-      <div className="px-4 pt-4 space-y-4">
+      <div className="px-4 pt-4 space-y-4 pb-8">
         {isClosed && (
           <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-2 flex items-center gap-2 text-sm text-gray-600">
             <Lock size={14} />
-            <span>Campagne clôturée le {campagne.date_cloture ? format(parseISO(campagne.date_cloture), 'd MMMM yyyy', { locale: fr }) : ''}</span>
+            <span>Clôturée le {campagne.date_cloture ? format(parseISO(campagne.date_cloture), 'd MMMM yyyy', { locale: fr }) : ''}</span>
           </div>
         )}
 
         {/* Infos campagne */}
-        <div className="card space-y-3">
-          {campagne.date_debut && (
-            <div className="flex items-center gap-3 text-sm">
-              <Calendar size={16} className="text-gray-400" />
-              <span className="text-gray-500">Début :</span>
-              <span className="font-medium text-gray-900 ml-auto capitalize">
-                {format(parseISO(campagne.date_debut), 'EEEE d MMMM yyyy', { locale: fr })}
-              </span>
-            </div>
-          )}
-          {attendu && (
-            <div className="flex items-center gap-3 text-sm">
-              <Target size={16} className="text-gray-400" />
-              <span className="text-gray-500">Rendement attendu :</span>
-              <span className="font-medium text-gray-900 ml-auto">
-                {Number(attendu).toLocaleString('fr-FR')} kg/ha
-              </span>
-            </div>
-          )}
-        </div>
+        {(campagne.date_debut || attendu) && (
+          <div className="card space-y-2.5">
+            {campagne.date_debut && (
+              <div className="flex items-center gap-3 text-sm">
+                <Calendar size={15} className="text-gray-400 flex-shrink-0" />
+                <span className="text-gray-500">Début</span>
+                <span className="font-medium text-gray-900 ml-auto capitalize">
+                  {format(parseISO(campagne.date_debut), 'd MMM yyyy', { locale: fr })}
+                </span>
+              </div>
+            )}
+            {attendu && (
+              <div className="flex items-center gap-3 text-sm">
+                <Target size={15} className="text-gray-400 flex-shrink-0" />
+                <span className="text-gray-500">Objectif</span>
+                <span className="font-medium text-gray-900 ml-auto">
+                  {Number(attendu).toLocaleString('fr-FR')} kg/ha
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Stats globales */}
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
@@ -141,11 +167,21 @@ export default function CampagneDetail() {
           {attendu && rendementMoyen != null && (
             <RendementComparison reel={rendementMoyen} attendu={attendu} className="mt-3" />
           )}
+          {nbEnCours > 0 && (
+            <p className="text-xs text-center text-amber-600 mt-2">
+              {nbEnCours} / {parcelles.length} parcelle{parcelles.length > 1 ? 's' : ''} commencée{nbEnCours > 1 ? 's' : ''}
+            </p>
+          )}
         </div>
 
         {/* Liste des parcelles */}
         <div>
-          <h2 className="font-bold text-gray-900 mb-3">Parcelles</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-gray-900">Parcelles</h2>
+            {!isClosed && (
+              <p className="text-xs text-gray-400">Appuyer sur + pour ajouter un chargement</p>
+            )}
+          </div>
           {parcelles.length === 0 ? (
             <div className="card text-center py-6">
               <Grape size={32} className="mx-auto text-vigne-300 mb-2" />
@@ -154,16 +190,20 @@ export default function CampagneDetail() {
           ) : (
             <div className="space-y-2">
               {parcelles.map(p => (
-                <ParcelleRow key={p.id} parcelle={p} attendu={attendu}
-                             isClosed={isClosed}
-                             onOpen={() => navigate(`/vendange/parcelle/${p.vendange_id}`)}
-                             onCreate={() => createVendange(p.id)} />
+                <ParcelleRow
+                  key={p.id}
+                  parcelle={p}
+                  attendu={attendu}
+                  isClosed={isClosed}
+                  onOpen={() => openParcelle(p.id, p.vendange_id)}
+                  onAdd={() => quickChargement(p.id, p.vendange_id)}
+                />
               ))}
             </div>
           )}
         </div>
 
-        {/* Note de bilan (clôture) */}
+        {/* Note de bilan */}
         {(isClosed || campagne.note_bilan) && (
           <div className="card space-y-2">
             <div className="flex items-center justify-between">
@@ -199,9 +239,7 @@ export default function CampagneDetail() {
               <p className="text-amber-800 font-medium text-sm text-center">
                 Clôturer la campagne {campagne.annee} ?
               </p>
-              <p className="text-xs text-amber-700 text-center">
-                Les saisies seront verrouillées (réouverture possible).
-              </p>
+              <p className="text-xs text-amber-700 text-center">Les saisies seront verrouillées (réouverture possible).</p>
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => setConfirmCloture(false)} className="btn-secondary py-2 text-sm">Annuler</button>
                 <button onClick={cloturer} className="py-2 rounded-xl bg-amber-600 text-white text-sm font-medium">Clôturer</button>
@@ -209,14 +247,14 @@ export default function CampagneDetail() {
             </div>
           ) : (
             <button onClick={() => setConfirmCloture(true)}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-600 text-white text-sm font-semibold">
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-600 text-white text-sm font-semibold active:bg-amber-700">
               <Lock size={16} />
               Clôturer la campagne
             </button>
           )
         ) : (
           <button onClick={rouvrir}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm font-medium">
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm font-medium active:bg-gray-50">
             <Unlock size={16} />
             Rouvrir la campagne
           </button>
@@ -233,9 +271,7 @@ export default function CampagneDetail() {
             <p className="text-red-700 font-medium text-sm text-center">
               Supprimer définitivement la campagne {campagne.annee} ?
             </p>
-            <p className="text-xs text-red-600 text-center">
-              Les vendanges et chargements ne sont pas supprimés, juste la campagne.
-            </p>
+            <p className="text-xs text-red-600 text-center">Les vendanges et chargements ne sont pas supprimés.</p>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => setConfirmDelete(false)} className="btn-secondary py-2 text-sm">Annuler</button>
               <button onClick={deleteCampagne} className="btn-danger py-2 text-sm">Supprimer</button>
@@ -247,44 +283,55 @@ export default function CampagneDetail() {
   )
 }
 
-function ParcelleRow({ parcelle, attendu, isClosed, onOpen, onCreate }) {
+function ParcelleRow({ parcelle, attendu, isClosed, onOpen, onAdd }) {
   const hasVendange = Boolean(parcelle.vendange_id)
-  const rendement = hasVendange ? rendementKgHa(parcelle.poids_total, parcelle.surface_plantee_ca) : null
+  const rendement = hasVendange ? rendementKgHa(parcelle.poids_total, parcelle.surface_totale_ca) : null
 
   return (
-    <button
-      onClick={hasVendange ? onOpen : (isClosed ? undefined : onCreate)}
-      disabled={!hasVendange && isClosed}
-      className={`card w-full text-left flex items-center gap-3 active:scale-[0.99] transition-transform ${
-        !hasVendange && isClosed ? 'opacity-50' : ''
-      }`}
-    >
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-        hasVendange ? 'bg-amber-100' : 'bg-gray-100'
-      }`}>
-        <Grape size={20} className={hasVendange ? 'text-amber-700' : 'text-gray-400'} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-gray-900 truncate">{parcelle.nom}</p>
-        {hasVendange ? (
-          <>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {Number(parcelle.poids_total || 0).toFixed(0)} kg · {parcelle.nb_caisses_total || 0} caisses
-              {rendement && <span className="text-vigne-600"> · {rendement.toLocaleString('fr-FR')} kg/ha</span>}
+    <div className={`card p-0 overflow-hidden flex items-stretch ${!hasVendange && isClosed ? 'opacity-50' : ''}`}>
+      {/* Zone principale — ouvre le détail */}
+      <button
+        onClick={(!hasVendange && isClosed) ? undefined : onOpen}
+        disabled={!hasVendange && isClosed}
+        className="flex items-center gap-3 flex-1 text-left p-4 active:bg-gray-50"
+      >
+        <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
+          hasVendange ? 'bg-amber-100' : 'bg-gray-100'
+        }`}>
+          <Grape size={20} className={hasVendange ? 'text-amber-700' : 'text-gray-400'} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-gray-900 truncate">{parcelle.nom}</p>
+          {hasVendange ? (
+            <>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {Number(parcelle.poids_total || 0).toFixed(0)} kg · {parcelle.nb_caisses_total || 0} caisses
+                {rendement && <span className="text-vigne-600"> · {rendement.toLocaleString('fr-FR')} kg/ha</span>}
+              </p>
+              {attendu && rendement != null && (
+                <RendementComparison reel={rendement} attendu={attendu} compact />
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-gray-400 mt-0.5">
+              {caToDisplay(parcelle.surface_totale_ca)}
+              {!isClosed && <span className="text-amber-600 font-medium"> · Tap + pour commencer</span>}
             </p>
-            {attendu && rendement && (
-              <RendementComparison reel={rendement} attendu={attendu} compact />
-            )}
-          </>
-        ) : (
-          <p className="text-xs text-gray-400 mt-0.5">
-            Surface plantée : {caToDisplay(parcelle.surface_plantee_ca)}
-            {!isClosed && <span className="text-amber-600 ml-1">— commencer</span>}
-          </p>
-        )}
-      </div>
-      {(hasVendange || !isClosed) && <ChevronRight size={18} className="text-gray-300 flex-shrink-0" />}
-    </button>
+          )}
+        </div>
+        <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
+      </button>
+
+      {/* Bouton + chargement rapide */}
+      {!isClosed && (
+        <button
+          onClick={onAdd}
+          className="flex items-center justify-center w-14 border-l border-gray-100 bg-amber-50 active:bg-amber-100 flex-shrink-0"
+        >
+          <Plus size={20} className="text-amber-600" />
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -299,7 +346,7 @@ function RendementComparison({ reel, attendu, compact = false, className = '' })
     return (
       <p className={`text-xs font-medium ${color} mt-0.5 flex items-center gap-1`}>
         <Icon size={12} />
-        {positif ? '+' : ''}{pct}% vs attendu
+        {positif ? '+' : ''}{pct}% vs objectif
       </p>
     )
   }

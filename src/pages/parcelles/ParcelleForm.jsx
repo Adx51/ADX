@@ -36,7 +36,7 @@ export default function ParcelleForm() {
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       ares: '', centiares: '', ares_p: '', centiares_p: '',
-      statut: 'en_production', commune: '', gps_lat: '', gps_lng: '',
+      statut: 'en_production', commune: '', commune_pressoir: '', gps_lat: '', gps_lng: '',
       reference_cadastrale: ''
     }
   })
@@ -63,6 +63,7 @@ export default function ParcelleForm() {
       setValue('centiares_p',  (data.surface_plantee_ca || 0) % 100 || '')
       setValue('nombre_routes', data.nombre_routes || '')
       setValue('commune', data.commune || '')
+      setValue('commune_pressoir', data.commune_pressoir || '')
       setValue('statut', data.statut || 'en_production')
       setValue('annee_plantation', data.annee_plantation || '')
       setValue('gps_lat', data.gps_lat || '')
@@ -143,6 +144,7 @@ export default function ParcelleForm() {
         surface_plantee_ca: parseToCa(data.ares_p, data.centiares_p) || null,
         nombre_routes: data.nombre_routes ? parseInt(data.nombre_routes) : null,
         commune: data.commune || null,
+        commune_pressoir: data.commune_pressoir || null,
         cepages: cepagesSelected,
         statut: data.statut || 'en_production',
         annee_plantation: data.annee_plantation ? parseInt(data.annee_plantation) : null,
@@ -187,6 +189,18 @@ export default function ParcelleForm() {
             <option value="">— Sélectionner —</option>
             {communes.map(c => <option key={c.valeur} value={c.valeur}>{c.valeur}</option>)}
           </select>
+        </div>
+
+        {/* Pressoir (pour l'export groupé) */}
+        <div>
+          <label className="label">Pressoir / Rattachement export</label>
+          <select className="input" {...register('commune_pressoir')}>
+            <option value="">— Même que la commune —</option>
+            {communes.map(c => <option key={c.valeur} value={c.valeur}>{c.valeur}</option>)}
+          </select>
+          <p className="text-xs text-gray-400 mt-1">
+            Si les vendanges sont livrées à un pressoir d'une autre commune (ex : Cramant → Chouilly).
+          </p>
         </div>
 
         {/* Référence cadastrale */}

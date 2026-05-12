@@ -107,6 +107,60 @@ router.post('/:annee/rouvrir', (req, res) => {
   res.json(db.prepare('SELECT * FROM campagnes WHERE id = ?').get(c.id))
 })
 
+// Export détaillé : parcelles groupées par pressoir avec tous les chargements
+router.get('/:annee/export', (req, res) => {
+  const annee = parseInt(req.params.annee)
+  const campagne = db.prepare('SELECT * FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
+  if (!campagne) return res.status(404).json({ error: 'Campagne introuvable' })
+
+  const rows = db.prepare(`
+    SELECT p.id AS parcelle_id, p.nom, p.surface_totale_ca, p.commune,
+           COALESCE(p.commune_pressoir, p.commune) AS pressoir,
+           v.id AS vendange_id, v.poids_total, v.nb_caisses_total,
+           c.id AS chargement_id, c.date_chargement, c.heure_livraison,
+           c.nombre_caisses, c.poids_kg, c.notes AS chargement_notes
+    FROM parcelles p
+    LEFT JOIN vendanges v ON v.parcelle_id = p.id AND v.annee = ? AND v.user_id = p.user_id
+    LEFT JOIN chargements c ON c.vendange_id = v.id
+    WHERE p.user_id = ?
+    ORDER BY COALESCE(p.commune_pressoir, p.commune), p.nom, c.date_chargement, c.heure_livraison
+  `).all(annee, req.userId)
+
+  const grouped = {}
+  for (const row of rows) {
+    const pressoir = row.pressoir || 'Non affecté'
+    if (!grouped[pressoir]) grouped[pressoir] = {}
+    if (!grouped[pressoir][row.parcelle_id]) {
+      grouped[pressoir][row.parcelle_id] = {
+        nom: row.nom,
+        surface_totale_ca: row.surface_totale_ca,
+        commune: row.commune,
+        vendange_id: row.vendange_id,
+        poids_total: row.poids_total || 0,
+        nb_caisses_total: row.nb_caisses_total || 0,
+        chargements: []
+      }
+    }
+    if (row.chargement_id) {
+      grouped[pressoir][row.parcelle_id].chargements.push({
+        id: row.chargement_id,
+        date_chargement: row.date_chargement,
+        heure_livraison: row.heure_livraison,
+        nombre_caisses: row.nombre_caisses,
+        poids_kg: row.poids_kg,
+        notes: row.chargement_notes
+      })
+    }
+  }
+
+  const groupes = Object.entries(grouped).map(([pressoir, parcelles]) => ({
+    pressoir,
+    parcelles: Object.values(parcelles)
+  }))
+
+  res.json({ campagne, groupes })
+})
+
 router.delete('/:annee', (req, res) => {
   const annee = parseInt(req.params.annee)
   const c = db.prepare('SELECT id FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)

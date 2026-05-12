@@ -17,6 +17,7 @@ import TacheForm from './pages/taches/TacheForm'
 import CampagnesList from './pages/vendange/CampagnesList'
 import CampagneDetail from './pages/vendange/CampagneDetail'
 import CampagneForm from './pages/vendange/CampagneForm'
+import CampagneExport from './pages/vendange/CampagneExport'
 import VendangeDetail from './pages/vendange/VendangeDetail'
 import ChargementForm from './pages/vendange/ChargementForm'
 
@@ -54,6 +55,7 @@ export default function App() {
                 <Route path="/vendange/parcelle/:vendangeId/chargement/:id/edit" element={<ChargementForm />} />
                 <Route path="/vendange/:annee"         element={<CampagneDetail />} />
                 <Route path="/vendange/:annee/edit"    element={<CampagneForm />} />
+                <Route path="/vendange/:annee/export"  element={<CampagneExport />} />
 
                 {/* Admin */}
                 <Route path="/admin" element={<AdminPage />} />

@@ -21,7 +21,7 @@ router.get('/', (req, res) => {
 
 router.post('/', (req, res) => {
   const { nom, surface_totale_ca, surface_plantee_ca, nombre_routes,
-          commune, cepages, statut, annee_plantation,
+          commune, commune_pressoir, cepages, statut, annee_plantation,
           gps_lat, gps_lng, photo_url, notes, reference_cadastrale } = req.body
   if (!nom) return res.status(400).json({ error: 'Le nom est requis' })
   if (!surface_totale_ca) return res.status(400).json({ error: 'La surface totale est requise' })
@@ -32,12 +32,12 @@ router.post('/', (req, res) => {
   db.prepare(`
     INSERT INTO parcelles
       (id, user_id, nom, surface_totale_ca, surface_plantee_ca,
-       nombre_routes, commune, cepages, statut, annee_plantation,
+       nombre_routes, commune, commune_pressoir, cepages, statut, annee_plantation,
        gps_lat, gps_lng, photo_url, notes, reference_cadastrale)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(id, req.userId, nom,
     surface_totale_ca ?? null, surface_plantee_ca ?? null,
-    nombre_routes ?? null, commune ?? null, cepagesStr,
+    nombre_routes ?? null, commune ?? null, commune_pressoir ?? null, cepagesStr,
     statut ?? 'en_production', annee_plantation ?? null,
     gps_lat ?? null, gps_lng ?? null, photo_url ?? null, notes ?? null,
     reference_cadastrale ?? null)
@@ -59,19 +59,19 @@ router.put('/:id', (req, res) => {
   if (!p) return res.status(404).json({ error: 'Parcelle introuvable' })
 
   const { nom, surface_totale_ca, surface_plantee_ca, nombre_routes,
-          commune, cepages, statut, annee_plantation,
+          commune, commune_pressoir, cepages, statut, annee_plantation,
           gps_lat, gps_lng, photo_url, notes, reference_cadastrale } = req.body
   const cepagesStr = Array.isArray(cepages) ? JSON.stringify(cepages) : '[]'
 
   db.prepare(`
     UPDATE parcelles SET
       nom = ?, surface_totale_ca = ?, surface_plantee_ca = ?,
-      nombre_routes = ?, commune = ?, cepages = ?, statut = ?, annee_plantation = ?,
+      nombre_routes = ?, commune = ?, commune_pressoir = ?, cepages = ?, statut = ?, annee_plantation = ?,
       gps_lat = ?, gps_lng = ?, photo_url = ?, notes = ?,
       reference_cadastrale = ?, updated_at = datetime('now')
     WHERE id = ?
   `).run(nom, surface_totale_ca ?? null, surface_plantee_ca ?? null,
-    nombre_routes ?? null, commune ?? null, cepagesStr,
+    nombre_routes ?? null, commune ?? null, commune_pressoir ?? null, cepagesStr,
     statut ?? 'en_production', annee_plantation ?? null,
     gps_lat ?? null, gps_lng ?? null, photo_url ?? null, notes ?? null,
     reference_cadastrale ?? null, req.params.id)
