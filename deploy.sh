@@ -15,8 +15,10 @@ cp "$REPO_DIR/addons/adx/run.sh"      "$ADDON_DIR/run.sh"
 cp "$REPO_DIR/addons/adx/Dockerfile"  "$ADDON_DIR/Dockerfile"
 chmod +x "$ADDON_DIR/run.sh"
 
-cp -r "$REPO_DIR/dist/."   "$ADDON_DIR/dist/"
-cp -r "$REPO_DIR/server/." "$ADDON_DIR/server/"
+rm -rf "$ADDON_DIR/dist"
+cp -r "$REPO_DIR/dist"   "$ADDON_DIR/dist"
+rm -rf "$ADDON_DIR/server"
+cp -r "$REPO_DIR/server" "$ADDON_DIR/server"
 
 echo "✓ Fichiers synchronisés."
 echo ""
