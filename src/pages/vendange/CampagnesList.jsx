@@ -11,16 +11,16 @@ function CardStats({ c }) {
     ? c.poids_total_cloture
     : (c.poids_total || 0)
 
-  // Kg attendus : snapshot si clôturée, calculé sinon
+  // Kg attendus sur TOUTES les parcelles : snapshot si clôturée, calculé sinon
   const kgAttendu = isClosed && c.kg_attendu_cloture != null
     ? c.kg_attendu_cloture
-    : (c.rendement_attendu_kgha && c.surface_totale_ca
-        ? Math.round(c.rendement_attendu_kgha * c.surface_totale_ca / 10000)
+    : (c.rendement_attendu_kgha && c.surface_all_ca
+        ? Math.round(c.rendement_attendu_kgha * c.surface_all_ca / 10000)
         : null)
 
-  // Rendement moyen réel
-  const kgHaMoyen = c.surface_totale_ca > 0
-    ? Math.round(kgRecolt / (c.surface_totale_ca / 10000))
+  // Rendement moyen réel sur les parcelles ayant une vendange
+  const kgHaMoyen = c.surface_vendanges_ca > 0
+    ? Math.round(kgRecolt / (c.surface_vendanges_ca / 10000))
     : null
 
   const pct = kgAttendu > 0 ? Math.min(Math.round(kgRecolt / kgAttendu * 100), 100) : null

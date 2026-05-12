@@ -19,7 +19,10 @@ router.get('/', (req, res) => {
       (SELECT COALESCE(SUM(p.surface_totale_ca), 0)
          FROM vendanges v
          JOIN parcelles p ON p.id = v.parcelle_id
-         WHERE v.user_id = c.user_id AND v.annee = c.annee) AS surface_totale_ca
+         WHERE v.user_id = c.user_id AND v.annee = c.annee) AS surface_vendanges_ca,
+      (SELECT COALESCE(SUM(p.surface_totale_ca), 0)
+         FROM parcelles p
+         WHERE p.user_id = c.user_id) AS surface_all_ca
     FROM campagnes c
     WHERE c.user_id = ?
     ORDER BY c.annee DESC
@@ -124,17 +127,19 @@ router.post('/:annee/cloturer', (req, res) => {
   const c = db.prepare('SELECT * FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
   if (!c) return res.status(404).json({ error: 'Campagne introuvable' })
 
-  // Snapshot : total kg récolté + total kg attendu au moment de la clôture
+  // Snapshot : total kg récolté + kg attendu sur TOUTES les parcelles au moment de la clôture
   const totals = db.prepare(`
-    SELECT COALESCE(SUM(v.poids_total), 0) AS poids_total,
-           COALESCE(SUM(p.surface_totale_ca), 0) AS surface_ca
-    FROM vendanges v
-    LEFT JOIN parcelles p ON p.id = v.parcelle_id
-    WHERE v.user_id = ? AND v.annee = ?
+    SELECT COALESCE(SUM(v.poids_total), 0) AS poids_total
+    FROM vendanges v WHERE v.user_id = ? AND v.annee = ?
   `).get(req.userId, annee)
 
-  const kgAttendu = c.rendement_attendu_kgha && totals.surface_ca
-    ? Math.round(c.rendement_attendu_kgha * totals.surface_ca / 10000)
+  const surfaceAll = db.prepare(`
+    SELECT COALESCE(SUM(p.surface_totale_ca), 0) AS surface_ca
+    FROM parcelles p WHERE p.user_id = ?
+  `).get(req.userId)
+
+  const kgAttendu = c.rendement_attendu_kgha && surfaceAll.surface_ca
+    ? Math.round(c.rendement_attendu_kgha * surfaceAll.surface_ca / 10000)
     : null
 
   db.prepare(`
