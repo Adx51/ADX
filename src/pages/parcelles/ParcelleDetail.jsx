@@ -160,8 +160,13 @@ export default function ParcelleDetail() {
             </div>
           ) : (
             <div className="space-y-2">
-              {parcelle.vendanges.map(v => {
-                const rendement = rendementKgHa(v.poids_total, parcelle.surface_plantee_ca)
+              {parcelle.vendanges.map((v, i) => {
+                const rendement = rendementKgHa(v.poids_total, parcelle.surface_totale_ca)
+                // Tendance vs année précédente (array est trié DESC, donc i+1 = année d'avant)
+                const prev = parcelle.vendanges[i + 1]
+                const trendPct = prev && prev.poids_total > 0
+                  ? Math.round(((v.poids_total - prev.poids_total) / prev.poids_total) * 100)
+                  : null
                 return (
                   <button key={v.id} onClick={() => navigate(`/vendange/parcelle/${v.id}`)}
                           className="card w-full text-left flex items-center gap-3 active:scale-[0.99] transition-transform">
@@ -173,6 +178,11 @@ export default function ParcelleDetail() {
                       <p className="text-xs text-gray-500">
                         {v.nb_caisses_total || 0} caisses
                         {rendement && <span className="text-vigne-600"> · {rendement.toLocaleString('fr-FR')} kg/ha</span>}
+                        {trendPct !== null && (
+                          <span className={`ml-1 font-medium ${trendPct >= 0 ? 'text-vigne-600' : 'text-orange-500'}`}>
+                            {' '}({trendPct >= 0 ? '+' : ''}{trendPct}% N-1)
+                          </span>
+                        )}
                       </p>
                     </div>
                     <ChevronRight size={18} className="text-gray-300" />

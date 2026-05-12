@@ -93,7 +93,29 @@ router.get('/:annee', (req, res) => {
     cepages: p.cepages ? (() => { try { return JSON.parse(p.cepages) } catch { return [] } })() : [],
   }))
 
-  res.json({ ...campagne, parcelles })
+  // Stats de l'année précédente pour comparaison N-1
+  const prevAnnee = annee - 1
+  const prevCampagne = db.prepare('SELECT * FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, prevAnnee)
+  let prevStats = null
+  if (prevCampagne) {
+    const prevTotals = db.prepare(`
+      SELECT COALESCE(SUM(v.poids_total), 0) AS poids_total,
+             COALESCE(SUM(p.surface_totale_ca), 0) AS surface_ca
+      FROM vendanges v
+      LEFT JOIN parcelles p ON p.id = v.parcelle_id
+      WHERE v.user_id = ? AND v.annee = ?
+    `).get(req.userId, prevAnnee)
+    const prevKgHa = prevTotals.surface_ca > 0
+      ? Math.round(prevTotals.poids_total / (prevTotals.surface_ca / 10000))
+      : null
+    prevStats = {
+      annee: prevAnnee,
+      poids_total: prevTotals.poids_total,
+      rendement_kgha: prevKgHa,
+    }
+  }
+
+  res.json({ ...campagne, parcelles, prevStats })
 })
 
 router.put('/:annee', (req, res) => {

@@ -83,6 +83,13 @@ function parseRSS(xml) {
   return items
 }
 
+// Sources connues pour être derrière un paywall
+const PAYWALL_SOURCES = new Set([
+  'Le Monde', 'Le Figaro', 'Les Échos', "L'Express", 'Le Point',
+  "L'Obs", 'Challenges', 'Capital', 'Marianne', 'La Croix',
+  "L'Opinion", 'La Tribune', 'Mediapart', 'Libération',
+])
+
 const FEEDS = [
   { url: 'https://news.google.com/rss/search?q=champagne+viticulture+vignoble&hl=fr&gl=FR&ceid=FR:fr',   tag: 'Champagne' },
   { url: 'https://news.google.com/rss/search?q=CIVC+comit%C3%A9+champagne&hl=fr&gl=FR&ceid=FR:fr',       tag: 'CIVC' },
@@ -103,15 +110,16 @@ router.get('/news', async (req, res) => {
         signal: AbortSignal.timeout(7000),
       })
       const text = await r.text()
-      parseRSS(text).slice(0, 8).forEach(item => all.push({ ...item, tag }))
+      parseRSS(text).slice(0, 4).forEach(item => all.push({ ...item, tag }))
     } catch {}
   }))
 
   const seen = new Set()
   const news = all
+    .filter(item => !PAYWALL_SOURCES.has(item.source))
     .filter(item => { const k = item.title.toLowerCase().slice(0, 50); if (seen.has(k)) return false; seen.add(k); return true })
     .sort((a, b) => b.pubDate - a.pubDate)
-    .slice(0, 25)
+    .slice(0, 10)
     .map(({ title, link, pubDate, source, tag }) => ({ title, link, pubDate, source, tag }))
 
   setCache('news', news)
