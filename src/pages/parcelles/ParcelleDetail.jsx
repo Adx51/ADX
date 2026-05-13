@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import { locateFromCadastre } from '../../lib/cadastre'
 import PageHeader from '../../components/PageHeader'
@@ -10,6 +11,8 @@ import MapPicker from '../../components/MapPicker'
 export default function ParcelleDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const [parcelle, setParcelle] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -208,7 +211,7 @@ export default function ParcelleDetail() {
           )}
         </div>
 
-        {!confirmDelete ? (
+        {isAdmin && (!confirmDelete ? (
           <button onClick={() => setConfirmDelete(true)}
                   className="w-full flex items-center justify-center gap-2 text-red-500 py-3 text-sm font-medium">
             <Trash2 size={16} />
@@ -224,7 +227,7 @@ export default function ParcelleDetail() {
               <button onClick={deleteParcelle} className="btn-danger py-2 text-sm">Supprimer</button>
             </div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   )

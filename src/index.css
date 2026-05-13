@@ -62,6 +62,24 @@
   padding-bottom: calc(5rem + env(safe-area-inset-bottom));
 }
 
+/* ── Desktop / iPad landscape (md = 768px) ────────────────────────── */
+@media (min-width: 768px) {
+  .page-header {
+    background: white !important;
+    color: #111827 !important;
+    border-bottom: 1px solid #f3f4f6;
+    box-shadow: none !important;
+    padding-top: 1rem !important;
+  }
+  .page-content {
+    padding-bottom: 2rem;
+  }
+  /* FAB au-dessus du coin bas-droit sans tenir compte de la bottom nav */
+  .fab-offset {
+    bottom: 1.5rem !important;
+  }
+}
+
 /* Skeleton loading animation */
 @keyframes shimmer {
   0% { background-position: -468px 0; }

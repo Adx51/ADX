@@ -4,12 +4,15 @@ import { Plus, Edit2, Trash2, Package, Scale, Lock, Unlock } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { api } from '../../lib/api'
+import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
 
 export default function VendangeDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const [vendange, setVendange] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -203,7 +206,7 @@ export default function VendangeDetail() {
                   <div className="space-y-2">
                     {items.map(c => (
                       <div key={c.id}>
-                        {confirmDelete === c.id ? (
+                        {isAdmin && confirmDelete === c.id ? (
                           <div className="card border-red-200 bg-red-50 p-3">
                             <p className="text-red-700 text-sm text-center mb-2">Supprimer ce chargement ?</p>
                             <div className="flex gap-2">
@@ -239,10 +242,12 @@ export default function VendangeDetail() {
                                         className="p-2 text-gray-400 active:text-vigne-700">
                                   <Edit2 size={16} />
                                 </button>
-                                <button onClick={() => setConfirmDelete(c.id)}
-                                        className="p-2 text-gray-400 active:text-red-600">
-                                  <Trash2 size={16} />
-                                </button>
+                                {isAdmin && (
+                                  <button onClick={() => setConfirmDelete(c.id)}
+                                          className="p-2 text-gray-400 active:text-red-600">
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
                               </div>
                             )}
                             {isClosed && <Lock size={14} className="text-gray-300 flex-shrink-0" />}
@@ -288,8 +293,8 @@ export default function VendangeDetail() {
           </button>
         )}
 
-        {/* Supprimer vendange */}
-        {!isClosed && (
+        {/* Supprimer vendange — admin uniquement */}
+        {isAdmin && !isClosed && (
           confirmDelete === 'vendange' ? (
             <div className="card border-red-200 bg-red-50 space-y-3">
               <p className="text-red-700 font-medium text-sm text-center">

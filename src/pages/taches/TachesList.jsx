@@ -104,7 +104,7 @@ export default function TachesList() {
 
       <button
         onClick={() => navigate('/taches/new')}
-        className="fixed right-4 bg-vigne-700 text-white w-14 h-14 rounded-full
+        className="fab-offset fixed right-4 bg-vigne-700 text-white w-14 h-14 rounded-full
                    shadow-lg flex items-center justify-center active:scale-95 transition-transform z-10"
         style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
       >

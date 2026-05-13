@@ -5,6 +5,9 @@ import { api } from '../../lib/api'
 import { caToDisplayHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
 
+// Couleurs par année (index dans campagnes ASC)
+const YEAR_COLORS = ['#d97706', '#15803d', '#7c3aed', '#e11d48', '#0891b2', '#ea580c']
+
 // Courbe Catmull-Rom → chemin SVG lisse
 function catmullRom(pts) {
   if (pts.length < 2) return ''
@@ -30,91 +33,52 @@ function fmtK(v) {
   return String(Math.round(v))
 }
 
-// Agrégation par commune pressoir
-function aggregateByCommune(vendanges) {
+// Agrégation par commune — si multiYear, une entrée par (commune, année)
+function aggregateByCommune(vendanges, multiYear = false) {
   const map = {}
   for (const v of vendanges) {
-    const key = v.commune_pressoir || 'Non défini'
-    if (!map[key]) map[key] = { name: key, poids: 0, surface: 0 }
+    const commune = v.commune_pressoir || 'Non défini'
+    const key = multiYear ? `${commune}|||${v.annee}` : commune
+    if (!map[key]) map[key] = { name: commune, annee: multiYear ? v.annee : null, poids: 0, surface: 0 }
     map[key].poids   += v.poids_total      || 0
     map[key].surface += v.surface_totale_ca || 0
   }
-  return Object.values(map)
-    .map(g => ({ ...g, kgha: g.surface > 0 ? Math.round(g.poids / (g.surface / 10000)) : null }))
-    .sort((a, b) => (b.poids || 0) - (a.poids || 0))
+  const items = Object.values(map).map(g => ({
+    ...g, kgha: g.surface > 0 ? Math.round(g.poids / (g.surface / 10000)) : null,
+  }))
+  if (!multiYear) return items.sort((a, b) => (b.poids || 0) - (a.poids || 0))
+  // Grouper par commune (total poids DESC), puis par année ASC au sein de chaque commune
+  const totals = {}
+  for (const it of items) totals[it.name] = (totals[it.name] || 0) + it.poids
+  return items.sort((a, b) => {
+    const d = (totals[b.name] || 0) - (totals[a.name] || 0)
+    return d !== 0 ? d : (a.annee || 0) - (b.annee || 0)
+  })
 }
 
-// Agrégation par cépage (split équitable si plusieurs cépages sur la parcelle)
-function aggregateByCepage(vendanges) {
+// Agrégation par cépage — si multiYear, une entrée par (cépage, année)
+function aggregateByCepage(vendanges, multiYear = false) {
   const map = {}
   for (const v of vendanges) {
     const cepages = v.cepages?.length > 0 ? v.cepages : ['Non précisé']
     const share = 1 / cepages.length
     for (const c of cepages) {
-      if (!map[c]) map[c] = { name: c, poids: 0, surface: 0 }
-      map[c].poids   += (v.poids_total      || 0) * share
-      map[c].surface += (v.surface_totale_ca || 0) * share
+      const key = multiYear ? `${c}|||${v.annee}` : c
+      if (!map[key]) map[key] = { name: c, annee: multiYear ? v.annee : null, poids: 0, surface: 0 }
+      map[key].poids   += (v.poids_total      || 0) * share
+      map[key].surface += (v.surface_totale_ca || 0) * share
     }
   }
-  return Object.values(map)
-    .map(g => ({ ...g, kgha: g.surface > 0 ? Math.round(g.poids / (g.surface / 10000)) : null }))
-    .sort((a, b) => (b.poids || 0) - (a.poids || 0))
-}
-
-const CURVE_COLORS = ['#d97706', '#15803d', '#7c3aed', '#e11d48', '#0891b2', '#ea580c']
-
-// ── Graphe multi-courbes de progression de récolte ───────────────────────────
-function HarvestCurveChart({ curves, selectedYears }) {
-  const visible = curves.filter(c => selectedYears.size === 0 || selectedYears.has(c.annee))
-  const validCurves = visible.filter(c => c.points.length >= 2)
-  if (validCurves.length < 1) return (
-    <p className="text-sm text-gray-400 text-center py-6">Pas assez de chargements enregistrés</p>
-  )
-
-  const W = 320, H = 165
-  const PAD = { top: 24, right: 44, bottom: 26, left: 14 }
-  const CW = W - PAD.left - PAD.right
-  const CH = H - PAD.top - PAD.bottom
-
-  const maxDays = Math.max(...validCurves.map(c => c.points.length), 1)
-  const maxKg   = Math.max(...validCurves.flatMap(c => c.points.map(p => p.kg_cumul)), 1)
-
-  const xPos = day => PAD.left + ((day - 1) / Math.max(maxDays - 1, 1)) * CW
-  const yPos = kg  => PAD.top + CH - (kg / maxKg) * CH
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-      {[0.5, 1].map(f => {
-        const v = maxKg * f
-        const y = yPos(v)
-        return (
-          <g key={f}>
-            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#f3f4f6" strokeWidth="1" />
-            <text x={PAD.left + 2} y={y - 3} fontSize="8" fill="#e5e7eb">{fmtK(v)}</text>
-          </g>
-        )
-      })}
-
-      {validCurves.map((curve, ci) => {
-        const color = CURVE_COLORS[ci % CURVE_COLORS.length]
-        const pts   = curve.points.map(p => ({ x: xPos(p.day), y: yPos(p.kg_cumul) }))
-        const path  = catmullRom(pts)
-        const last  = pts[pts.length - 1]
-        return (
-          <g key={curve.annee}>
-            <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx={last.x} cy={last.y} r="3.5" fill="white" stroke={color} strokeWidth="2" />
-            <text x={last.x + 6} y={last.y + 4} fontSize="10" fill={color} fontWeight="700">{curve.annee}</text>
-          </g>
-        )
-      })}
-
-      <text x={xPos(1)} y={H - 7} fontSize="9" fill="#9ca3af" textAnchor="middle">J1</text>
-      {maxDays > 1 && (
-        <text x={xPos(maxDays)} y={H - 7} fontSize="9" fill="#9ca3af" textAnchor="middle">J{maxDays}</text>
-      )}
-    </svg>
-  )
+  const items = Object.values(map).map(g => ({
+    ...g, kgha: g.surface > 0 ? Math.round(g.poids / (g.surface / 10000)) : null,
+  }))
+  if (!multiYear) return items.sort((a, b) => (b.poids || 0) - (a.poids || 0))
+  const totals = {}
+  for (const it of items) totals[it.name] = (totals[it.name] || 0) + it.poids
+  return items.sort((a, b) => {
+    const d = (totals[b.name] || 0) - (totals[a.name] || 0)
+    return d !== 0 ? d : (a.annee || 0) - (b.annee || 0)
+  })
 }
 
 // ── Graphe area chart : rendement kg/ha ──────────────────────────────────────
@@ -132,15 +96,12 @@ function RendementChart({ data }) {
   const vals      = active.map(d => d.rendement_kgha)
   const attenduV  = active.map(d => d.rendement_attendu_kgha || 0)
   const maxY      = Math.max(...vals, ...attenduV) * 1.2
-
-  const n    = active.length
-  const xPos = i => PAD.left + (n > 1 ? i * CW / (n - 1) : CW / 2)
-  const yPos = v => PAD.top + CH - (v / maxY) * CH
-
-  const pts      = active.map((d, i) => ({ x: xPos(i), y: yPos(d.rendement_kgha), val: d.rendement_kgha, annee: d.annee }))
-  const linePath = catmullRom(pts)
-  const areaPath = `${linePath} L ${pts[pts.length-1].x.toFixed(1)},${PAD.top+CH} L ${pts[0].x.toFixed(1)},${PAD.top+CH} Z`
-
+  const n         = active.length
+  const xPos = i  => PAD.left + (n > 1 ? i * CW / (n - 1) : CW / 2)
+  const yPos = v  => PAD.top + CH - (v / maxY) * CH
+  const pts       = active.map((d, i) => ({ x: xPos(i), y: yPos(d.rendement_kgha), val: d.rendement_kgha, annee: d.annee }))
+  const linePath  = catmullRom(pts)
+  const areaPath  = `${linePath} L ${pts[pts.length-1].x.toFixed(1)},${PAD.top+CH} L ${pts[0].x.toFixed(1)},${PAD.top+CH} Z`
   const attenduPts  = active.map((d, i) => d.rendement_attendu_kgha ? { x: xPos(i), y: yPos(d.rendement_attendu_kgha) } : null).filter(Boolean)
   const attenduPath = attenduPts.length >= 2 ? catmullRom(attenduPts) : null
   const midVal      = Math.round(Math.max(...vals) / 2)
@@ -203,9 +164,9 @@ function ProductionChart({ data }) {
         </linearGradient>
       </defs>
       {active.map((d, i) => {
-        const bh    = (d.poids_total / maxY) * CH
-        const x     = xCenter(i) - barW / 2
-        const y     = yPos(d.poids_total)
+        const bh     = (d.poids_total / maxY) * CH
+        const x      = xCenter(i) - barW / 2
+        const y      = yPos(d.poids_total)
         const isBest = d.poids_total === bestVal
         return (
           <g key={d.annee}>
@@ -219,55 +180,93 @@ function ProductionChart({ data }) {
   )
 }
 
-// ── Barres horizontales de répartition ───────────────────────────────────────
-function BreakdownList({ items }) {
+// ── Graphe barres verticales groupées (répartition) ──────────────────────────
+function BreakdownChart({ items, yearColors, multiYear }) {
   if (!items.length) return <p className="text-sm text-gray-400 text-center py-4">Aucune donnée</p>
+
+  // Grouper par nom (commune ou cépage), ordre déjà trié
+  const groupMap = new Map()
+  for (const item of items) {
+    if (!groupMap.has(item.name)) groupMap.set(item.name, [])
+    groupMap.get(item.name).push(item)
+  }
+  const groups = Array.from(groupMap.values())
+
+  const W = 320
+  const labelH = multiYear ? 42 : 28
+  const H = 180 + labelH
+  const PAD = { top: 28, right: 10, bottom: labelH, left: 10 }
+  const CW = W - PAD.left - PAD.right
+  const CH = H - PAD.top - PAD.bottom
+
   const maxPoids = Math.max(...items.map(i => i.poids || 0), 1)
+  const nGroups  = groups.length
+  const groupW   = CW / nGroups
+  const nPerGroup = Math.max(...groups.map(g => g.length))
+  const barW      = Math.min((groupW * 0.72) / nPerGroup, 36)
+  const yPos = v  => PAD.top + CH - (v / maxPoids) * CH
+
   return (
-    <div className="space-y-4">
-      {items.map(item => (
-        <div key={item.name}>
-          <div className="flex items-baseline justify-between mb-1.5">
-            <span className="text-sm font-semibold text-gray-800 truncate flex-1 mr-3">{item.name}</span>
-            <span className="text-sm font-bold text-gray-900 flex-shrink-0 tabular-nums">
-              {item.kgha ? `${item.kgha.toLocaleString('fr-FR')} kg/ha` : '—'}
-            </span>
-          </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full bg-amber-400 transition-all duration-500"
-              style={{ width: `${Math.round((item.poids / maxPoids) * 100)}%` }}
-            />
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            {Math.round(item.poids).toLocaleString('fr-FR')} kg
-            {item.surface > 100 && ` · ${caToDisplayHa(Math.round(item.surface))}`}
-          </p>
-        </div>
-      ))}
-    </div>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+      {/* Grille */}
+      {[0.5, 1].map(f => {
+        const y = yPos(maxPoids * f)
+        return (
+          <g key={f}>
+            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#f3f4f6" strokeWidth="1" />
+            <text x={PAD.left + 1} y={y - 3} fontSize="8" fill="#d1d5db">{fmtK(maxPoids * f)}</text>
+          </g>
+        )
+      })}
+
+      {groups.map((group, gi) => {
+        const gCenterX  = PAD.left + gi * groupW + groupW / 2
+        const totalBarW = barW * group.length
+        const startX    = gCenterX - totalBarW / 2
+        const name      = group[0].name
+        const label     = name.length > 11 ? name.slice(0, 10) + '…' : name
+
+        return (
+          <g key={name}>
+            {group.map((item, bi) => {
+              const bh    = Math.max((item.poids / maxPoids) * CH, 2)
+              const x     = startX + bi * barW
+              const y     = PAD.top + CH - bh
+              const color = item.annee && yearColors?.[item.annee] ? yearColors[item.annee] : '#f59e0b'
+              return (
+                <g key={bi}>
+                  <rect x={x + 1} y={y} width={barW - 2} height={bh} rx="4" fill={color} />
+                  <text x={x + barW / 2} y={y - 4} textAnchor="middle" fontSize="8.5" fill={color} fontWeight="700">
+                    {fmtK(item.poids)}
+                  </text>
+                  {multiYear && (
+                    <text x={x + barW / 2} y={H - PAD.bottom + 14} textAnchor="middle" fontSize="9" fill={color} fontWeight="600">
+                      '{String(item.annee).slice(2)}
+                    </text>
+                  )}
+                </g>
+              )
+            })}
+            <text x={gCenterX} y={H - PAD.bottom + (multiYear ? 28 : 14)} textAnchor="middle" fontSize="9.5" fill="#6b7280">
+              {label}
+            </text>
+          </g>
+        )
+      })}
+    </svg>
   )
 }
 
 // ── Page principale ───────────────────────────────────────────────────────────
 export default function StatsGlobales() {
-  const navigate       = useNavigate()
-  const [stats, setStats]             = useState(null)
-  const [loading, setLoading]         = useState(true)
-  const [selectedYears, setSelectedYears]           = useState(new Set()) // pour Répartition
-  const [selectedCurveYears, setSelectedCurveYears] = useState(new Set()) // pour courbes récolte
-  const [tab, setTab]                               = useState('commune')
+  const navigate = useNavigate()
+  const [stats, setStats]         = useState(null)
+  const [loading, setLoading]     = useState(true)
+  const [selectedYears, setSelectedYears] = useState(new Set())
+  const [tab, setTab]             = useState('commune')
 
   function toggleYear(y) {
     setSelectedYears(prev => {
-      const next = new Set(prev)
-      next.has(y) ? next.delete(y) : next.add(y)
-      return next
-    })
-  }
-
-  function toggleCurveYear(y) {
-    setSelectedCurveYears(prev => {
       const next = new Set(prev)
       next.has(y) ? next.delete(y) : next.add(y)
       return next
@@ -301,23 +300,28 @@ export default function StatsGlobales() {
     </div>
   )
 
-  const { surface_totale_ca, campagnes, vendangesDetail = [], harvestCurves = [] } = stats
-  const totalKg      = campagnes.reduce((s, c) => s + (c.poids_total || 0), 0)
-  const withRdt      = campagnes.filter(c => c.rendement_kgha > 0)
-  const bestC        = withRdt.reduce((b, c) => !b || c.rendement_kgha > b.rendement_kgha ? c : b, null)
-  const avgKgHa      = withRdt.length ? Math.round(withRdt.reduce((s, c) => s + c.rendement_kgha, 0) / withRdt.length) : null
+  const { surface_totale_ca, campagnes, vendangesDetail = [] } = stats
+  const totalKg       = campagnes.reduce((s, c) => s + (c.poids_total || 0), 0)
+  const withRdt       = campagnes.filter(c => c.rendement_kgha > 0)
+  const bestC         = withRdt.reduce((b, c) => !b || c.rendement_kgha > b.rendement_kgha ? c : b, null)
+  const avgKgHa       = withRdt.length ? Math.round(withRdt.reduce((s, c) => s + c.rendement_kgha, 0) / withRdt.length) : null
   const campagnesDesc = [...campagnes].reverse()
+  const yearsDesc     = campagnesDesc.map(c => c.annee)
 
-  // Données filtrées par années sélectionnées (vide = toutes)
+  // Couleur par année : index dans campagnes ASC
+  const yearColors = {}
+  campagnes.forEach((c, i) => { yearColors[c.annee] = YEAR_COLORS[i % YEAR_COLORS.length] })
+
+  // Mode multi-année : 2+ années sélectionnées → une ligne par (commune/cépage, année)
+  const multiYear = selectedYears.size >= 2
+
   const filteredVendanges = selectedYears.size === 0
     ? vendangesDetail
     : vendangesDetail.filter(v => selectedYears.has(v.annee))
 
-  const communeItems = aggregateByCommune(filteredVendanges)
-  const cepageItems  = aggregateByCepage(filteredVendanges)
+  const communeItems = aggregateByCommune(filteredVendanges, multiYear)
+  const cepageItems  = aggregateByCepage(filteredVendanges, multiYear)
   const breakdown    = tab === 'commune' ? communeItems : cepageItems
-
-  const yearsDesc = [...campagnes].reverse().map(c => c.annee)
 
   return (
     <div className="pb-24">
@@ -359,58 +363,26 @@ export default function StatsGlobales() {
           <ProductionChart data={campagnes} />
         </div>
 
-        {/* Graphe progression de récolte */}
-        {harvestCurves.length >= 1 && (
-          <div className="bg-white rounded-3xl shadow-md border border-gray-100 px-4 pt-4 pb-3">
-            <div className="flex items-center justify-between mb-3">
-              <p className="font-bold text-gray-900">Progression de récolte</p>
-              <p className="text-xs text-gray-400">kg cumulés / jour</p>
-            </div>
-            {/* Sélecteur d'années pour les courbes */}
-            <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-3" style={{ scrollbarWidth: 'none' }}>
-              {harvestCurves.map((c, ci) => {
-                const active = selectedCurveYears.size === 0 || selectedCurveYears.has(c.annee)
-                return (
-                  <button
-                    key={c.annee}
-                    onClick={() => toggleCurveYear(c.annee)}
-                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-colors"
-                    style={active
-                      ? { backgroundColor: CURVE_COLORS[ci % CURVE_COLORS.length] + '22', color: CURVE_COLORS[ci % CURVE_COLORS.length], border: `1.5px solid ${CURVE_COLORS[ci % CURVE_COLORS.length]}55` }
-                      : { backgroundColor: '#f3f4f6', color: '#9ca3af', border: '1.5px solid transparent' }
-                    }
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: active ? CURVE_COLORS[ci % CURVE_COLORS.length] : '#d1d5db' }}
-                    />
-                    {c.annee}
-                  </button>
-                )
-              })}
-            </div>
-            <HarvestCurveChart curves={harvestCurves} selectedYears={selectedCurveYears} />
-          </div>
-        )}
-
-        {/* ── Section répartition (filtrée par année) ───────────────────── */}
+        {/* ── Section répartition ── */}
         <div className="bg-white rounded-3xl shadow-md border border-gray-100 overflow-hidden">
 
-          {/* En-tête + sélecteur d'année */}
           <div className="px-4 pt-4 pb-2">
             <p className="font-bold text-gray-900 mb-3">Répartition</p>
 
-            {/* Sélecteur multi-années */}
+            {/* Sélecteur multi-années — couleur dynamique par année */}
             <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
               {yearsDesc.map(y => {
-                const active = selectedYears.size === 0 || selectedYears.has(y)
+                const isActive = selectedYears.size === 0 || selectedYears.has(y)
+                const color    = yearColors[y]
                 return (
                   <button
                     key={y}
                     onClick={() => toggleYear(y)}
-                    className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                      active ? 'bg-vigne-700 text-white' : 'bg-gray-100 text-gray-500'
-                    }`}
+                    className="flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all"
+                    style={isActive
+                      ? { backgroundColor: color, color: '#fff' }
+                      : { backgroundColor: '#f3f4f6', color: '#6b7280' }
+                    }
                   >
                     {y}
                   </button>
@@ -425,9 +397,7 @@ export default function StatsGlobales() {
                   key={key}
                   onClick={() => setTab(key)}
                   className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
-                    tab === key
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-500'
+                    tab === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
                   }`}
                 >
                   {label}
@@ -437,7 +407,7 @@ export default function StatsGlobales() {
           </div>
 
           <div className="px-4 pb-4 pt-3">
-            <BreakdownList items={breakdown} />
+            <BreakdownChart items={breakdown} yearColors={yearColors} multiYear={multiYear} />
           </div>
         </div>
 
@@ -449,8 +419,8 @@ export default function StatsGlobales() {
           </div>
 
           {campagnesDesc.map(c => {
-            const isBest     = bestC && c.annee === bestC.annee
-            const isClosed   = c.statut === 'cloturee'
+            const isBest   = bestC && c.annee === bestC.annee
+            const isClosed = c.statut === 'cloturee'
             const vsObjectif = c.rendement_attendu_kgha && c.rendement_kgha
               ? Math.round((c.rendement_kgha - c.rendement_attendu_kgha) / c.rendement_attendu_kgha * 100)
               : null
@@ -458,9 +428,7 @@ export default function StatsGlobales() {
               <button
                 key={c.annee}
                 onClick={() => navigate(`/vendange/${c.annee}`)}
-                className={`w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-50 last:border-0 text-left active:bg-gray-50 transition-colors ${
-                  selectedYears.has(c.annee) ? 'bg-amber-50' : ''
-                }`}
+                className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-50 last:border-0 text-left active:bg-gray-50 transition-colors"
               >
                 <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center flex-shrink-0 ${
                   isBest   ? 'bg-amber-100 ring-2 ring-amber-400 ring-offset-1' :

@@ -36,6 +36,11 @@ function CardStats({ c }) {
         {kgHaMoyen ? <> · <span className="text-vigne-700 font-medium">{kgHaMoyen.toLocaleString('fr-FR')} kg/ha</span></> : null}
         {' · '}{c.nb_vendanges || 0} parcelle{c.nb_vendanges > 1 ? 's' : ''}
       </p>
+      {c.rendement_attendu_kgha && (
+        <p className="text-xs text-gray-400 mt-0.5">
+          Appellation · objectif {c.rendement_attendu_kgha.toLocaleString('fr-FR')} kg/ha
+        </p>
+      )}
 
       {kgAttendu > 0 && (
         <div className="mt-1.5 space-y-0.5">
@@ -110,7 +115,7 @@ export default function CampagnesList() {
 
       <button
         onClick={() => navigate('/vendange/new')}
-        className="fixed right-4 bg-amber-500 text-white w-14 h-14 rounded-full
+        className="fab-offset fixed right-4 bg-amber-500 text-white w-14 h-14 rounded-full
                    shadow-lg flex items-center justify-center active:scale-95 transition-transform z-10"
         style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
       >
