@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import db from '../db.js'
-import { requireAuth } from '../middleware/auth.js'
+import { requireAuth, requireAdmin } from '../middleware/auth.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -11,29 +11,27 @@ router.get('/', (req, res) => {
   const rows = db.prepare(`
     SELECT c.*,
       (SELECT COALESCE(SUM(v.poids_total), 0)
-         FROM vendanges v WHERE v.user_id = c.user_id AND v.annee = c.annee) AS poids_total,
+         FROM vendanges v WHERE v.annee = c.annee) AS poids_total,
       (SELECT COALESCE(SUM(v.nb_caisses_total), 0)
-         FROM vendanges v WHERE v.user_id = c.user_id AND v.annee = c.annee) AS caisses_total,
+         FROM vendanges v WHERE v.annee = c.annee) AS caisses_total,
       (SELECT COUNT(*)
-         FROM vendanges v WHERE v.user_id = c.user_id AND v.annee = c.annee) AS nb_vendanges,
+         FROM vendanges v WHERE v.annee = c.annee) AS nb_vendanges,
       (SELECT COALESCE(SUM(p.surface_totale_ca), 0)
          FROM vendanges v
          JOIN parcelles p ON p.id = v.parcelle_id
-         WHERE v.user_id = c.user_id AND v.annee = c.annee) AS surface_vendanges_ca,
+         WHERE v.annee = c.annee) AS surface_vendanges_ca,
       (SELECT COALESCE(SUM(p.surface_totale_ca), 0)
-         FROM parcelles p
-         WHERE p.user_id = c.user_id) AS surface_all_ca
+         FROM parcelles p) AS surface_all_ca
     FROM campagnes c
-    WHERE c.user_id = ?
     ORDER BY c.annee DESC
-  `).all(req.userId)
+  `).all()
   res.json(rows)
 })
 
 router.post('/', (req, res) => {
   const { annee, date_debut, rendement_attendu_kgha } = req.body
   if (!annee) return res.status(400).json({ error: 'Année requise' })
-  const existing = db.prepare('SELECT id FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
+  const existing = db.prepare('SELECT id FROM campagnes WHERE annee = ?').get(annee)
   if (existing) return res.status(409).json({ error: 'Une campagne existe déjà pour cette année' })
 
   const id = uuidv4()
@@ -53,30 +51,29 @@ router.get('/stats', (req, res) => {
            THEN c.poids_total_cloture
            ELSE COALESCE((
              SELECT SUM(v.poids_total) FROM vendanges v
-             WHERE v.user_id = c.user_id AND v.annee = c.annee), 0)
+             WHERE v.annee = c.annee), 0)
       END AS poids_total,
       COALESCE((
         SELECT SUM(v.nb_caisses_total) FROM vendanges v
-        WHERE v.user_id = c.user_id AND v.annee = c.annee), 0) AS caisses_total,
+        WHERE v.annee = c.annee), 0) AS caisses_total,
       COALESCE((
         SELECT COUNT(*) FROM vendanges v
-        WHERE v.user_id = c.user_id AND v.annee = c.annee), 0) AS nb_vendanges,
+        WHERE v.annee = c.annee), 0) AS nb_vendanges,
       COALESCE((
         SELECT SUM(p.surface_totale_ca)
         FROM vendanges v JOIN parcelles p ON p.id = v.parcelle_id
-        WHERE v.user_id = c.user_id AND v.annee = c.annee), 0) AS surface_vendanges_ca
+        WHERE v.annee = c.annee), 0) AS surface_vendanges_ca
     FROM campagnes c
-    WHERE c.user_id = ?
     ORDER BY c.annee ASC
-  `).all(req.userId)
+  `).all()
 
   const { surface_totale_ca } = db.prepare(
-    `SELECT COALESCE(SUM(surface_totale_ca), 0) AS surface_totale_ca FROM parcelles WHERE user_id = ?`
-  ).get(req.userId)
+    `SELECT COALESCE(SUM(surface_totale_ca), 0) AS surface_totale_ca FROM parcelles`
+  ).get()
 
   const { nb_parcelles } = db.prepare(
-    `SELECT COUNT(*) AS nb_parcelles FROM parcelles WHERE user_id = ?`
-  ).get(req.userId)
+    `SELECT COUNT(*) AS nb_parcelles FROM parcelles`
+  ).get()
 
   const result = campagnes.map(c => ({
     annee: c.annee,
@@ -91,15 +88,13 @@ router.get('/stats', (req, res) => {
     rendement_attendu_kgha: c.rendement_attendu_kgha,
   }))
 
-  // Courbes de récolte journalières par année (pour graphe multi-courbes)
   const harvestRows = db.prepare(`
     SELECT v.annee, ch.date_chargement, COALESCE(SUM(ch.poids_kg), 0) AS kg_jour
     FROM chargements ch
     JOIN vendanges v ON v.id = ch.vendange_id
-    WHERE v.user_id = ?
     GROUP BY v.annee, ch.date_chargement
     ORDER BY v.annee, ch.date_chargement
-  `).all(req.userId)
+  `).all()
 
   const curvesByYear = {}
   for (const r of harvestRows) {
@@ -121,9 +116,9 @@ router.get('/stats', (req, res) => {
       COALESCE(p.cepages, '[]') AS cepages
     FROM vendanges v
     JOIN parcelles p ON p.id = v.parcelle_id
-    WHERE v.user_id = ? AND v.poids_total > 0
+    WHERE v.poids_total > 0
     ORDER BY v.annee ASC
-  `).all(req.userId).map(row => ({
+  `).all().map(row => ({
     ...row,
     cepages: (() => { try { return JSON.parse(row.cepages) } catch { return [] } })(),
   }))
@@ -134,14 +129,12 @@ router.get('/stats', (req, res) => {
 // Détail d'une campagne
 router.get('/:annee', (req, res) => {
   const annee = parseInt(req.params.annee)
-  const campagne = db.prepare('SELECT * FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
+  const campagne = db.prepare('SELECT * FROM campagnes WHERE annee = ?').get(annee)
   if (!campagne) return res.status(404).json({ error: 'Campagne introuvable' })
 
   let parcelles
 
   if (campagne.statut === 'cloturee') {
-    // Campagne clôturée : on liste uniquement les vendanges existantes (snapshot figé)
-    // Même si une parcelle est supprimée depuis, on utilise parcelle_nom comme fallback
     parcelles = db.prepare(`
       SELECT
         COALESCE(p.id, v.parcelle_id)       AS id,
@@ -158,20 +151,18 @@ router.get('/:annee', (req, res) => {
         v.statut AS vendange_statut
       FROM vendanges v
       LEFT JOIN parcelles p ON p.id = v.parcelle_id
-      WHERE v.user_id = ? AND v.annee = ?
+      WHERE v.annee = ?
       ORDER BY nom
-    `).all(req.userId, annee)
+    `).all(annee)
   } else {
-    // Campagne en cours : toutes les parcelles de l'utilisateur, avec vendange si elle existe
     parcelles = db.prepare(`
       SELECT p.id, p.nom, p.surface_plantee_ca, p.surface_totale_ca, p.commune, p.cepages, p.statut,
              v.id AS vendange_id, v.poids_total, v.nb_caisses_total, v.notes AS vendange_notes,
              v.statut AS vendange_statut
       FROM parcelles p
-      LEFT JOIN vendanges v ON v.parcelle_id = p.id AND v.annee = ? AND v.user_id = p.user_id
-      WHERE p.user_id = ?
+      LEFT JOIN vendanges v ON v.parcelle_id = p.id AND v.annee = ?
       ORDER BY p.nom
-    `).all(annee, req.userId)
+    `).all(annee)
   }
 
   parcelles = parcelles.map(p => ({
@@ -184,11 +175,10 @@ router.get('/:annee', (req, res) => {
 
 router.put('/:annee', (req, res) => {
   const annee = parseInt(req.params.annee)
-  const c = db.prepare('SELECT id, statut FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
+  const c = db.prepare('SELECT id, statut FROM campagnes WHERE annee = ?').get(annee)
   if (!c) return res.status(404).json({ error: 'Campagne introuvable' })
 
   const { date_debut, rendement_attendu_kgha, note_bilan } = req.body
-  // Note bilan modifiable même après clôture, le reste seulement en cours
   if (c.statut === 'cloturee' && (date_debut !== undefined || rendement_attendu_kgha !== undefined)) {
     return res.status(409).json({ error: 'Campagne clôturée — réouvrez-la pour modifier ces champs' })
   }
@@ -210,19 +200,17 @@ router.put('/:annee', (req, res) => {
 
 router.post('/:annee/cloturer', (req, res) => {
   const annee = parseInt(req.params.annee)
-  const c = db.prepare('SELECT * FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
+  const c = db.prepare('SELECT * FROM campagnes WHERE annee = ?').get(annee)
   if (!c) return res.status(404).json({ error: 'Campagne introuvable' })
 
-  // Snapshot : total kg récolté + kg attendu sur TOUTES les parcelles au moment de la clôture
   const totals = db.prepare(`
     SELECT COALESCE(SUM(v.poids_total), 0) AS poids_total
-    FROM vendanges v WHERE v.user_id = ? AND v.annee = ?
-  `).get(req.userId, annee)
+    FROM vendanges v WHERE v.annee = ?
+  `).get(annee)
 
   const surfaceAll = db.prepare(`
-    SELECT COALESCE(SUM(p.surface_totale_ca), 0) AS surface_ca
-    FROM parcelles p WHERE p.user_id = ?
-  `).get(req.userId)
+    SELECT COALESCE(SUM(p.surface_totale_ca), 0) AS surface_ca FROM parcelles p
+  `).get()
 
   const kgAttendu = c.rendement_attendu_kgha && surfaceAll.surface_ca
     ? Math.round(c.rendement_attendu_kgha * surfaceAll.surface_ca / 10000)
@@ -243,7 +231,7 @@ router.post('/:annee/cloturer', (req, res) => {
 
 router.post('/:annee/rouvrir', (req, res) => {
   const annee = parseInt(req.params.annee)
-  const c = db.prepare('SELECT id FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
+  const c = db.prepare('SELECT id FROM campagnes WHERE annee = ?').get(annee)
   if (!c) return res.status(404).json({ error: 'Campagne introuvable' })
   db.prepare(`
     UPDATE campagnes SET statut = 'en_cours', date_cloture = NULL, updated_at = datetime('now')
@@ -255,7 +243,7 @@ router.post('/:annee/rouvrir', (req, res) => {
 // Export détaillé : parcelles groupées par pressoir avec tous les chargements
 router.get('/:annee/export', (req, res) => {
   const annee = parseInt(req.params.annee)
-  const campagne = db.prepare('SELECT * FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
+  const campagne = db.prepare('SELECT * FROM campagnes WHERE annee = ?').get(annee)
   if (!campagne) return res.status(404).json({ error: 'Campagne introuvable' })
 
   const rows = db.prepare(`
@@ -265,11 +253,10 @@ router.get('/:annee/export', (req, res) => {
            c.id AS chargement_id, c.date_chargement, c.heure_livraison,
            c.nombre_caisses, c.poids_kg, c.notes AS chargement_notes
     FROM parcelles p
-    LEFT JOIN vendanges v ON v.parcelle_id = p.id AND v.annee = ? AND v.user_id = p.user_id
+    LEFT JOIN vendanges v ON v.parcelle_id = p.id AND v.annee = ?
     LEFT JOIN chargements c ON c.vendange_id = v.id
-    WHERE p.user_id = ?
     ORDER BY COALESCE(p.commune_pressoir, p.commune), p.nom, c.date_chargement, c.heure_livraison
-  `).all(annee, req.userId)
+  `).all(annee)
 
   const grouped = {}
   for (const row of rows) {
@@ -309,7 +296,7 @@ router.get('/:annee/export', (req, res) => {
 // Export journalier : chargements groupés par date
 router.get('/:annee/export-journalier', (req, res) => {
   const annee = parseInt(req.params.annee)
-  const campagne = db.prepare('SELECT * FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
+  const campagne = db.prepare('SELECT * FROM campagnes WHERE annee = ?').get(annee)
   if (!campagne) return res.status(404).json({ error: 'Campagne introuvable' })
 
   const rows = db.prepare(`
@@ -321,9 +308,9 @@ router.get('/:annee/export-journalier', (req, res) => {
     FROM chargements ch
     JOIN vendanges v ON v.id = ch.vendange_id
     LEFT JOIN parcelles p ON p.id = v.parcelle_id
-    WHERE v.user_id = ? AND v.annee = ?
+    WHERE v.annee = ?
     ORDER BY ch.date_chargement ASC, ch.heure_livraison ASC NULLS LAST, parcelle_nom ASC
-  `).all(req.userId, annee)
+  `).all(annee)
 
   const byDate = {}
   for (const row of rows) {
@@ -346,9 +333,9 @@ router.get('/:annee/export-journalier', (req, res) => {
   })
 })
 
-router.delete('/:annee', (req, res) => {
+router.delete('/:annee', requireAdmin, (req, res) => {
   const annee = parseInt(req.params.annee)
-  const c = db.prepare('SELECT id FROM campagnes WHERE user_id = ? AND annee = ?').get(req.userId, annee)
+  const c = db.prepare('SELECT id FROM campagnes WHERE annee = ?').get(annee)
   if (!c) return res.status(404).json({ error: 'Campagne introuvable' })
   db.prepare('DELETE FROM campagnes WHERE id = ?').run(c.id)
   res.json({ success: true })

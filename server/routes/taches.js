@@ -11,9 +11,8 @@ router.get('/', (req, res) => {
     SELECT t.*, p.nom as parcelle_nom
     FROM taches t
     LEFT JOIN parcelles p ON p.id = t.parcelle_id
-    WHERE t.user_id = ?
     ORDER BY t.date_echeance ASC NULLS LAST, t.created_at DESC
-  `).all(req.userId)
+  `).all()
 
   res.json(rows.map(r => ({
     ...r,
@@ -38,13 +37,13 @@ router.post('/', (req, res) => {
 })
 
 router.get('/:id', (req, res) => {
-  const t = db.prepare('SELECT * FROM taches WHERE id = ? AND user_id = ?').get(req.params.id, req.userId)
+  const t = db.prepare('SELECT * FROM taches WHERE id = ?').get(req.params.id)
   if (!t) return res.status(404).json({ error: 'Tâche introuvable' })
   res.json(t)
 })
 
 router.put('/:id', (req, res) => {
-  const t = db.prepare('SELECT id FROM taches WHERE id = ? AND user_id = ?').get(req.params.id, req.userId)
+  const t = db.prepare('SELECT id FROM taches WHERE id = ?').get(req.params.id)
   if (!t) return res.status(404).json({ error: 'Tâche introuvable' })
 
   const { titre, description, parcelle_id, statut, priorite, date_echeance, photo_url } = req.body
@@ -60,7 +59,7 @@ router.put('/:id', (req, res) => {
 })
 
 router.delete('/:id', (req, res) => {
-  const t = db.prepare('SELECT id FROM taches WHERE id = ? AND user_id = ?').get(req.params.id, req.userId)
+  const t = db.prepare('SELECT id FROM taches WHERE id = ?').get(req.params.id)
   if (!t) return res.status(404).json({ error: 'Tâche introuvable' })
   db.prepare('DELETE FROM taches WHERE id = ?').run(req.params.id)
   res.json({ success: true })

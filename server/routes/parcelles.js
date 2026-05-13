@@ -15,7 +15,7 @@ function parseParcelle(p) {
 }
 
 router.get('/', (req, res) => {
-  const rows = db.prepare(`SELECT * FROM parcelles WHERE user_id = ? ORDER BY nom`).all(req.userId)
+  const rows = db.prepare(`SELECT * FROM parcelles ORDER BY nom`).all()
   res.json(rows.map(parseParcelle))
 })
 
@@ -46,13 +46,13 @@ router.post('/', (req, res) => {
 })
 
 router.get('/:id', (req, res) => {
-  const p = db.prepare('SELECT * FROM parcelles WHERE id = ? AND user_id = ?').get(req.params.id, req.userId)
+  const p = db.prepare('SELECT * FROM parcelles WHERE id = ?').get(req.params.id)
   if (!p) return res.status(404).json({ error: 'Parcelle introuvable' })
 
   const vendanges = db.prepare(`
     SELECT v.*, c.rendement_attendu_kgha
     FROM vendanges v
-    LEFT JOIN campagnes c ON c.user_id = v.user_id AND c.annee = v.annee
+    LEFT JOIN campagnes c ON c.annee = v.annee
     WHERE v.parcelle_id = ?
     ORDER BY v.annee DESC
   `).all(req.params.id)
@@ -61,7 +61,7 @@ router.get('/:id', (req, res) => {
 })
 
 router.put('/:id', (req, res) => {
-  const p = db.prepare('SELECT id FROM parcelles WHERE id = ? AND user_id = ?').get(req.params.id, req.userId)
+  const p = db.prepare('SELECT id FROM parcelles WHERE id = ?').get(req.params.id)
   if (!p) return res.status(404).json({ error: 'Parcelle introuvable' })
 
   const { nom, surface_totale_ca, surface_plantee_ca, nombre_routes,
@@ -86,7 +86,7 @@ router.put('/:id', (req, res) => {
 })
 
 router.delete('/:id', requireAdmin, (req, res) => {
-  const p = db.prepare('SELECT id FROM parcelles WHERE id = ? AND user_id = ?').get(req.params.id, req.userId)
+  const p = db.prepare('SELECT id FROM parcelles WHERE id = ?').get(req.params.id)
   if (!p) return res.status(404).json({ error: 'Parcelle introuvable' })
   db.prepare('DELETE FROM parcelles WHERE id = ?').run(req.params.id)
   res.json({ success: true })
