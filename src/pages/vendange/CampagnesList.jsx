@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Grape, ChevronRight, Lock } from 'lucide-react'
+import { Plus, Grape, ChevronRight, Lock, BarChart2 } from 'lucide-react'
 import { api } from '../../lib/api'
 
 function CardStats({ c }) {
@@ -68,8 +68,12 @@ export default function CampagnesList() {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="page-header flex items-center justify-between">
         <h1 className="text-xl font-bold">🍾 Vendanges</h1>
+        <button onClick={() => navigate('/vendange/stats')}
+                className="p-2 rounded-full active:bg-vigne-600" title="Statistiques">
+          <BarChart2 size={20} />
+        </button>
       </div>
 
       <div className="px-4 pt-4 space-y-3">

@@ -45,6 +45,55 @@ router.post('/', (req, res) => {
   res.json(db.prepare('SELECT * FROM campagnes WHERE id = ?').get(id))
 })
 
+// Statistiques globales (toutes campagnes)
+router.get('/stats', (req, res) => {
+  const campagnes = db.prepare(`
+    SELECT c.annee, c.statut, c.rendement_attendu_kgha,
+      CASE WHEN c.statut = 'cloturee' AND c.poids_total_cloture IS NOT NULL
+           THEN c.poids_total_cloture
+           ELSE COALESCE((
+             SELECT SUM(v.poids_total) FROM vendanges v
+             WHERE v.user_id = c.user_id AND v.annee = c.annee), 0)
+      END AS poids_total,
+      COALESCE((
+        SELECT SUM(v.nb_caisses_total) FROM vendanges v
+        WHERE v.user_id = c.user_id AND v.annee = c.annee), 0) AS caisses_total,
+      COALESCE((
+        SELECT COUNT(*) FROM vendanges v
+        WHERE v.user_id = c.user_id AND v.annee = c.annee), 0) AS nb_vendanges,
+      COALESCE((
+        SELECT SUM(p.surface_totale_ca)
+        FROM vendanges v JOIN parcelles p ON p.id = v.parcelle_id
+        WHERE v.user_id = c.user_id AND v.annee = c.annee), 0) AS surface_vendanges_ca
+    FROM campagnes c
+    WHERE c.user_id = ?
+    ORDER BY c.annee ASC
+  `).all(req.userId)
+
+  const { surface_totale_ca } = db.prepare(
+    `SELECT COALESCE(SUM(surface_totale_ca), 0) AS surface_totale_ca FROM parcelles WHERE user_id = ?`
+  ).get(req.userId)
+
+  const { nb_parcelles } = db.prepare(
+    `SELECT COUNT(*) AS nb_parcelles FROM parcelles WHERE user_id = ?`
+  ).get(req.userId)
+
+  const result = campagnes.map(c => ({
+    annee: c.annee,
+    statut: c.statut,
+    poids_total: c.poids_total,
+    caisses_total: c.caisses_total,
+    nb_vendanges: c.nb_vendanges,
+    surface_vendanges_ca: c.surface_vendanges_ca,
+    rendement_kgha: c.surface_vendanges_ca > 0
+      ? Math.round(c.poids_total / (c.surface_vendanges_ca / 10000))
+      : null,
+    rendement_attendu_kgha: c.rendement_attendu_kgha,
+  }))
+
+  res.json({ surface_totale_ca, nb_parcelles, campagnes: result })
+})
+
 // Détail d'une campagne
 router.get('/:annee', (req, res) => {
   const annee = parseInt(req.params.annee)
