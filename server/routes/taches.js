@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import db from '../db.js'
-import { requireAuth } from '../middleware/auth.js'
+import { requireAuth, requireDeletePermission } from '../middleware/auth.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -58,7 +58,7 @@ router.put('/:id', (req, res) => {
   res.json(db.prepare('SELECT * FROM taches WHERE id = ?').get(req.params.id))
 })
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireDeletePermission('taches'), (req, res) => {
   const t = db.prepare('SELECT id FROM taches WHERE id = ?').get(req.params.id)
   if (!t) return res.status(404).json({ error: 'Tâche introuvable' })
   db.prepare('DELETE FROM taches WHERE id = ?').run(req.params.id)

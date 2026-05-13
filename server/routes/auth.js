@@ -11,7 +11,9 @@ function makeToken(userId) {
 }
 
 function userPublic(u) {
-  return { id: u.id, email: u.email, prenom: u.prenom || '', nom: u.nom || '', role: u.role || 'user' }
+  let can_delete = {}
+  try { can_delete = u.can_delete ? JSON.parse(u.can_delete) : {} } catch {}
+  return { id: u.id, email: u.email, prenom: u.prenom || '', nom: u.nom || '', role: u.role || 'user', can_delete }
 }
 
 router.post('/register', async (req, res) => {
@@ -31,7 +33,7 @@ router.post('/register', async (req, res) => {
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(id, email.toLowerCase(), hash, prenom || '', nom || '', role)
 
-  const user = db.prepare('SELECT id, email, prenom, nom, role FROM users WHERE id = ?').get(id)
+  const user = db.prepare('SELECT id, email, prenom, nom, role, can_delete FROM users WHERE id = ?').get(id)
   res.json({ token: makeToken(id), user: userPublic(user) })
 })
 
@@ -53,7 +55,7 @@ router.get('/me', (req, res) => {
   if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Non authentifié' })
   try {
     const payload = jwt.verify(header.slice(7), process.env.JWT_SECRET)
-    const user = db.prepare('SELECT id, email, prenom, nom, role FROM users WHERE id = ?').get(payload.sub)
+    const user = db.prepare('SELECT id, email, prenom, nom, role, can_delete FROM users WHERE id = ?').get(payload.sub)
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' })
     res.json({ user: userPublic(user) })
   } catch {

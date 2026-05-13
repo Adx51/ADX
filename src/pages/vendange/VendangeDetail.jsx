@@ -13,6 +13,8 @@ export default function VendangeDetail() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
+  const canDeleteVendange = isAdmin || user?.can_delete?.vendanges === true
+  const canDeleteChargement = isAdmin || user?.can_delete?.chargements === true
   const [vendange, setVendange] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -206,7 +208,7 @@ export default function VendangeDetail() {
                   <div className="space-y-2">
                     {items.map(c => (
                       <div key={c.id}>
-                        {isAdmin && confirmDelete === c.id ? (
+                        {canDeleteChargement && confirmDelete === c.id ? (
                           <div className="card border-red-200 bg-red-50 p-3">
                             <p className="text-red-700 text-sm text-center mb-2">Supprimer ce chargement ?</p>
                             <div className="flex gap-2">
@@ -242,7 +244,7 @@ export default function VendangeDetail() {
                                         className="p-2 text-gray-400 active:text-vigne-700">
                                   <Edit2 size={16} />
                                 </button>
-                                {isAdmin && (
+                                {canDeleteChargement && (
                                   <button onClick={() => setConfirmDelete(c.id)}
                                           className="p-2 text-gray-400 active:text-red-600">
                                     <Trash2 size={16} />
@@ -294,7 +296,7 @@ export default function VendangeDetail() {
         )}
 
         {/* Supprimer vendange — admin uniquement */}
-        {isAdmin && !isClosed && (
+        {canDeleteVendange && !isClosed && (
           confirmDelete === 'vendange' ? (
             <div className="card border-red-200 bg-red-50 space-y-3">
               <p className="text-red-700 font-medium text-sm text-center">

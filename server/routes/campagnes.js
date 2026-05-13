@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import db from '../db.js'
-import { requireAuth, requireAdmin } from '../middleware/auth.js'
+import { requireAuth, requireDeletePermission } from '../middleware/auth.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -333,7 +333,7 @@ router.get('/:annee/export-journalier', (req, res) => {
   })
 })
 
-router.delete('/:annee', requireAdmin, (req, res) => {
+router.delete('/:annee', requireDeletePermission('campagnes'), (req, res) => {
   const annee = parseInt(req.params.annee)
   const c = db.prepare('SELECT id FROM campagnes WHERE annee = ?').get(annee)
   if (!c) return res.status(404).json({ error: 'Campagne introuvable' })

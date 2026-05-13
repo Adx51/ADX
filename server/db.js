@@ -314,6 +314,11 @@ if (schemaVersion < 8) {
   db.pragma('user_version = 8')
 }
 
+if (schemaVersion < 9) {
+  try { db.exec(`ALTER TABLE users ADD COLUMN can_delete TEXT DEFAULT NULL`) } catch {}
+  db.pragma('user_version = 9')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5

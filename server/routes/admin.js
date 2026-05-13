@@ -33,9 +33,25 @@ router.get('/export', (req, res) => {
 
 router.get('/users', (req, res) => {
   const users = db.prepare(
-    'SELECT id, email, prenom, nom, role, created_at FROM users ORDER BY created_at'
-  ).all()
+    'SELECT id, email, prenom, nom, role, can_delete, created_at FROM users ORDER BY created_at'
+  ).all().map(u => ({
+    ...u,
+    can_delete: u.can_delete ? (() => { try { return JSON.parse(u.can_delete) } catch { return {} } })() : {}
+  }))
   res.json(users)
+})
+
+router.put('/users/:id/permissions', (req, res) => {
+  const { can_delete } = req.body
+  const u = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.id)
+  if (!u) return res.status(404).json({ error: 'Utilisateur introuvable' })
+  const json = can_delete && typeof can_delete === 'object' ? JSON.stringify(can_delete) : null
+  db.prepare('UPDATE users SET can_delete = ? WHERE id = ?').run(json, req.params.id)
+  const updated = db.prepare('SELECT id, email, prenom, nom, role, can_delete, created_at FROM users WHERE id = ?').get(req.params.id)
+  res.json({
+    ...updated,
+    can_delete: updated.can_delete ? (() => { try { return JSON.parse(updated.can_delete) } catch { return {} } })() : {}
+  })
 })
 
 router.put('/users/:id', (req, res) => {

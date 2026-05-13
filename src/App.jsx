@@ -25,6 +25,7 @@ import ChargementForm from './pages/vendange/ChargementForm'
 
 import AdminPage from './pages/admin/AdminPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
+import ReglagesPage from './pages/reglages/ReglagesPage'
 
 export default function App() {
   return (
@@ -62,8 +63,9 @@ export default function App() {
                 <Route path="/vendange/:annee/export"  element={<CampagneExport />} />
                 <Route path="/vendange/:annee/export-journalier" element={<CampagneExportJournalier />} />
 
-                {/* Admin */}
+                {/* Admin & Réglages */}
                 <Route path="/admin" element={<AdminPage />} />
+                <Route path="/reglages" element={<ReglagesPage />} />
               </Route>
             </Route>
 

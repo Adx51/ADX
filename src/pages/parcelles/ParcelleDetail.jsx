@@ -13,6 +13,7 @@ export default function ParcelleDetail() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
+  const canDelete = isAdmin || user?.can_delete?.parcelles === true
   const [parcelle, setParcelle] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -44,8 +45,14 @@ export default function ParcelleDetail() {
   }
 
   function navigateToParcel() {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${parcelle.gps_lat},${parcelle.gps_lng}`
-    window.open(url, '_blank')
+    const lat = parcelle.gps_lat
+    const lng = parcelle.gps_lng
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent)
+    if (isIOS) {
+      window.location.href = `maps://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`
+    } else {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank')
+    }
   }
 
   async function shareGPS() {
@@ -211,7 +218,7 @@ export default function ParcelleDetail() {
           )}
         </div>
 
-        {isAdmin && (!confirmDelete ? (
+        {canDelete && (!confirmDelete ? (
           <button onClick={() => setConfirmDelete(true)}
                   className="w-full flex items-center justify-center gap-2 text-red-500 py-3 text-sm font-medium">
             <Trash2 size={16} />

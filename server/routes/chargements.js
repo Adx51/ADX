@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import db from '../db.js'
-import { requireAuth } from '../middleware/auth.js'
+import { requireAuth, requireDeletePermission } from '../middleware/auth.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -51,7 +51,7 @@ router.put('/:id', (req, res) => {
   res.json(db.prepare('SELECT * FROM chargements WHERE id = ?').get(req.params.id))
 })
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireDeletePermission('chargements'), (req, res) => {
   const c = db.prepare(`
     SELECT c.id, v.statut AS vendange_statut FROM chargements c
     JOIN vendanges v ON v.id = c.vendange_id

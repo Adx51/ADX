@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, List, Trash2, Crown, User, Plus, X, Edit2, Check, Database, Download, RefreshCw } from 'lucide-react'
+import { Users, List, Trash2, Crown, User, Plus, X, Edit2, Check, Database, Download, Shield, ChevronDown } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import PageHeader from '../../components/PageHeader'
 import { APP_VERSION } from '../../lib/version'
+
+const PERM_SECTIONS = [
+  { key: 'parcelles',   label: 'Parcelles' },
+  { key: 'vendanges',   label: 'Vendanges' },
+  { key: 'campagnes',   label: 'Campagnes' },
+  { key: 'taches',      label: 'Tâches' },
+  { key: 'chargements', label: 'Chargements' },
+]
 
 export default function AdminPage() {
   const { user } = useAuth()
@@ -19,7 +27,7 @@ export default function AdminPage() {
 
   return (
     <div>
-      <PageHeader title={`Administration · v${APP_VERSION}`} back="/parcelles" />
+      <PageHeader title={`Administration · v${APP_VERSION}`} back="/reglages" />
 
       <div className="flex border-b border-gray-200 sticky top-0 bg-white z-10">
         <TabBtn active={tab === 'users'} onClick={() => setTab('users')}>
@@ -63,6 +71,7 @@ function UsersTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
+  const [permsId, setPermsId] = useState(null)
 
   useEffect(() => {
     api.get('/admin/users').then(data => { setUsers(data || []); setLoading(false) })
@@ -72,7 +81,7 @@ function UsersTab() {
     setError('')
     try {
       const updated = await api.put(`/admin/users/${u.id}`, fields)
-      setUsers(prev => prev.map(x => x.id === u.id ? updated : x))
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, ...updated } : x))
       setEditingId(null)
     } catch (e) {
       setError(e.message)
@@ -85,6 +94,18 @@ function UsersTab() {
     try {
       await api.put(`/admin/users/${u.id}/role`, { role: newRole })
       setUsers(prev => prev.map(x => x.id === u.id ? { ...x, role: newRole } : x))
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  async function togglePerm(u, key) {
+    const current = u.can_delete?.[key] ?? false
+    const newPerms = { ...(u.can_delete || {}), [key]: !current }
+    setError('')
+    try {
+      const updated = await api.put(`/admin/users/${u.id}/permissions`, { can_delete: newPerms })
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, can_delete: updated.can_delete } : x))
     } catch (e) {
       setError(e.message)
     }
@@ -108,12 +129,12 @@ function UsersTab() {
   )
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 lg:max-w-2xl">
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>
       )}
       {users.map(u => (
-        <div key={u.id} className="card">
+        <div key={u.id} className="card overflow-hidden">
           {editingId === u.id ? (
             <EditUserForm
               user={u}
@@ -121,42 +142,88 @@ function UsersTab() {
               onCancel={() => setEditingId(null)}
             />
           ) : (
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${u.role === 'admin' ? 'bg-vigne-100' : 'bg-gray-100'}`}>
-                {u.role === 'admin'
-                  ? <Crown size={18} className="text-vigne-700" />
-                  : <User size={18} className="text-gray-500" />}
+            <>
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${u.role === 'admin' ? 'bg-vigne-100' : 'bg-gray-100'}`}>
+                  {u.role === 'admin'
+                    ? <Crown size={18} className="text-vigne-700" />
+                    : <User size={18} className="text-gray-500" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900 truncate">
+                    {u.prenom} {u.nom}
+                    {u.id === me?.id && <span className="text-xs text-gray-400 ml-1">(moi)</span>}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                  <span className={`text-xs font-medium ${u.role === 'admin' ? 'text-vigne-700' : 'text-gray-400'}`}>
+                    {u.role === 'admin' ? 'Administrateur' : 'Utilisateur'}
+                  </span>
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                  <button onClick={() => setEditingId(u.id)}
+                          className="p-2 rounded-xl text-gray-400 active:bg-gray-100">
+                    <Edit2 size={15} />
+                  </button>
+                  {u.id !== me?.id && (
+                    <>
+                      <button onClick={() => toggleRole(u)}
+                              className="p-2 rounded-xl active:bg-gray-100"
+                              title={u.role === 'admin' ? 'Rétrograder' : 'Promouvoir admin'}>
+                        <Crown size={15} className={u.role === 'admin' ? 'text-vigne-600' : 'text-gray-300'} />
+                      </button>
+                      {u.role !== 'admin' && (
+                        <button
+                          onClick={() => setPermsId(permsId === u.id ? null : u.id)}
+                          className={`p-2 rounded-xl active:bg-gray-100 ${permsId === u.id ? 'text-vigne-600 bg-vigne-50' : 'text-gray-400'}`}
+                          title="Droits de suppression"
+                        >
+                          <Shield size={15} />
+                        </button>
+                      )}
+                      <button onClick={() => deleteUser(u)}
+                              className="p-2 rounded-xl text-red-400 active:bg-red-50">
+                        <Trash2 size={15} />
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 truncate">
-                  {u.prenom} {u.nom}
-                  {u.id === me?.id && <span className="text-xs text-gray-400 ml-1">(moi)</span>}
-                </p>
-                <p className="text-xs text-gray-500 truncate">{u.email}</p>
-                <span className={`text-xs font-medium ${u.role === 'admin' ? 'text-vigne-700' : 'text-gray-400'}`}>
-                  {u.role === 'admin' ? 'Administrateur' : 'Utilisateur'}
-                </span>
-              </div>
-              <div className="flex gap-1 flex-shrink-0">
-                <button onClick={() => setEditingId(u.id)}
-                        className="p-2 rounded-xl text-gray-400 active:bg-gray-100">
-                  <Edit2 size={15} />
-                </button>
-                {u.id !== me?.id && (
-                  <>
-                    <button onClick={() => toggleRole(u)}
-                            className="p-2 rounded-xl active:bg-gray-100"
-                            title={u.role === 'admin' ? 'Rétrograder' : 'Promouvoir admin'}>
-                      <Crown size={15} className={u.role === 'admin' ? 'text-vigne-600' : 'text-gray-300'} />
-                    </button>
-                    <button onClick={() => deleteUser(u)}
-                            className="p-2 rounded-xl text-red-400 active:bg-red-50">
-                      <Trash2 size={15} />
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
+
+              {/* Panneau permissions — uniquement pour non-admins */}
+              {permsId === u.id && u.role !== 'admin' && (
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Droits de suppression
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {PERM_SECTIONS.map(({ key, label }) => {
+                      const enabled = u.can_delete?.[key] === true
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => togglePerm(u, key)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
+                            enabled
+                              ? 'bg-vigne-50 border-vigne-300 text-vigne-700'
+                              : 'bg-gray-50 border-gray-200 text-gray-400'
+                          }`}
+                        >
+                          <span className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border ${
+                            enabled ? 'bg-vigne-600 border-vigne-600' : 'border-gray-300'
+                          }`}>
+                            {enabled && <Check size={10} className="text-white" strokeWidth={3} />}
+                          </span>
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Les administrateurs ont toujours tous les droits de suppression.
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
       ))}
@@ -238,7 +305,7 @@ function BackupTab() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 lg:max-w-lg">
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>
       )}
@@ -268,32 +335,6 @@ function BackupTab() {
         Sauvegarde automatique toutes les 30 minutes côté serveur (5 dernières conservées dans <code>/data/backups</code>).
         Restauration automatique au démarrage si la base est vide.
       </p>
-
-      {/* Version + Forcer mise à jour */}
-      <div className="card space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-semibold text-gray-900">Version de l'application</p>
-            <p className="text-xs text-gray-500 mt-0.5">LF-Boyer Vignoble <span className="font-mono text-vigne-700">v{APP_VERSION}</span></p>
-          </div>
-        </div>
-        <button
-          onClick={async () => {
-            if ('serviceWorker' in navigator) {
-              const regs = await navigator.serviceWorker.getRegistrations()
-              await Promise.all(regs.map(r => r.unregister()))
-            }
-            window.location.reload()
-          }}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 text-gray-700 text-sm font-medium active:bg-gray-50"
-        >
-          <RefreshCw size={16} />
-          Forcer la mise à jour
-        </button>
-        <p className="text-xs text-gray-400">
-          Si l'appli semble bloquée sur une ancienne version, ce bouton efface le cache du navigateur et recharge.
-        </p>
-      </div>
     </div>
   )
 }
@@ -302,7 +343,7 @@ function BackupTab() {
 
 function RefsTab() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 lg:max-w-lg">
       <RefSection type="commune" label="Communes" withInsee />
       <RefSection type="cepage" label="Cépages" />
     </div>

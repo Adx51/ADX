@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import db from '../db.js'
-import { requireAuth, requireAdmin } from '../middleware/auth.js'
+import { requireAuth, requireDeletePermission } from '../middleware/auth.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -82,7 +82,7 @@ router.put('/:id', (req, res) => {
   res.json(db.prepare('SELECT * FROM vendanges WHERE id = ?').get(req.params.id))
 })
 
-router.delete('/:id', requireAdmin, (req, res) => {
+router.delete('/:id', requireDeletePermission('vendanges'), (req, res) => {
   const v = db.prepare('SELECT id FROM vendanges WHERE id = ?').get(req.params.id)
   if (!v) return res.status(404).json({ error: 'Vendange introuvable' })
   db.prepare('DELETE FROM vendanges WHERE id = ?').run(req.params.id)

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Map, CheckSquare, Grape, Settings } from 'lucide-react'
+import { Home, Map, CheckSquare, Grape, Settings, Shield } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function SideNav() {
@@ -9,7 +9,8 @@ export default function SideNav() {
     { to: '/parcelles', icon: Map,         label: 'Parcelles' },
     { to: '/taches',    icon: CheckSquare, label: 'Tâches'    },
     { to: '/vendange',  icon: Grape,       label: 'Vendanges' },
-    ...(user?.role === 'admin' ? [{ to: '/admin', icon: Settings, label: 'Admin' }] : []),
+    { to: '/reglages',  icon: Settings,    label: 'Réglages'  },
+    ...(user?.role === 'admin' ? [{ to: '/admin', icon: Shield, label: 'Admin' }] : []),
   ]
 
   return (
@@ -48,7 +49,7 @@ export default function SideNav() {
       </nav>
       <div className="px-5 py-4 border-t border-gray-100">
         <p className="text-xs text-gray-400 truncate">{user?.prenom || user?.email || ''}</p>
-        <p className="text-xs text-gray-300 mt-0.5 hidden lg:block">v0.5.3</p>
+        <p className="text-xs text-gray-300 mt-0.5 hidden lg:block">v0.5.4</p>
       </div>
     </aside>
   )

@@ -23,3 +23,18 @@ export function requireAdmin(req, res, next) {
   }
   next()
 }
+
+// Middleware de permission de suppression par ressource
+// Admins : toujours autorisés. Autres : selon can_delete JSON.
+export function requireDeletePermission(resource) {
+  return (req, res, next) => {
+    const user = db.prepare('SELECT role, can_delete FROM users WHERE id = ?').get(req.userId)
+    if (!user) return res.status(401).json({ error: 'Non authentifié' })
+    if (user.role === 'admin') return next()
+    try {
+      const perms = user.can_delete ? JSON.parse(user.can_delete) : {}
+      if (perms[resource] === true) return next()
+    } catch {}
+    return res.status(403).json({ error: 'Permission de suppression non accordée' })
+  }
+}
