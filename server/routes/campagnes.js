@@ -91,6 +91,27 @@ router.get('/stats', (req, res) => {
     rendement_attendu_kgha: c.rendement_attendu_kgha,
   }))
 
+  // Courbes de récolte journalières par année (pour graphe multi-courbes)
+  const harvestRows = db.prepare(`
+    SELECT v.annee, ch.date_chargement, COALESCE(SUM(ch.poids_kg), 0) AS kg_jour
+    FROM chargements ch
+    JOIN vendanges v ON v.id = ch.vendange_id
+    WHERE v.user_id = ?
+    GROUP BY v.annee, ch.date_chargement
+    ORDER BY v.annee, ch.date_chargement
+  `).all(req.userId)
+
+  const curvesByYear = {}
+  for (const r of harvestRows) {
+    if (!curvesByYear[r.annee]) curvesByYear[r.annee] = []
+    curvesByYear[r.annee].push({ date: r.date_chargement, kg: r.kg_jour })
+  }
+  const harvestCurves = Object.entries(curvesByYear).map(([annee, days]) => {
+    let cumul = 0
+    const points = days.map((d, i) => { cumul += d.kg; return { day: i + 1, date: d.date, kg_cumul: Math.round(cumul) } })
+    return { annee: parseInt(annee), points }
+  })
+
   const vendangesDetail = db.prepare(`
     SELECT
       v.annee,
@@ -107,7 +128,7 @@ router.get('/stats', (req, res) => {
     cepages: (() => { try { return JSON.parse(row.cepages) } catch { return [] } })(),
   }))
 
-  res.json({ surface_totale_ca, nb_parcelles, campagnes: result, vendangesDetail })
+  res.json({ surface_totale_ca, nb_parcelles, campagnes: result, vendangesDetail, harvestCurves })
 })
 
 // Détail d'une campagne

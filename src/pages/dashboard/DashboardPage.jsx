@@ -49,7 +49,7 @@ export default function DashboardPage() {
         setNews(n.value)
         setNLoading(false)
       } else {
-        // Cache vide côté serveur (fetch en arrière-plan) — retry dans 12s
+        // Cache vide côté serveur (fetch en arrière-plan) — retry dans 5s
         setTimeout(async () => {
           try {
             const fresh = await api.get('/dashboard/news')
@@ -57,7 +57,7 @@ export default function DashboardPage() {
             else setNErr(true)
           } catch { setNErr(true) }
           setNLoading(false)
-        }, 12000)
+        }, 5000)
       }
     } else {
       setNErr(true)

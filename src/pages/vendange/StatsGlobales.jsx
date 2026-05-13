@@ -61,6 +61,62 @@ function aggregateByCepage(vendanges) {
     .sort((a, b) => (b.poids || 0) - (a.poids || 0))
 }
 
+const CURVE_COLORS = ['#d97706', '#15803d', '#7c3aed', '#e11d48', '#0891b2', '#ea580c']
+
+// ── Graphe multi-courbes de progression de récolte ───────────────────────────
+function HarvestCurveChart({ curves, selectedYears }) {
+  const visible = curves.filter(c => selectedYears.size === 0 || selectedYears.has(c.annee))
+  const validCurves = visible.filter(c => c.points.length >= 2)
+  if (validCurves.length < 1) return (
+    <p className="text-sm text-gray-400 text-center py-6">Pas assez de chargements enregistrés</p>
+  )
+
+  const W = 320, H = 165
+  const PAD = { top: 24, right: 44, bottom: 26, left: 14 }
+  const CW = W - PAD.left - PAD.right
+  const CH = H - PAD.top - PAD.bottom
+
+  const maxDays = Math.max(...validCurves.map(c => c.points.length), 1)
+  const maxKg   = Math.max(...validCurves.flatMap(c => c.points.map(p => p.kg_cumul)), 1)
+
+  const xPos = day => PAD.left + ((day - 1) / Math.max(maxDays - 1, 1)) * CW
+  const yPos = kg  => PAD.top + CH - (kg / maxKg) * CH
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+      {[0.5, 1].map(f => {
+        const v = maxKg * f
+        const y = yPos(v)
+        return (
+          <g key={f}>
+            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#f3f4f6" strokeWidth="1" />
+            <text x={PAD.left + 2} y={y - 3} fontSize="8" fill="#e5e7eb">{fmtK(v)}</text>
+          </g>
+        )
+      })}
+
+      {validCurves.map((curve, ci) => {
+        const color = CURVE_COLORS[ci % CURVE_COLORS.length]
+        const pts   = curve.points.map(p => ({ x: xPos(p.day), y: yPos(p.kg_cumul) }))
+        const path  = catmullRom(pts)
+        const last  = pts[pts.length - 1]
+        return (
+          <g key={curve.annee}>
+            <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx={last.x} cy={last.y} r="3.5" fill="white" stroke={color} strokeWidth="2" />
+            <text x={last.x + 6} y={last.y + 4} fontSize="10" fill={color} fontWeight="700">{curve.annee}</text>
+          </g>
+        )
+      })}
+
+      <text x={xPos(1)} y={H - 7} fontSize="9" fill="#9ca3af" textAnchor="middle">J1</text>
+      {maxDays > 1 && (
+        <text x={xPos(maxDays)} y={H - 7} fontSize="9" fill="#9ca3af" textAnchor="middle">J{maxDays}</text>
+      )}
+    </svg>
+  )
+}
+
 // ── Graphe area chart : rendement kg/ha ──────────────────────────────────────
 function RendementChart({ data }) {
   const W = 320, H = 140
@@ -236,7 +292,7 @@ export default function StatsGlobales() {
     </div>
   )
 
-  const { surface_totale_ca, campagnes, vendangesDetail = [] } = stats
+  const { surface_totale_ca, campagnes, vendangesDetail = [], harvestCurves = [] } = stats
   const totalKg      = campagnes.reduce((s, c) => s + (c.poids_total || 0), 0)
   const withRdt      = campagnes.filter(c => c.rendement_kgha > 0)
   const bestC        = withRdt.reduce((b, c) => !b || c.rendement_kgha > b.rendement_kgha ? c : b, null)
@@ -293,6 +349,17 @@ export default function StatsGlobales() {
           <p className="font-bold text-gray-900 mb-1">Production totale (kg)</p>
           <ProductionChart data={campagnes} />
         </div>
+
+        {/* Graphe progression de récolte */}
+        {harvestCurves.length >= 1 && (
+          <div className="bg-white rounded-3xl shadow-md border border-gray-100 px-4 pt-4 pb-3">
+            <div className="flex items-center justify-between mb-1">
+              <p className="font-bold text-gray-900">Progression de récolte</p>
+              <p className="text-xs text-gray-400">kg cumulés / jour</p>
+            </div>
+            <HarvestCurveChart curves={harvestCurves} selectedYears={selectedYears} />
+          </div>
+        )}
 
         {/* ── Section répartition (filtrée par année) ───────────────────── */}
         <div className="bg-white rounded-3xl shadow-md border border-gray-100 overflow-hidden">

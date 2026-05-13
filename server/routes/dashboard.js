@@ -125,13 +125,28 @@ async function fetchNews() {
   return news
 }
 
-// GET /api/dashboard/news — répond immédiatement, rafraîchit en arrière-plan si cache expiré
+// Fetch partagé : évite plusieurs appels simultanés si le cache est vide
+let _newsFetchPromise = null
+
+// GET /api/dashboard/news — cache 2h ; si expiré, attend jusqu'à 7s puis répond avec [] en fond
 router.get('/news', async (req, res) => {
-  const cached = fromCache('news_v2', 30 * 60 * 1000)
+  const cached = fromCache('news_v2', 2 * 60 * 60 * 1000)
   if (cached) return res.json(cached)
-  // Pas de cache : répondre avec [] tout de suite et lancer le fetch en fond
-  res.json([])
-  fetchNews().catch(() => {})
+
+  if (!_newsFetchPromise) {
+    _newsFetchPromise = fetchNews().finally(() => { _newsFetchPromise = null })
+  }
+
+  try {
+    const news = await Promise.race([
+      _newsFetchPromise,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 7000)),
+    ])
+    res.json(news || [])
+  } catch {
+    // Dépasse 7s : répondre vide, le fetch continue en fond
+    res.json([])
+  }
 })
 
 export default router
