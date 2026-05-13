@@ -48,7 +48,7 @@ export default function SideNav() {
       </nav>
       <div className="px-5 py-4 border-t border-gray-100">
         <p className="text-xs text-gray-400 truncate">{user?.prenom || user?.email || ''}</p>
-        <p className="text-xs text-gray-300 mt-0.5 hidden lg:block">v0.5.2</p>
+        <p className="text-xs text-gray-300 mt-0.5 hidden lg:block">v0.5.3</p>
       </div>
     </aside>
   )
