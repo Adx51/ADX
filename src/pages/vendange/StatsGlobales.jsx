@@ -254,11 +254,20 @@ export default function StatsGlobales() {
   const navigate       = useNavigate()
   const [stats, setStats]             = useState(null)
   const [loading, setLoading]         = useState(true)
-  const [selectedYears, setSelectedYears] = useState(new Set()) // vide = toutes
-  const [tab, setTab]                    = useState('commune')
+  const [selectedYears, setSelectedYears]           = useState(new Set()) // pour Répartition
+  const [selectedCurveYears, setSelectedCurveYears] = useState(new Set()) // pour courbes récolte
+  const [tab, setTab]                               = useState('commune')
 
   function toggleYear(y) {
     setSelectedYears(prev => {
+      const next = new Set(prev)
+      next.has(y) ? next.delete(y) : next.add(y)
+      return next
+    })
+  }
+
+  function toggleCurveYear(y) {
+    setSelectedCurveYears(prev => {
       const next = new Set(prev)
       next.has(y) ? next.delete(y) : next.add(y)
       return next
@@ -353,11 +362,34 @@ export default function StatsGlobales() {
         {/* Graphe progression de récolte */}
         {harvestCurves.length >= 1 && (
           <div className="bg-white rounded-3xl shadow-md border border-gray-100 px-4 pt-4 pb-3">
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-3">
               <p className="font-bold text-gray-900">Progression de récolte</p>
               <p className="text-xs text-gray-400">kg cumulés / jour</p>
             </div>
-            <HarvestCurveChart curves={harvestCurves} selectedYears={selectedYears} />
+            {/* Sélecteur d'années pour les courbes */}
+            <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-3" style={{ scrollbarWidth: 'none' }}>
+              {harvestCurves.map((c, ci) => {
+                const active = selectedCurveYears.size === 0 || selectedCurveYears.has(c.annee)
+                return (
+                  <button
+                    key={c.annee}
+                    onClick={() => toggleCurveYear(c.annee)}
+                    className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-colors"
+                    style={active
+                      ? { backgroundColor: CURVE_COLORS[ci % CURVE_COLORS.length] + '22', color: CURVE_COLORS[ci % CURVE_COLORS.length], border: `1.5px solid ${CURVE_COLORS[ci % CURVE_COLORS.length]}55` }
+                      : { backgroundColor: '#f3f4f6', color: '#9ca3af', border: '1.5px solid transparent' }
+                    }
+                  >
+                    <span
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: active ? CURVE_COLORS[ci % CURVE_COLORS.length] : '#d1d5db' }}
+                    />
+                    {c.annee}
+                  </button>
+                )
+              })}
+            </div>
+            <HarvestCurveChart curves={harvestCurves} selectedYears={selectedCurveYears} />
           </div>
         )}
 
