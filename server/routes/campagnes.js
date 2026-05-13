@@ -91,7 +91,23 @@ router.get('/stats', (req, res) => {
     rendement_attendu_kgha: c.rendement_attendu_kgha,
   }))
 
-  res.json({ surface_totale_ca, nb_parcelles, campagnes: result })
+  const vendangesDetail = db.prepare(`
+    SELECT
+      v.annee,
+      v.poids_total,
+      p.surface_totale_ca,
+      COALESCE(p.commune_pressoir, p.commune, 'Non défini') AS commune_pressoir,
+      COALESCE(p.cepages, '[]') AS cepages
+    FROM vendanges v
+    JOIN parcelles p ON p.id = v.parcelle_id
+    WHERE v.user_id = ? AND v.poids_total > 0
+    ORDER BY v.annee ASC
+  `).all(req.userId).map(row => ({
+    ...row,
+    cepages: (() => { try { return JSON.parse(row.cepages) } catch { return [] } })(),
+  }))
+
+  res.json({ surface_totale_ca, nb_parcelles, campagnes: result, vendangesDetail })
 })
 
 // Détail d'une campagne
