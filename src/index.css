@@ -80,6 +80,13 @@
   }
 }
 
+/* ── Desktop large (lg = 1024px) ──────────────────────────────────── */
+@media (min-width: 1024px) {
+  .page-header {
+    padding-bottom: 0.75rem !important;
+  }
+}
+
 /* Skeleton loading animation */
 @keyframes shimmer {
   0% { background-position: -468px 0; }

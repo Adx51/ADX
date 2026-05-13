@@ -13,7 +13,7 @@ export default function SideNav() {
   ]
 
   return (
-    <aside className="hidden md:flex flex-col w-56 bg-white border-r border-gray-100 fixed left-0 top-0 bottom-0 z-20">
+    <aside className="hidden md:flex flex-col w-56 lg:w-64 bg-white border-r border-gray-100 fixed left-0 top-0 bottom-0 z-20">
       <div className="px-5 pt-6 pb-4 border-b border-gray-100">
         <div className="flex items-center gap-2.5">
           <span className="text-2xl">🍾</span>
@@ -48,6 +48,7 @@ export default function SideNav() {
       </nav>
       <div className="px-5 py-4 border-t border-gray-100">
         <p className="text-xs text-gray-400 truncate">{user?.prenom || user?.email || ''}</p>
+        <p className="text-xs text-gray-300 mt-0.5 hidden lg:block">v0.5.2</p>
       </div>
     </aside>
   )

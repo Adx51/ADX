@@ -277,6 +277,8 @@ export default function StatsGlobales() {
     api.get('/campagnes/stats').then(data => {
       setStats(data)
       setLoading(false)
+      // Initialize with all years so toggle is intuitive from start
+      setSelectedYears(new Set(data?.campagnes?.map(c => c.annee) || []))
     })
   }, [])
 
@@ -343,24 +345,27 @@ export default function StatsGlobales() {
 
       <div className="px-4 space-y-4 -mt-3">
 
-        {/* Graphe rendement */}
-        <div className="bg-white rounded-3xl shadow-md border border-gray-100 px-4 pt-4 pb-3">
-          <div className="flex items-center justify-between mb-1">
-            <p className="font-bold text-gray-900">Rendement kg/ha</p>
-            {campagnes.some(c => c.rendement_attendu_kgha) && (
-              <div className="flex items-center gap-1 text-xs text-gray-400">
-                <svg width="14" height="6"><line x1="0" y1="3" x2="14" y2="3" stroke="#d1d5db" strokeWidth="1.5" strokeDasharray="4,2" /></svg>
-                objectif
-              </div>
-            )}
+        {/* Graphes rendement + production — côte à côte sur lg */}
+        <div className="lg:grid lg:grid-cols-2 lg:gap-4">
+          {/* Graphe rendement */}
+          <div className="bg-white rounded-3xl shadow-md border border-gray-100 px-4 pt-4 pb-3">
+            <div className="flex items-center justify-between mb-1">
+              <p className="font-bold text-gray-900">Rendement kg/ha</p>
+              {campagnes.some(c => c.rendement_attendu_kgha) && (
+                <div className="flex items-center gap-1 text-xs text-gray-400">
+                  <svg width="14" height="6"><line x1="0" y1="3" x2="14" y2="3" stroke="#d1d5db" strokeWidth="1.5" strokeDasharray="4,2" /></svg>
+                  objectif
+                </div>
+              )}
+            </div>
+            <RendementChart data={campagnes} />
           </div>
-          <RendementChart data={campagnes} />
-        </div>
 
-        {/* Graphe production */}
-        <div className="bg-white rounded-3xl shadow-md border border-gray-100 px-4 pt-4 pb-3">
-          <p className="font-bold text-gray-900 mb-1">Production totale (kg)</p>
-          <ProductionChart data={campagnes} />
+          {/* Graphe production */}
+          <div className="bg-white rounded-3xl shadow-md border border-gray-100 px-4 pt-4 pb-3 mt-4 lg:mt-0">
+            <p className="font-bold text-gray-900 mb-1">Production totale (kg)</p>
+            <ProductionChart data={campagnes} />
+          </div>
         </div>
 
         {/* ── Section répartition ── */}
@@ -372,7 +377,7 @@ export default function StatsGlobales() {
             {/* Sélecteur multi-années — couleur dynamique par année */}
             <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
               {yearsDesc.map(y => {
-                const isActive = selectedYears.size === 0 || selectedYears.has(y)
+                const isActive = selectedYears.has(y)
                 const color    = yearColors[y]
                 return (
                   <button

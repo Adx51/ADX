@@ -81,11 +81,11 @@ export default function CampagnesList() {
         </button>
       </div>
 
-      <div className="px-4 pt-4 space-y-3">
+      <div className="px-4 pt-4 space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
         {loading ? (
           Array.from({ length: 2 }).map((_, i) => <div key={i} className="card skeleton h-24" />)
         ) : campagnes.length === 0 ? (
-          <div className="text-center py-16">
+          <div className="text-center py-16 lg:col-span-2">
             <Grape size={48} className="mx-auto text-vigne-300 mb-4" />
             <p className="text-gray-500 font-medium">Aucune campagne enregistrée</p>
             <button onClick={() => navigate('/vendange/new')} className="mt-4 text-amber-600 font-medium">

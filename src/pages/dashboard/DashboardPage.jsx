@@ -89,34 +89,38 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <div className="px-4 pt-3 pb-6 space-y-5">
+      <div className="px-4 pt-3 pb-6 lg:px-6 lg:pt-4">
+        <div className="lg:grid lg:grid-cols-5 lg:gap-6 lg:items-start space-y-5 lg:space-y-0">
 
-        {/* Météo */}
-        <WeatherCard weather={weather} error={wErr} />
-
-        {/* Actualités */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Newspaper size={16} className="text-vigne-600" />
-            <h2 className="font-bold text-gray-900">Actualités viticoles</h2>
+          {/* Left: Météo (2/5) */}
+          <div className="lg:col-span-2">
+            <WeatherCard weather={weather} error={wErr} />
           </div>
 
-          {nLoading ? (
-            <div className="space-y-3">
-              {[1,2,3].map(i => <div key={i} className="card skeleton h-16" />)}
+          {/* Right: Actualités (3/5) */}
+          <div className="lg:col-span-3">
+            <div className="flex items-center gap-2 mb-3">
+              <Newspaper size={16} className="text-vigne-600" />
+              <h2 className="font-bold text-gray-900">Actualités viticoles</h2>
             </div>
-          ) : nErr || !news?.length ? (
-            <div className="card flex items-center gap-3 text-gray-400">
-              <CloudOff size={20} />
-              <p className="text-sm">Actualités indisponibles — vérifiez la connexion internet du Pi.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {news.map((item, i) => (
-                <NewsCard key={i} item={item} />
-              ))}
-            </div>
-          )}
+
+            {nLoading ? (
+              <div className="space-y-3">
+                {[1,2,3].map(i => <div key={i} className="card skeleton h-16" />)}
+              </div>
+            ) : nErr || !news?.length ? (
+              <div className="card flex items-center gap-3 text-gray-400">
+                <CloudOff size={20} />
+                <p className="text-sm">Actualités indisponibles — vérifiez la connexion internet du Pi.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {news.map((item, i) => (
+                  <NewsCard key={i} item={item} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

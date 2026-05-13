@@ -79,7 +79,7 @@ export default function ParcellesList() {
 
       {/* Search bar */}
       <div className="px-4 pt-3 pb-1">
-        <div className="relative">
+        <div className="relative lg:max-w-sm">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
             value={search}
@@ -132,7 +132,7 @@ export default function ParcellesList() {
                 </button>
 
                 {isOpen && (
-                  <div className="space-y-3">
+                  <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
                     {list.map(p => {
                       const badge = STATUT_BADGE[p.statut]
                       const cepagesDisplay = Array.isArray(p.cepages) && p.cepages.length > 0
