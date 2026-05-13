@@ -4,8 +4,10 @@
 @tailwind utilities;
 
 @layer base {
-  html {
+  html, body {
     -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+    width: 100%;
   }
   body {
     @apply bg-gray-50 text-gray-900 font-sans;
