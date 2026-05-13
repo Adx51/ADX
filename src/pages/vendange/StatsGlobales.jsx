@@ -198,8 +198,16 @@ export default function StatsGlobales() {
   const navigate       = useNavigate()
   const [stats, setStats]             = useState(null)
   const [loading, setLoading]         = useState(true)
-  const [selectedYear, setSelectedYear] = useState(null) // null = toutes
-  const [tab, setTab]                 = useState('commune')
+  const [selectedYears, setSelectedYears] = useState(new Set()) // vide = toutes
+  const [tab, setTab]                    = useState('commune')
+
+  function toggleYear(y) {
+    setSelectedYears(prev => {
+      const next = new Set(prev)
+      next.has(y) ? next.delete(y) : next.add(y)
+      return next
+    })
+  }
 
   useEffect(() => {
     api.get('/campagnes/stats').then(data => {
@@ -235,10 +243,10 @@ export default function StatsGlobales() {
   const avgKgHa      = withRdt.length ? Math.round(withRdt.reduce((s, c) => s + c.rendement_kgha, 0) / withRdt.length) : null
   const campagnesDesc = [...campagnes].reverse()
 
-  // Données filtrées par année pour la section répartition
-  const filteredVendanges = selectedYear
-    ? vendangesDetail.filter(v => v.annee === selectedYear)
-    : vendangesDetail
+  // Données filtrées par années sélectionnées (vide = toutes)
+  const filteredVendanges = selectedYears.size === 0
+    ? vendangesDetail
+    : vendangesDetail.filter(v => selectedYears.has(v.annee))
 
   const communeItems = aggregateByCommune(filteredVendanges)
   const cepageItems  = aggregateByCepage(filteredVendanges)
@@ -293,31 +301,22 @@ export default function StatsGlobales() {
           <div className="px-4 pt-4 pb-2">
             <p className="font-bold text-gray-900 mb-3">Répartition</p>
 
-            {/* Sélecteur d'année */}
+            {/* Sélecteur multi-années */}
             <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1" style={{ scrollbarWidth: 'none' }}>
-              <button
-                onClick={() => setSelectedYear(null)}
-                className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  selectedYear === null
-                    ? 'bg-vigne-700 text-white'
-                    : 'bg-gray-100 text-gray-600'
-                }`}
-              >
-                Toutes
-              </button>
-              {yearsDesc.map(y => (
-                <button
-                  key={y}
-                  onClick={() => setSelectedYear(y)}
-                  className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    selectedYear === y
-                      ? 'bg-vigne-700 text-white'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {y}
-                </button>
-              ))}
+              {yearsDesc.map(y => {
+                const active = selectedYears.size === 0 || selectedYears.has(y)
+                return (
+                  <button
+                    key={y}
+                    onClick={() => toggleYear(y)}
+                    className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                      active ? 'bg-vigne-700 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {y}
+                  </button>
+                )
+              })}
             </div>
 
             {/* Onglets Pressoir / Cépage */}
@@ -361,7 +360,7 @@ export default function StatsGlobales() {
                 key={c.annee}
                 onClick={() => navigate(`/vendange/${c.annee}`)}
                 className={`w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-50 last:border-0 text-left active:bg-gray-50 transition-colors ${
-                  selectedYear === c.annee ? 'bg-amber-50' : ''
+                  selectedYears.has(c.annee) ? 'bg-amber-50' : ''
                 }`}
               >
                 <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center flex-shrink-0 ${
