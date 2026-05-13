@@ -14,7 +14,7 @@ export default function BottomNav() {
   ]
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20"
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 z-20"
          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div className="flex">
         {tabs.map(({ to, icon: Icon, label, end }) => (
@@ -23,15 +23,18 @@ export default function BottomNav() {
             to={to}
             end={end}
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs font-medium transition-colors ${
+              `relative flex-1 flex flex-col items-center justify-center py-2.5 gap-1 text-xs font-medium transition-colors ${
                 isActive ? 'text-vigne-700' : 'text-gray-400'
               }`
             }
           >
             {({ isActive }) => (
               <>
+                <span className={`absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full transition-all duration-200 ${
+                  isActive ? 'bg-vigne-600 opacity-100' : 'opacity-0'
+                }`} />
                 <Icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
-                <span>{label}</span>
+                <span className={isActive ? 'font-semibold' : ''}>{label}</span>
               </>
             )}
           </NavLink>

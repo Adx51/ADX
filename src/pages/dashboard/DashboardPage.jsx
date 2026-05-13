@@ -44,9 +44,25 @@ export default function DashboardPage() {
     ])
     if (w.status === 'fulfilled' && !w.value?.error) setWeather(w.value)
     else setWErr(true)
-    if (n.status === 'fulfilled' && Array.isArray(n.value)) setNews(n.value)
-    else setNErr(true)
-    setNLoading(false)
+    if (n.status === 'fulfilled' && Array.isArray(n.value)) {
+      if (n.value.length > 0) {
+        setNews(n.value)
+        setNLoading(false)
+      } else {
+        // Cache vide côté serveur (fetch en arrière-plan) — retry dans 12s
+        setTimeout(async () => {
+          try {
+            const fresh = await api.get('/dashboard/news')
+            if (Array.isArray(fresh) && fresh.length > 0) setNews(fresh)
+            else setNErr(true)
+          } catch { setNErr(true) }
+          setNLoading(false)
+        }, 12000)
+      }
+    } else {
+      setNErr(true)
+      setNLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])

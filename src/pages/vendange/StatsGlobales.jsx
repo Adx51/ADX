@@ -198,7 +198,6 @@ export default function StatsGlobales() {
 
   const { surface_totale_ca, nb_parcelles, campagnes } = stats
   const totalKg = campagnes.reduce((s, c) => s + (c.poids_total || 0), 0)
-  const totalCaisses = campagnes.reduce((s, c) => s + (c.caisses_total || 0), 0)
 
   const withRendement = campagnes.filter(c => c.rendement_kgha > 0)
   const bestC    = withRendement.reduce((best, c) => !best || c.rendement_kgha > best.rendement_kgha ? c : best, null)
@@ -327,25 +326,6 @@ export default function StatsGlobales() {
               </button>
             )
           })}
-        </div>
-
-        {/* Totaux récap */}
-        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-4">
-          <p className="text-xs text-gray-400 mb-3 font-medium uppercase tracking-wide">Cumul toutes campagnes</p>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div>
-              <p className="text-xl font-bold text-white">{fmtK(totalKg)}</p>
-              <p className="text-xs text-gray-400 mt-0.5">kg récoltés</p>
-            </div>
-            <div>
-              <p className="text-xl font-bold text-white">{totalCaisses.toLocaleString('fr-FR')}</p>
-              <p className="text-xs text-gray-400 mt-0.5">caisses</p>
-            </div>
-            <div>
-              <p className="text-xl font-bold text-amber-400">{campagnes.length}</p>
-              <p className="text-xs text-gray-400 mt-0.5">campagnes</p>
-            </div>
-          </div>
         </div>
 
       </div>

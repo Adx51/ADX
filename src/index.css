@@ -8,38 +8,41 @@
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply bg-vigne-50 text-gray-900 font-sans;
+    @apply bg-gray-50 text-gray-900 font-sans;
     -webkit-font-smoothing: antialiased;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-vigne-700 text-white px-4 py-3 rounded-xl font-semibold
-           active:scale-95 transition-transform duration-100
+    @apply bg-vigne-700 text-white px-4 py-3 rounded-2xl font-semibold
+           active:scale-95 transition-all duration-150
            disabled:opacity-50 disabled:cursor-not-allowed w-full;
   }
   .btn-secondary {
-    @apply bg-white text-vigne-700 border-2 border-vigne-700 px-4 py-3 rounded-xl font-semibold
-           active:scale-95 transition-transform duration-100 w-full;
+    @apply bg-white text-vigne-700 border-2 border-vigne-700 px-4 py-3 rounded-2xl font-semibold
+           active:scale-95 transition-all duration-150 w-full;
   }
   .btn-danger {
-    @apply bg-red-600 text-white px-4 py-3 rounded-xl font-semibold
-           active:scale-95 transition-transform duration-100 w-full;
+    @apply bg-red-600 text-white px-4 py-3 rounded-2xl font-semibold
+           active:scale-95 transition-all duration-150 w-full;
   }
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-vigne-100 p-4;
+    @apply bg-white rounded-2xl p-4;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07), 0 0 1px rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.06);
   }
   .input {
-    @apply w-full border border-gray-300 rounded-xl px-4 py-3 text-base
+    @apply w-full border border-gray-200 rounded-2xl px-4 py-3 text-base
            focus:outline-none focus:ring-2 focus:ring-vigne-500 focus:border-transparent
-           bg-white;
+           bg-white transition-all duration-150;
   }
   .label {
     @apply block text-sm font-medium text-gray-700 mb-1;
   }
   .page-header {
-    @apply bg-vigne-700 text-white px-4 py-4 sticky top-0 z-10 safe-top;
+    @apply bg-vigne-700 text-white px-4 py-4 sticky top-0 z-10 safe-top flex items-center justify-between;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.15);
   }
   .safe-top {
     padding-top: max(1rem, env(safe-area-inset-top));
@@ -65,7 +68,7 @@
   100% { background-position: 468px 0; }
 }
 .skeleton {
-  background: linear-gradient(to right, #f0fdf4 8%, #dcfce7 18%, #f0fdf4 33%);
+  background: linear-gradient(to right, #f9fafb 8%, #f1f5f9 18%, #f9fafb 33%);
   background-size: 800px 104px;
-  animation: shimmer 1.2s infinite linear;
+  animation: shimmer 1.4s infinite linear;
 }

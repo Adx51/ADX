@@ -102,23 +102,18 @@ const FEEDS = [
   { url: 'https://news.google.com/rss/search?q=Hautvillers+champagne+vigne&hl=fr&gl=FR&ceid=FR:fr',      tag: 'Hautvillers' },
 ]
 
-// GET /api/dashboard/news
-router.get('/news', async (req, res) => {
-  const cached = fromCache('news_v2', 30 * 60 * 1000)
-  if (cached) return res.json(cached)
-
+async function fetchNews() {
   const all = []
   await Promise.allSettled(FEEDS.map(async ({ url, tag }) => {
     try {
       const r = await fetch(url, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ADXVignoble/1.0)' },
-        signal: AbortSignal.timeout(7000),
+        signal: AbortSignal.timeout(5000),
       })
       const text = await r.text()
       parseRSS(text).slice(0, 5).forEach(item => all.push({ ...item, tag }))
     } catch {}
   }))
-
   const seen = new Set()
   const news = all
     .filter(item => !PAYWALL_DOMAINS.has(item.srcDomain))
@@ -126,9 +121,17 @@ router.get('/news', async (req, res) => {
     .sort((a, b) => b.pubDate - a.pubDate)
     .slice(0, 10)
     .map(({ title, link, pubDate, source, tag }) => ({ title, link, pubDate, source, tag }))
-
   setCache('news_v2', news)
-  res.json(news)
+  return news
+}
+
+// GET /api/dashboard/news — répond immédiatement, rafraîchit en arrière-plan si cache expiré
+router.get('/news', async (req, res) => {
+  const cached = fromCache('news_v2', 30 * 60 * 1000)
+  if (cached) return res.json(cached)
+  // Pas de cache : répondre avec [] tout de suite et lancer le fetch en fond
+  res.json([])
+  fetchNews().catch(() => {})
 })
 
 export default router
