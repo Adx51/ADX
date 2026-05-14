@@ -11,7 +11,7 @@ export default function BottomNav() {
   ]
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 z-20"
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900 backdrop-blur-sm border-t border-gray-100 dark:border-gray-800 z-20"
          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div className="flex">
         {tabs.map(({ to, icon: Icon, label, end }) => (
@@ -21,7 +21,7 @@ export default function BottomNav() {
             end={end}
             className={({ isActive }) =>
               `relative flex-1 flex flex-col items-center justify-center py-2.5 gap-1 text-xs font-medium transition-colors ${
-                isActive ? 'text-vigne-700' : 'text-gray-400'
+                isActive ? 'text-vigne-700' : 'text-gray-400 dark:text-gray-600'
               }`
             }
           >

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, List, Trash2, Crown, User, Plus, X, Edit2, Check, Database, Download, Shield, ChevronDown } from 'lucide-react'
+import { Users, List, Trash2, Crown, User, Plus, X, Edit2, Check, Database, Download, Shield, ChevronDown, Leaf, ChevronRight } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import PageHeader from '../../components/PageHeader'
@@ -278,6 +278,7 @@ function EditUserForm({ user, onSave, onCancel }) {
 // ── Backup tab ───────────────────────────────────────────────────────────────
 
 function BackupTab() {
+  const navigate = useNavigate()
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
 
@@ -335,6 +336,20 @@ function BackupTab() {
         Sauvegarde automatique toutes les 30 minutes côté serveur (5 dernières conservées dans <code>/data/backups</code>).
         Restauration automatique au démarrage si la base est vide.
       </p>
+
+      <button
+        onClick={() => navigate('/phyto')}
+        className="card w-full text-left flex items-center gap-3 active:scale-[0.99] transition-transform mt-4"
+      >
+        <div className="w-10 h-10 rounded-xl bg-vigne-100 flex items-center justify-center">
+          <Leaf size={18} className="text-vigne-700" />
+        </div>
+        <div>
+          <p className="font-semibold text-gray-900 text-sm">Registre phytosanitaire</p>
+          <p className="text-xs text-gray-400 mt-0.5">Historique des traitements</p>
+        </div>
+        <ChevronRight size={16} className="text-gray-400 ml-auto" />
+      </button>
     </div>
   )
 }

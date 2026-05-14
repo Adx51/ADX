@@ -29,6 +29,8 @@ const CampagneExport          = lazy(() => import('./pages/vendange/CampagneExpo
 const CampagneExportJournalier = lazy(() => import('./pages/vendange/CampagneExportJournalier'))
 const AdminPage               = lazy(() => import('./pages/admin/AdminPage'))
 const ReglagesPage            = lazy(() => import('./pages/reglages/ReglagesPage'))
+const PhytoPage               = lazy(() => import('./pages/phyto/PhytoPage'))
+const PhytoForm               = lazy(() => import('./pages/phyto/PhytoForm'))
 
 function PageLoader() {
   return (
@@ -74,6 +76,11 @@ export default function App() {
                 <Route path="/vendange/:annee/edit"    element={<CampagneForm />} />
                 <Route path="/vendange/:annee/export"  element={<CampagneExport />} />
                 <Route path="/vendange/:annee/export-journalier" element={<CampagneExportJournalier />} />
+
+                {/* Phyto */}
+                <Route path="/phyto" element={<PhytoPage />} />
+                <Route path="/phyto/new" element={<PhytoForm />} />
+                <Route path="/phyto/:id/edit" element={<PhytoForm />} />
 
                 {/* Admin & Réglages */}
                 <Route path="/admin" element={<AdminPage />} />

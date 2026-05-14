@@ -319,6 +319,38 @@ if (schemaVersion < 9) {
   db.pragma('user_version = 9')
 }
 
+if (schemaVersion < 10) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS traitements (
+      id            TEXT PRIMARY KEY,
+      parcelle_id   TEXT REFERENCES parcelles(id) ON DELETE SET NULL,
+      parcelle_nom  TEXT,
+      date          TEXT NOT NULL,
+      type          TEXT NOT NULL CHECK (type IN ('fongicide','insecticide','herbicide','biocontrole','autre')),
+      produit       TEXT NOT NULL,
+      dose          TEXT,
+      surface_ca    INTEGER,
+      operateur     TEXT,
+      dar           INTEGER,
+      conditions    TEXT,
+      notes         TEXT,
+      user_id       TEXT REFERENCES users(id) ON DELETE SET NULL,
+      created_at    TEXT DEFAULT (datetime('now')),
+      updated_at    TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key   TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `)
+  // Seed default location Chouilly
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('weather_lat', '48.98')`).run()
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('weather_lng', '4.06')`).run()
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('weather_label', 'Chouilly · Champagne')`).run()
+  db.pragma('user_version = 10')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5

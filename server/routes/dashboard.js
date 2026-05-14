@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { requireAuth } from '../middleware/auth.js'
+import db from '../db.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -30,7 +31,12 @@ router.get('/weather', async (req, res) => {
   const cached = fromCache('weather', 20 * 60 * 1000)
   if (cached) return res.json(cached)
   try {
-    const lat = 48.98, lng = 4.06  // Chouilly, Champagne
+    const latRow  = db.prepare(`SELECT value FROM settings WHERE key='weather_lat'`).get()
+    const lngRow  = db.prepare(`SELECT value FROM settings WHERE key='weather_lng'`).get()
+    const lblRow  = db.prepare(`SELECT value FROM settings WHERE key='weather_label'`).get()
+    const lat     = parseFloat(latRow?.value || '48.98')
+    const lng     = parseFloat(lngRow?.value || '4.06')
+    const label   = lblRow?.value || 'Chouilly · Champagne'
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
       `&current=temperature_2m,weathercode,windspeed_10m,precipitation,relative_humidity_2m` +
       `&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_sum` +
@@ -41,6 +47,7 @@ router.get('/weather', async (req, res) => {
     const d = j.daily
     const [emoji, desc] = wmo(c.weathercode)
     const result = {
+      label,
       current: {
         temp: Math.round(c.temperature_2m), emoji, desc,
         wind: Math.round(c.windspeed_10m),

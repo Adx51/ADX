@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation } from 'lucide-react'
+import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation, Expand } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import { locateFromCadastre } from '../../lib/cadastre'
 import PageHeader from '../../components/PageHeader'
 import MapPicker from '../../components/MapPicker'
+import PhotoModal from '../../components/PhotoModal'
 
 export default function ParcelleDetail() {
   const { id } = useParams()
@@ -18,6 +19,7 @@ export default function ParcelleDetail() {
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [geoFeatures, setGeoFeatures] = useState(null)
+  const [photoOpen, setPhotoOpen] = useState(false)
 
   useEffect(() => {
     api.get(`/parcelles/${id}`).then(data => {
@@ -105,8 +107,14 @@ export default function ParcelleDetail() {
       </PageHeader>
 
       {parcelle.photo_url && (
-        <img src={parcelle.photo_url} alt={parcelle.nom} className="w-full h-52 object-cover" />
+        <div className="relative cursor-pointer" onClick={() => setPhotoOpen(true)}>
+          <img src={parcelle.photo_url} alt={parcelle.nom} className="w-full h-52 object-cover" />
+          <div className="absolute bottom-2 right-2 bg-black/40 text-white rounded-lg p-1.5">
+            <Expand size={16} />
+          </div>
+        </div>
       )}
+      <PhotoModal url={photoOpen ? parcelle.photo_url : null} onClose={() => setPhotoOpen(false)} />
 
       <div className="px-4 pt-4 space-y-4">
         <div className="card space-y-3">

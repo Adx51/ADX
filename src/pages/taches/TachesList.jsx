@@ -4,6 +4,7 @@ import { Plus, CheckSquare, Clock, AlertCircle, Check } from 'lucide-react'
 import { api } from '../../lib/api'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import PhotoModal from '../../components/PhotoModal'
 
 const STATUTS = {
   a_faire:  { label: 'À faire',  color: 'bg-gray-100 text-gray-600',   icon: Clock },
@@ -16,6 +17,7 @@ export default function TachesList() {
   const [taches, setTaches] = useState([])
   const [loading, setLoading] = useState(true)
   const [filtre, setFiltre] = useState('a_faire')
+  const [photoUrl, setPhotoUrl] = useState(null)
 
   useEffect(() => { load() }, [])
 
@@ -94,7 +96,12 @@ export default function TachesList() {
                 </div>
 
                 {t.photo_url && (
-                  <img src={t.photo_url} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                  <img
+                    src={t.photo_url}
+                    alt=""
+                    className="w-14 h-14 rounded-xl object-cover flex-shrink-0 cursor-pointer active:opacity-80"
+                    onClick={(e) => { e.stopPropagation(); setPhotoUrl(t.photo_url) }}
+                  />
                 )}
               </div>
             )
@@ -110,6 +117,8 @@ export default function TachesList() {
       >
         <Plus size={28} />
       </button>
+
+      <PhotoModal url={photoUrl} onClose={() => setPhotoUrl(null)} />
     </div>
   )
 }
