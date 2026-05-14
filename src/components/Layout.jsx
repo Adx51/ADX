@@ -1,5 +1,5 @@
 import { Outlet, useLocation } from 'react-router-dom'
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import BottomNav from './BottomNav'
 import SideNav from './SideNav'
 import TopBar from './TopBar'
@@ -10,7 +10,7 @@ export default function Layout() {
   const { pathname } = useLocation()
   const scrollRef = useRef()
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     scrollRef.current?.scrollTo(0, 0)
   }, [pathname])
 
