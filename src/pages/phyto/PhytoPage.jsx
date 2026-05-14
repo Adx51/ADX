@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Leaf, Upload, Trash2, ChevronRight } from 'lucide-react'
+import { Plus, Leaf, Upload, Trash2, BarChart2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -55,6 +55,13 @@ export default function PhytoPage() {
         >
           <Plus size={16} />
           Manuel
+        </button>
+        <button
+          onClick={() => navigate('/phyto/saison')}
+          className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium active:bg-gray-50 dark:active:bg-gray-800"
+        >
+          <BarChart2 size={16} />
+          Récap
         </button>
       </div>
 

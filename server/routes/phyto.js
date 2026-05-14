@@ -182,6 +182,64 @@ router.post('/rapports', (req, res) => {
   res.json({ id })
 })
 
+// GET /api/phyto/saison/:annee — récap annuel agrégé
+router.get('/saison/:annee', (req, res) => {
+  const annee = String(parseInt(req.params.annee))
+  if (annee === 'NaN') return res.status(400).json({ error: 'Année invalide' })
+
+  const rapports = db.prepare(`
+    SELECT * FROM rapports_phyto
+    WHERE strftime('%Y', date) = ?
+    ORDER BY date ASC, created_at ASC
+  `).all(annee)
+
+  const rapportsDetail = rapports.map(r => {
+    const parcelles = db.prepare(`
+      SELECT rpp.*, p.nom as parcelle_nom_app
+      FROM rapports_phyto_parcelles rpp
+      LEFT JOIN parcelles p ON p.id = rpp.parcelle_id
+      WHERE rpp.rapport_id = ?
+    `).all(r.id)
+    const produits = db.prepare(`SELECT * FROM rapports_phyto_produits WHERE rapport_id = ?`).all(r.id)
+    return { ...r, parcelles, produits }
+  })
+
+  // Aggregate produits
+  const produitsMap = {}
+  for (const r of rapportsDetail) {
+    for (const p of r.produits) {
+      const key = p.nom.toLowerCase().trim()
+      if (!produitsMap[key]) {
+        produitsMap[key] = { nom: p.nom, cible: p.cible || null, dar: p.dar || null, znt: p.znt || null, occurrences: 0 }
+      }
+      produitsMap[key].occurrences++
+    }
+  }
+  const produits_saison = Object.values(produitsMap).sort((a, b) => b.occurrences - a.occurrences)
+
+  // Aggregate parcelles uniques
+  const parcellesSet = new Set()
+  for (const r of rapportsDetail) {
+    for (const p of r.parcelles) {
+      parcellesSet.add(p.parcelle_nom_app || p.parcelle_nom_source || '?')
+    }
+  }
+
+  // Years with data
+  const annees_disponibles = db.prepare(`
+    SELECT DISTINCT strftime('%Y', date) as annee
+    FROM rapports_phyto WHERE date IS NOT NULL ORDER BY annee DESC
+  `).all().map(r => parseInt(r.annee))
+
+  res.json({
+    annee: parseInt(annee),
+    rapports: rapportsDetail,
+    produits_saison,
+    parcelles_saison: [...parcellesSet].sort(),
+    annees_disponibles,
+  })
+})
+
 // DELETE /api/phyto/rapports/:id
 router.delete('/rapports/:id', (req, res) => {
   const r = db.prepare('SELECT id FROM rapports_phyto WHERE id = ?').get(req.params.id)
