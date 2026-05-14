@@ -24,6 +24,7 @@ export function AuthProvider({ children }) {
           api.get('/campagnes')
           api.get('/parcelles')
           api.get('/taches')
+          api.get('/phyto/rapports')
         } else {
           localStorage.removeItem('adx_token')
           localStorage.removeItem('adx_user')
@@ -46,6 +47,7 @@ export function AuthProvider({ children }) {
       api.get('/campagnes')
       api.get('/parcelles')
       api.get('/taches')
+      api.get('/phyto/rapports')
       return { error: null }
     } catch (e) {
       return { error: e.message }
