@@ -121,7 +121,7 @@ export default function PhytoRecapImportPage() {
             {parsed.parcelles.length === 0 && parsed.rawText && (
               <div className="card space-y-2">
                 <p className="text-xs font-semibold text-amber-600">Texte extrait du PDF (debug — 0 parcelle détectée)</p>
-                <pre className="text-xs text-gray-500 dark:text-gray-400 overflow-auto max-h-64 whitespace-pre-wrap bg-gray-50 dark:bg-gray-800 rounded-xl p-3">{parsed.rawText.slice(0, 3000)}</pre>
+                <pre className="text-xs text-gray-500 dark:text-gray-400 overflow-auto max-h-96 whitespace-pre-wrap bg-gray-50 dark:bg-gray-800 rounded-xl p-3">{parsed.rawText}</pre>
               </div>
             )}
 

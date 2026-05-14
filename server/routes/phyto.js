@@ -363,7 +363,7 @@ router.post('/recaps/parse-pdf', upload.single('pdf'), async (req, res) => {
     }))
     parsed.allParcelles = allParcelles
     // rawText inclus temporairement pour debug du parser
-    parsed.rawText = data.text
+    parsed.rawText = data.text.slice(0, 8000)
     res.json(parsed)
   } catch (e) {
     res.status(500).json({ error: 'Erreur lecture PDF: ' + e.message })
