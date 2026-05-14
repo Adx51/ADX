@@ -88,6 +88,10 @@
 }
 
 /* ── Desktop / iPad landscape (md = 768px) ────────────────────────── */
+@media (max-width: 767px) {
+  /* Sur mobile, le TopBar fait office de header — masquer les page-header */
+  .page-header { display: none !important; }
+}
 @media (min-width: 768px) {
   .page-header {
     top: 0 !important;
