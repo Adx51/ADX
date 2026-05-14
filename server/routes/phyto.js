@@ -217,7 +217,8 @@ function parseCarnetPDFText(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
 
   // OT header: "04 juillet 2025 – OT 8904 – T8 Circuit 3 Conv."
-  const otHeaderRe = /^(\d{1,2})\s+(\w+)\s+(\d{4})\s*[–—\-]+\s*OT\s+(\d+)\s*[–—\-]+\s*(.+)/i
+  // Use [a-zÀ-ɏ]+ to match accented months (août, février, décembre…)
+  const otHeaderRe = /^(\d{1,2})\s+([a-zÀ-ɏ]+)\s+(\d{4})\s*[-–—]+\s*OT\s+(\d+)\s*[-–—]+\s*(.+)/i
 
   const skipLine = l =>
     /^Produits$/i.test(l) ||
@@ -315,7 +316,6 @@ function parseRecapPDFText(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
   const parcelles = []
 
-  // Lignes à ignorer lors de la collecte de produits
   const skipLine = l =>
     /^Produits$/i.test(l) ||
     /^NomQuantit/i.test(l) ||
@@ -323,18 +323,15 @@ function parseRecapPDFText(text) {
     /process2wine/i.test(l) ||
     /^Page\s*\d/i.test(l)
 
-  // Regex pour une ligne produit : NomProduit + Quantité + Unité fusionnés
-  const produitRe = /^(.+?)(\d+[,\.]\d{2,3})\s*(Kg|L|g|ml|cl|hl)$/i
+  // Require whitespace before the quantity to avoid eating trailing digits of product names
+  // e.g. "HM Folp 80 0,14Kg" → nom="HM Folp 80", qty=0.14  (not "HM Folp 8" qty=00,14)
+  const produitRe = /^(.+?)\s+(\d+[,\.]\d{2,3})\s*(Kg|L|g|ml|cl|hl)$/i
 
-  // ── Passe 1 : entêtes parcelles + collecte des lignes produits ──
-  // On parcourt les lignes ; dès qu'on trouve un entête "--", on ouvre une parcelle
-  // et on accumule les lignes produits jusqu'à la prochaine entête "--" ou fin
+  // ── Passe 1 : entêtes parcelles (section "--") + produits annuels ──
   let currentParcelle = null
-
   for (const line of lines) {
     if (skipLine(line)) continue
 
-    // Entête parcelle : "NOM -- X,XX ha -- Cépage -- Entité"
     const hm = line.match(/^(.+?)\s*--\s*([\d,\.]+)\s*ha\s*--\s*(.+?)\s*--\s*.+$/)
     if (hm) {
       currentParcelle = {
@@ -349,9 +346,7 @@ function parseRecapPDFText(text) {
       continue
     }
 
-    // Ligne produit dans la parcelle courante
     if (currentParcelle) {
-      // Ne pas traiter les lignes de la section OT (elles contiennent " -- ")
       if (line.includes('--')) { currentParcelle = null; continue }
       const pm = line.match(produitRe)
       if (pm) {
@@ -364,46 +359,66 @@ function parseRecapPDFText(text) {
     }
   }
 
-  // ── Passe 2 : agréger IFT depuis les enregistrements OT ──
-  // Format OT : "DD mois YYYY – OT NNNN – description"
-  // puis nom parcelle (ligne sans chiffres), produits, "Totaux", valeur IFT
-  const otRe = /^\d{1,2}\s+\w+\s+\d{4}\s*[–—\-]+\s*OT\s+\d+/i
-  const iftMap = {}  // nom_minuscule → IFT cumulé
+  // ── Passe 2 : extraire les blocs OT et calculer IFT par chevauchement produits ──
+  // Chaque bloc OT = {produits: [{nom, type, ift}]} — on utilise parseOTProductLine
+  const otHdrRe = /^\d{1,2}\s+[a-zÀ-ɏ]+\s+\d{4}\s*[-–—]+\s*OT\s+\d+/i
+  const otBlocks = []
+  let otProds = []
+  let inOT = false
 
-  let otCandidate = null  // nom de parcelle candidat dans le bloc OT en cours
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    if (otRe.test(line)) { otCandidate = null; continue }
-    if (/^Totaux$/i.test(line)) {
-      const nextVal = lines[i + 1] || ''
-      if (/^[\d,]+$/.test(nextVal) && otCandidate) {
-        const key = otCandidate.toLowerCase()
-        iftMap[key] = (iftMap[key] || 0) + parseFloat(nextVal.replace(',', '.'))
-      }
-      otCandidate = null
-      continue
+    if (otHdrRe.test(line)) {
+      if (otProds.length > 0) { otBlocks.push([...otProds]); otProds = [] }
+      inOT = true; continue
     }
-    // Première ligne "texte seul" après l'entête OT = nom de parcelle
-    if (otCandidate === null && !/[\d,]{3,}/.test(line) && !otRe.test(line)) {
-      otCandidate = line
+    if (!inOT) continue
+    if (/^Totaux$/i.test(line)) {
+      if (i + 1 < lines.length && /^[\d,]+$/.test(lines[i + 1])) i++
+      if (otProds.length > 0) { otBlocks.push([...otProds]); otProds = [] }
+      inOT = false; continue
+    }
+    const prod = parseOTProductLine(line)
+    if (prod) otProds.push(prod)
+  }
+  if (otProds.length > 0) otBlocks.push(otProds)
+
+  // Pour chaque bloc OT, trouver la parcelle avec le plus grand chevauchement de produits
+  // Correspondance floue : un produit OT "Ampli" matches "Champ Flo Ampli" de la section 1
+  const normProd = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '')
+
+  for (const otProdList of otBlocks) {
+    if (!otProdList.length) continue
+    const otNames = otProdList.map(p => normProd(p.nom))
+
+    let bestParcelle = null, bestScore = 0
+    for (const p of parcelles) {
+      if (!p.produits.length) continue
+      const pNames = p.produits.map(pr => normProd(pr.nom))
+      // Chevauchement : proportion de produits OT trouvés dans la liste parcelle (substring)
+      const overlap = otNames.filter(on => pNames.some(pn => pn.includes(on) || on.includes(pn))).length
+      const score = overlap / Math.max(otNames.length, pNames.length, 1)
+      if (score > bestScore) { bestParcelle = p; bestScore = score }
+    }
+
+    if (bestParcelle && bestScore > 0.15) {
+      if (!bestParcelle.ift) {
+        bestParcelle.ift = { herbicide: 0, fongicide: 0, insecticide: 0, biocontrole: 0, autres: 0, total: 0 }
+      }
+      for (const prod of otProdList) {
+        const key = prod.type || 'autres'
+        bestParcelle.ift[key] = (bestParcelle.ift[key] || 0) + (prod.ift || 0)
+        bestParcelle.ift.total = (bestParcelle.ift.total || 0) + (prod.ift || 0)
+      }
     }
   }
 
-  // ── Jointure : associer IFT OT aux parcelles par nom approché ──
-  const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[-_]/g, ' ').trim()
+  // Arrondir IFT
   for (const p of parcelles) {
-    const pn = norm(p.nomSource)
-    let bestIft = 0, bestScore = 0
-    for (const [key, ift] of Object.entries(iftMap)) {
-      const kn = norm(key)
-      const words = pn.split(' ').filter(w => w.length > 2)
-      const matchCount = words.filter(w => kn.includes(w) || pn.includes(kn)).length
-      const score = matchCount / Math.max(words.length, 1)
-      if (score > bestScore && score > 0.3) { bestIft = ift; bestScore = score }
-    }
-    p.ift = {
-      herbicide: 0, fongicide: 0, insecticide: 0, autres: 0, bio: 0, biocontrole: 0,
-      total: Math.round(bestIft * 100) / 100
+    if (p.ift) {
+      for (const k of Object.keys(p.ift)) p.ift[k] = Math.round(p.ift[k] * 100) / 100
+    } else {
+      p.ift = { herbicide: 0, fongicide: 0, insecticide: 0, biocontrole: 0, autres: 0, total: 0 }
     }
   }
 
