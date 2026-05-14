@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import db from '../db.js'
 import { requireAuth, requireDeletePermission } from '../middleware/auth.js'
-import { buildPdfExport, buildPdfJournalier } from '../lib/pdfExport.js'
+// pdfExport importé dynamiquement pour éviter un crash au démarrage si pdfkit absent
 
 const router = Router()
 router.use(requireAuth)
@@ -335,7 +335,14 @@ router.get('/:annee/export-journalier', (req, res) => {
 })
 
 // PDF par parcelle
-router.get('/:annee/pdf-export', (req, res) => {
+router.get('/:annee/pdf-export', async (req, res) => {
+  let buildPdfExport
+  try {
+    ;({ buildPdfExport } = await import('../lib/pdfExport.js'))
+  } catch {
+    return res.status(503).json({ error: 'Module pdfkit absent — reconstruire le conteneur.' })
+  }
+
   const annee = parseInt(req.params.annee)
   const campagne = db.prepare('SELECT * FROM campagnes WHERE annee = ?').get(annee)
   if (!campagne) return res.status(404).json({ error: 'Campagne introuvable' })
@@ -381,7 +388,14 @@ router.get('/:annee/pdf-export', (req, res) => {
 })
 
 // PDF journalier
-router.get('/:annee/pdf-journalier', (req, res) => {
+router.get('/:annee/pdf-journalier', async (req, res) => {
+  let buildPdfJournalier
+  try {
+    ;({ buildPdfJournalier } = await import('../lib/pdfExport.js'))
+  } catch {
+    return res.status(503).json({ error: 'Module pdfkit absent — reconstruire le conteneur.' })
+  }
+
   const annee = parseInt(req.params.annee)
   const campagne = db.prepare('SELECT * FROM campagnes WHERE annee = ?').get(annee)
   if (!campagne) return res.status(404).json({ error: 'Campagne introuvable' })
