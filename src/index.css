@@ -133,6 +133,26 @@
   animation: shimmer 1.4s infinite linear;
 }
 
+/* ── Light content : forcer mode clair dans les sections export ──────────
+   .dark .xxx                 → spécificité 0-2-0
+   .dark .light-content .xxx → spécificité 0-3-0 → priorité absolue       */
+.dark .light-content .text-gray-900 { color: #111827 !important; }
+.dark .light-content .text-gray-800 { color: #1f2937 !important; }
+.dark .light-content .text-gray-700 { color: #374151 !important; }
+.dark .light-content .text-gray-600 { color: #4b5563 !important; }
+.dark .light-content .text-gray-500 { color: #6b7280 !important; }
+.dark .light-content .text-gray-400 { color: #9ca3af !important; }
+.dark .light-content .text-amber-600 { color: #d97706 !important; }
+.dark .light-content .bg-white     { background-color: #ffffff !important; }
+.dark .light-content .bg-gray-50   { background-color: #f9fafb !important; }
+.dark .light-content .bg-gray-100  { background-color: #f3f4f6 !important; }
+.dark .light-content .bg-gray-200  { background-color: #e5e7eb !important; }
+.dark .light-content .bg-amber-50  { background-color: #fffbeb !important; }
+.dark .light-content .border-gray-100 { border-color: #f3f4f6 !important; }
+.dark .light-content .border-gray-200 { border-color: #e5e7eb !important; }
+.dark .light-content .border-gray-300 { border-color: #d1d5db !important; }
+.dark .light-content .border-gray-400 { border-color: #9ca3af !important; }
+
 /* ── Dark mode ────────────────────────────────────────────────────────── */
 .dark body {
   background-color: #111827;

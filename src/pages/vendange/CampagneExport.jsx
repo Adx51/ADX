@@ -95,7 +95,7 @@ export default function CampagneExport() {
       </div>
 
       {/* ── Aperçu (toujours en mode clair) ── */}
-      <div className="px-4 py-6 space-y-8 max-w-2xl mx-auto">
+      <div className="light-content px-4 py-6 space-y-8 max-w-2xl mx-auto">
         {data.groupes.map((groupe) => (
           <GroupeSection key={groupe.pressoir} groupe={groupe} annee={annee} />
         ))}
@@ -178,7 +178,6 @@ function ParcelleMobileCard({ parcelle }) {
     </div>
   )
 
-  const hasMultiple = chargements.length > 1
   return (
     <div className="rounded-xl border border-gray-200 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2.5 bg-white">
@@ -189,7 +188,9 @@ function ParcelleMobileCard({ parcelle }) {
         {rendement && <p className="text-sm font-semibold text-amber-600">{rendement.toLocaleString('fr-FR')} kg/ha</p>}
       </div>
       {chargements.length === 0 ? (
-        <div className="px-4 py-2 bg-gray-50"><p className="text-xs text-gray-400 italic">Aucun chargement</p></div>
+        <div className="px-4 py-2.5 bg-amber-50 border-t border-gray-200">
+          <p className="text-xs text-gray-400 italic">Aucun chargement</p>
+        </div>
       ) : (
         <>
           {chargements.map(c => (
@@ -200,14 +201,12 @@ function ParcelleMobileCard({ parcelle }) {
               <span className="font-medium text-sm text-gray-900">{c.nombre_caisses}c · {c.poids_kg} kg</span>
             </div>
           ))}
-          {hasMultiple && (
-            <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-200 bg-amber-50">
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Total</span>
-              <span className="font-bold text-sm text-gray-900">
-                {chargements.reduce((s, c) => s + (c.nombre_caisses || 0), 0)}c · {parcelle.poids_total?.toFixed(0)} kg
-              </span>
-            </div>
-          )}
+          <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-200 bg-amber-50">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Total</span>
+            <span className="font-bold text-sm text-gray-900">
+              {chargements.reduce((s, c) => s + (c.nombre_caisses || 0), 0)}c · {Number(parcelle.poids_total || 0).toFixed(0)} kg
+            </span>
+          </div>
         </>
       )}
     </div>

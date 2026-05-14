@@ -93,7 +93,7 @@ export default function CampagneExportJournalier() {
         </div>
       </div>
 
-      <div className="px-4 py-6 space-y-6 max-w-2xl mx-auto">
+      <div className="light-content px-4 py-6 space-y-6 max-w-2xl mx-auto">
 
         {data.jours.length === 0 ? (
           <p className="text-center text-gray-400 py-12">Aucun chargement enregistré.</p>
