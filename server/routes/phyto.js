@@ -2,16 +2,9 @@ import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import db from '../db.js'
 import { requireAuth, requireAdmin } from '../middleware/auth.js'
-import { createRequire } from 'module'
 import multer from 'multer'
 
-let pdfParse = null
-try {
-  const require = createRequire(import.meta.url)
-  pdfParse = require('pdf-parse')
-} catch {
-  console.warn('⚠ pdf-parse non disponible — exécuter npm install dans server/')
-}
+const pdfParse = null // import PDF désactivé
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
 
