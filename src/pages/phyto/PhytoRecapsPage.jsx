@@ -117,7 +117,7 @@ export default function PhytoRecapsPage() {
               <div className="overflow-x-auto -mx-1">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-gray-400 dark:text-gray-500">
+                    <tr className="text-gray-500 dark:text-gray-300">
                       <th className="text-left py-1 px-1 font-medium">Parcelle</th>
                       <th className="text-right py-1 px-1 font-medium">Herb</th>
                       <th className="text-right py-1 px-1 font-medium">Fong</th>
@@ -129,12 +129,12 @@ export default function PhytoRecapsPage() {
                   </thead>
                   <tbody>
                     {r.parcelles.map((p, i) => (
-                      <tr key={i} className="border-t border-gray-50 dark:border-gray-800">
-                        <td className="py-1.5 px-1 text-gray-700 dark:text-gray-300 max-w-[120px] truncate">{p.parcelle_nom_app || p.parcelle_nom_source}</td>
-                        <td className="py-1.5 px-1 text-right text-gray-500 dark:text-gray-400">{p.ift_herbicide || '—'}</td>
-                        <td className="py-1.5 px-1 text-right text-gray-500 dark:text-gray-400">{p.ift_fongicide || '—'}</td>
-                        <td className="py-1.5 px-1 text-right text-gray-500 dark:text-gray-400">{p.ift_insecticide || '—'}</td>
-                        <td className="py-1.5 px-1 text-right text-gray-500 dark:text-gray-400">{p.ift_biocontrole || '—'}</td>
+                      <tr key={i} className="border-t border-gray-100 dark:border-gray-700">
+                        <td className="py-1.5 px-1 text-gray-800 dark:text-gray-200 max-w-[120px] truncate">{p.parcelle_nom_app || p.parcelle_nom_source}</td>
+                        <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_herbicide || '—'}</td>
+                        <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_fongicide || '—'}</td>
+                        <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_insecticide || '—'}</td>
+                        <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_biocontrole || '—'}</td>
                         <td className="py-1.5 px-1 text-right font-semibold text-gray-900 dark:text-gray-100">{p.ift_total}</td>
                         <td className="py-1.5 px-1 text-right text-amber-600 dark:text-amber-400">{p.cuivre_kg_ha ?? '—'}</td>
                       </tr>
