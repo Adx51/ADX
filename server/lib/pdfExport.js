@@ -126,9 +126,8 @@ export function buildPdfExport(annee, groupes) {
       }
 
       // Chargements (cellules nom + rendement en "spanning")
-      const hasMult = chargs.length > 1
-      const nRows   = chargs.length + (hasMult ? 1 : 0)
-      const blockH  = nRows * ROW_H
+      const nRows  = chargs.length + 1  // toujours une ligne Total
+      const blockH = nRows * ROW_H
 
       if (y + blockH > PAGE_H - MARGIN) { doc.addPage(); y = MARGIN }
 
@@ -166,8 +165,8 @@ export function buildPdfExport(annee, groupes) {
         ry += ROW_H
       }
 
-      // Sous-total (si plusieurs chargements)
-      if (hasMult) {
+      // Ligne Total (toujours affichée)
+      {
         const totC = chargs.reduce((s, c) => s + (c.nombre_caisses || 0), 0)
         const totP = Number(p.poids_total || 0).toFixed(0)
         doc.save()
