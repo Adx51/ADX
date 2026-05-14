@@ -28,12 +28,14 @@ export function OfflineProvider({ children }) {
         await rawRequest(op.method, op.path, op.body)
         await removeOperation(op.id)
       } catch (err) {
-        if (!navigator.onLine) {
-          // Genuine network failure — stop and retry on next reconnect
+        const status = err?.status
+        if (status >= 400 && status < 500) {
+          // Client error (bad data, not found, conflict) — will never succeed, discard
+          await removeOperation(op.id)
+        } else {
+          // Network error or 5xx — temporary, stop and retry on next reconnect
           break
         }
-        // Server error (4xx/5xx) — operation is invalid, discard and continue
-        await removeOperation(op.id)
       }
     }
     setIsSyncing(false)

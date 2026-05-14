@@ -24,7 +24,11 @@ export async function rawRequest(method, path, body) {
   }
 
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
+  if (!res.ok) {
+    const e = new Error(data.error || `Erreur ${res.status}`)
+    e.status = res.status
+    throw e
+  }
   return data
 }
 
