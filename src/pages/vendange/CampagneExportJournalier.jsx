@@ -16,21 +16,21 @@ export default function CampagneExportJournalier() {
   }, [annee])
 
   if (loading) return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-3 text-gray-500 dark:text-gray-400 dark:bg-gray-900">
+    <div className="flex flex-col items-center justify-center min-h-screen gap-3 text-gray-500">
       <Loader2 size={28} className="animate-spin text-amber-500" />
       <p className="text-sm">Génération de l'export...</p>
     </div>
   )
   if (!data) return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-3 text-gray-500 dark:text-gray-400 dark:bg-gray-900">
+    <div className="flex flex-col items-center justify-center min-h-screen gap-3 text-gray-500">
       <p>Export introuvable.</p>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 print:bg-white">
+    <div className="min-h-screen bg-white print:bg-white">
 
-      {/* ── En-tête ── */}
+      {/* ── En-tête (dark mode conservé pour les boutons) ── */}
       <div className="print:hidden sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 space-y-2">
         <div className="flex items-center gap-2">
           <button onClick={() => navigate(`/vendange/${annee}`)}
@@ -71,7 +71,7 @@ export default function CampagneExportJournalier() {
         </div>
 
         {data.jours.length === 0 ? (
-          <p className="text-center text-gray-400 dark:text-gray-500 py-12">Aucun chargement enregistré.</p>
+          <p className="text-center text-gray-400 py-12">Aucun chargement enregistré.</p>
         ) : (
           data.jours.map(jour => <JourSection key={jour.date} jour={jour} />)
         )}
@@ -79,25 +79,25 @@ export default function CampagneExportJournalier() {
         {data.jours.length > 1 && (
           <div className="print:break-inside-avoid">
             {/* Mobile */}
-            <div className="md:hidden print:hidden rounded-xl bg-gray-200 dark:bg-gray-700 px-4 py-3 flex items-center justify-between">
+            <div className="md:hidden print:hidden rounded-xl bg-gray-200 px-4 py-3 flex items-center justify-between">
               <div>
-                <p className="font-bold text-sm text-gray-900 dark:text-gray-100 uppercase">Total général</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{data.jours.length} jours</p>
+                <p className="font-bold text-sm text-gray-900 uppercase">Total général</p>
+                <p className="text-xs text-gray-500">{data.jours.length} jours</p>
               </div>
               <div className="text-right">
-                <p className="font-bold text-sm text-gray-900 dark:text-gray-100">{data.total_caisses}c</p>
-                <p className="font-bold text-sm text-gray-900 dark:text-gray-100">{Number(data.total_poids).toFixed(0)} kg</p>
+                <p className="font-bold text-sm text-gray-900">{data.total_caisses}c</p>
+                <p className="font-bold text-sm text-gray-900">{Number(data.total_poids).toFixed(0)} kg</p>
               </div>
             </div>
             {/* Desktop + print */}
             <table className="hidden md:table print:table w-full border-collapse text-sm">
               <tbody>
-                <tr className="border border-gray-400 dark:border-gray-500 print:border-gray-900 bg-gray-200 dark:bg-gray-700 print-total-row">
-                  <td className="border border-gray-400 dark:border-gray-500 print:border-gray-900 px-3 py-2 font-bold uppercase text-gray-900 dark:text-gray-100 print:text-gray-900">
+                <tr className="border border-gray-400 bg-gray-200 print-total-row">
+                  <td className="border border-gray-400 px-3 py-2 font-bold uppercase text-gray-900">
                     TOTAL GÉNÉRAL — {data.jours.length} jour{data.jours.length > 1 ? 's' : ''}
                   </td>
-                  <td className="border border-gray-400 dark:border-gray-500 print:border-gray-900 px-3 py-2 text-center font-bold text-gray-900 dark:text-gray-100 print:text-gray-900">{data.total_caisses}c</td>
-                  <td className="border border-gray-400 dark:border-gray-500 print:border-gray-900 px-3 py-2 text-center font-bold text-gray-900 dark:text-gray-100 print:text-gray-900">{Number(data.total_poids).toFixed(0)} kg</td>
+                  <td className="border border-gray-400 px-3 py-2 text-center font-bold text-gray-900">{data.total_caisses}c</td>
+                  <td className="border border-gray-400 px-3 py-2 text-center font-bold text-gray-900">{Number(data.total_poids).toFixed(0)} kg</td>
                 </tr>
               </tbody>
             </table>
@@ -115,70 +115,70 @@ function JourSection({ jour }) {
     <div className="print:break-inside-avoid">
       {/* En-tête date */}
       <div className="flex items-center gap-3 mb-2">
-        <p className="font-bold text-gray-900 dark:text-gray-100 capitalize print:text-gray-900">{dateLabel}</p>
-        <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600" />
-        <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 print:hidden">
+        <p className="font-bold text-gray-900 capitalize">{dateLabel}</p>
+        <div className="flex-1 h-px bg-gray-300" />
+        <p className="text-sm font-semibold text-gray-500 print:hidden">
           {jour.total_caisses}c · {Number(jour.total_poids).toFixed(0)} kg
         </p>
       </div>
 
-      {/* Mobile : cards */}
+      {/* Mobile : cards (toujours clair) */}
       <div className="md:hidden print:hidden space-y-1.5">
         {jour.chargements.map(c => (
-          <div key={c.id} className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl px-4 py-2.5 border border-gray-100 dark:border-gray-700">
+          <div key={c.id} className="flex items-center justify-between bg-white rounded-xl px-4 py-2.5 border border-gray-100">
             <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-400 dark:text-gray-500 tabular-nums w-10 shrink-0">
+              <span className="text-xs text-gray-400 tabular-nums w-10 shrink-0">
                 {c.heure_livraison ? c.heure_livraison.slice(0, 5) : '—'}
               </span>
-              <span className="font-medium text-sm text-gray-900 dark:text-gray-100 uppercase">
+              <span className="font-medium text-sm text-gray-900 uppercase">
                 {c.parcelle_nom || '—'}
-                {c.commune && <span className="font-normal text-gray-400 dark:text-gray-500 normal-case text-xs ml-1">({c.commune})</span>}
+                {c.commune && <span className="font-normal text-gray-400 normal-case text-xs ml-1">({c.commune})</span>}
               </span>
             </div>
             <div className="text-right shrink-0 ml-2">
-              <p className="text-xs text-gray-500 dark:text-gray-400">{c.nombre_caisses}c</p>
-              <p className="font-semibold text-sm text-gray-900 dark:text-gray-100">{c.poids_kg} kg</p>
+              <p className="text-xs text-gray-500">{c.nombre_caisses}c</p>
+              <p className="font-semibold text-sm text-gray-900">{c.poids_kg} kg</p>
             </div>
           </div>
         ))}
-        <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-900/20 rounded-xl px-4 py-2.5">
-          <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Total du jour</span>
+        <div className="flex items-center justify-between bg-amber-50 rounded-xl px-4 py-2.5">
+          <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Total du jour</span>
           <div className="text-right">
-            <span className="font-bold text-sm text-gray-900 dark:text-gray-100">
+            <span className="font-bold text-sm text-gray-900">
               {jour.total_caisses}c · {Number(jour.total_poids).toFixed(0)} kg
             </span>
           </div>
         </div>
       </div>
 
-      {/* Desktop + print : tableau */}
+      {/* Desktop + print : tableau (toujours clair) */}
       <table className="hidden md:table print:table w-full border-collapse text-sm">
         <thead>
-          <tr className="border border-gray-400 dark:border-gray-500 print:border-gray-800 bg-gray-100 dark:bg-gray-800 print:bg-gray-50">
-            <th className="border border-gray-400 dark:border-gray-500 print:border-gray-800 px-3 py-1.5 text-left font-bold uppercase text-xs w-16 text-gray-900 dark:text-gray-100 print:text-gray-900">Heure</th>
-            <th className="border border-gray-400 dark:border-gray-500 print:border-gray-800 px-3 py-1.5 text-left font-bold uppercase text-xs text-gray-900 dark:text-gray-100 print:text-gray-900">Parcelle</th>
-            <th className="border border-gray-400 dark:border-gray-500 print:border-gray-800 px-3 py-1.5 text-center font-bold uppercase text-xs w-16 text-gray-900 dark:text-gray-100 print:text-gray-900">Caisses</th>
-            <th className="border border-gray-400 dark:border-gray-500 print:border-gray-800 px-3 py-1.5 text-center font-bold uppercase text-xs w-20 text-gray-900 dark:text-gray-100 print:text-gray-900">Poids</th>
+          <tr className="border border-gray-400 bg-gray-100">
+            <th className="border border-gray-400 px-3 py-1.5 text-left font-bold uppercase text-xs w-16 text-gray-900">Heure</th>
+            <th className="border border-gray-400 px-3 py-1.5 text-left font-bold uppercase text-xs text-gray-900">Parcelle</th>
+            <th className="border border-gray-400 px-3 py-1.5 text-center font-bold uppercase text-xs w-16 text-gray-900">Caisses</th>
+            <th className="border border-gray-400 px-3 py-1.5 text-center font-bold uppercase text-xs w-20 text-gray-900">Poids</th>
           </tr>
         </thead>
         <tbody>
           {jour.chargements.map(c => (
-            <tr key={c.id} className="border border-gray-300 dark:border-gray-600 print:border-gray-300">
-              <td className="border border-gray-300 dark:border-gray-600 print:border-gray-300 px-3 py-1.5 text-gray-500 dark:text-gray-400 tabular-nums text-xs">
+            <tr key={c.id} className="border border-gray-300">
+              <td className="border border-gray-300 px-3 py-1.5 text-gray-500 tabular-nums text-xs">
                 {c.heure_livraison ? c.heure_livraison.slice(0, 5) : '—'}
               </td>
-              <td className="border border-gray-300 dark:border-gray-600 print:border-gray-300 px-3 py-1.5 font-medium uppercase text-gray-900 dark:text-gray-100 print:text-gray-900">
+              <td className="border border-gray-300 px-3 py-1.5 font-medium uppercase text-gray-900">
                 {c.parcelle_nom || '—'}
-                {c.commune && <span className="font-normal text-gray-400 dark:text-gray-500 normal-case text-xs ml-1">({c.commune})</span>}
+                {c.commune && <span className="font-normal text-gray-400 normal-case text-xs ml-1">({c.commune})</span>}
               </td>
-              <td className="border border-gray-300 dark:border-gray-600 print:border-gray-300 px-3 py-1.5 text-center font-semibold text-gray-900 dark:text-gray-100 print:text-gray-900">{c.nombre_caisses}</td>
-              <td className="border border-gray-300 dark:border-gray-600 print:border-gray-300 px-3 py-1.5 text-center font-semibold text-gray-900 dark:text-gray-100 print:text-gray-900">{c.poids_kg} kg</td>
+              <td className="border border-gray-300 px-3 py-1.5 text-center font-semibold text-gray-900">{c.nombre_caisses}</td>
+              <td className="border border-gray-300 px-3 py-1.5 text-center font-semibold text-gray-900">{c.poids_kg} kg</td>
             </tr>
           ))}
-          <tr className="border border-gray-400 dark:border-gray-500 print:border-gray-800 bg-amber-50 dark:bg-amber-900/20 print-subtotal-row">
-            <td className="border border-gray-400 dark:border-gray-500 print:border-gray-800 px-3 py-1.5 text-xs font-bold text-gray-600 dark:text-gray-300 uppercase print:text-gray-600" colSpan={2}>Total du jour</td>
-            <td className="border border-gray-400 dark:border-gray-500 print:border-gray-800 px-3 py-1.5 text-center font-bold text-gray-900 dark:text-gray-100 print:text-gray-900">{jour.total_caisses}</td>
-            <td className="border border-gray-400 dark:border-gray-500 print:border-gray-800 px-3 py-1.5 text-center font-bold text-gray-900 dark:text-gray-100 print:text-gray-900">{Number(jour.total_poids).toFixed(0)} kg</td>
+          <tr className="border border-gray-400 bg-amber-50 print-subtotal-row">
+            <td className="border border-gray-400 px-3 py-1.5 text-xs font-bold text-gray-600 uppercase" colSpan={2}>Total du jour</td>
+            <td className="border border-gray-400 px-3 py-1.5 text-center font-bold text-gray-900">{jour.total_caisses}</td>
+            <td className="border border-gray-400 px-3 py-1.5 text-center font-bold text-gray-900">{Number(jour.total_poids).toFixed(0)} kg</td>
           </tr>
         </tbody>
       </table>
