@@ -1,21 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Settings, LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
-const TITLES = {
-  '/':          null,          // handled separately (greeting)
-  '/parcelles': 'Parcelles',
-  '/taches':    'Tâches',
-  '/vendange':  'Vendanges',
-  '/reglages':  'Réglages',
-  '/admin':     'Administration',
-  '/phyto':     'Phyto',
-}
-
 export default function TopBar() {
   const { user, signOut } = useAuth()
-  const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
   const ref = useRef()
 
@@ -32,10 +21,7 @@ export default function TopBar() {
     }
   }, [open])
 
-  const initial  = (user?.prenom?.[0] || user?.email?.[0] || '?').toUpperCase()
-  const prenom   = user?.prenom || user?.email?.split('@')[0] || ''
-  const segment  = '/' + pathname.split('/')[1]
-  const title    = segment === '/' ? `Bonjour ${prenom} 👋` : (TITLES[segment] ?? 'LF-Boyer')
+  const initial = (user?.prenom?.[0] || user?.email?.[0] || '?').toUpperCase()
 
   return (
     <div
@@ -43,7 +29,10 @@ export default function TopBar() {
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="h-11 flex items-center justify-between px-4">
-        <span className="font-bold text-gray-900 dark:text-gray-100 text-sm">{title}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🍾</span>
+          <span className="font-bold text-gray-900 dark:text-gray-100 text-sm">LF-Boyer</span>
+        </div>
 
         <div className="flex items-center gap-1" ref={ref}>
           <Link

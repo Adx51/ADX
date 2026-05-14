@@ -1,4 +1,4 @@
-import { Outlet, useLocation } from 'react-router-dom'
+import { Outlet } from 'react-router-dom'
 import BottomNav from './BottomNav'
 import SideNav from './SideNav'
 import TopBar from './TopBar'
@@ -6,7 +6,6 @@ import OfflineBanner from './OfflineBanner'
 import UpdateBanner from './UpdateBanner'
 
 export default function Layout() {
-  const { pathname } = useLocation()
   return (
     <div className="flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible" style={{ height: '100dvh' }}>
       <SideNav />
@@ -16,7 +15,7 @@ export default function Layout() {
           <UpdateBanner />
           <OfflineBanner />
           <main className="page-content">
-            <div key={pathname} className="md:max-w-4xl lg:max-w-5xl md:mx-auto lg:mx-auto page-fade">
+            <div className="md:max-w-4xl lg:max-w-5xl md:mx-auto lg:mx-auto">
               <Outlet />
             </div>
           </main>

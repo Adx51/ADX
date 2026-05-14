@@ -87,11 +87,34 @@
   }
 }
 
-/* ── Desktop / iPad landscape (md = 768px) ────────────────────────── */
+/* ── Mobile : page-header en grand titre iOS-style (non sticky, non coloré) ── */
 @media (max-width: 767px) {
-  /* Sur mobile, le TopBar fait office de header — masquer les page-header */
-  .page-header { display: none !important; }
+  .page-header {
+    position: static !important;
+    background: transparent !important;
+    color: #111827 !important;
+    box-shadow: none !important;
+    padding: 1.25rem 1rem 0.25rem !important;
+    border: none !important;
+    top: unset !important;
+    z-index: unset !important;
+  }
+  .page-header h1 {
+    font-size: 1.6rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.02em;
+    line-height: 1.15 !important;
+  }
+  .page-header button, .page-header a {
+    color: #6b7280 !important;
+  }
+  .page-header button:active {
+    background-color: rgba(0,0,0,0.05) !important;
+    border-radius: 9999px;
+  }
 }
+
+/* ── Desktop / iPad landscape (md = 768px) ────────────────────────── */
 @media (min-width: 768px) {
   .page-header {
     top: 0 !important;
@@ -158,6 +181,12 @@
 .dark .light-content .border-gray-400 { border-color: #9ca3af !important; }
 
 /* ── Dark mode ────────────────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .dark .page-header         { color: #f9fafb !important; }
+  .dark .page-header button,
+  .dark .page-header a       { color: #9ca3af !important; }
+}
+
 .dark body {
   background-color: #111827;
   color: #f9fafb;

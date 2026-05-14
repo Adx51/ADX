@@ -81,15 +81,7 @@ export default function CampagnesList() {
         </button>
       </div>
 
-      {/* Bouton stats visible sur mobile (le page-header est masqué) */}
-      <div className="md:hidden flex justify-end px-4 pt-3">
-        <button onClick={() => navigate('/vendange/stats')}
-                className="flex items-center gap-1.5 text-sm text-amber-600 font-medium">
-          <BarChart2 size={16} /> Statistiques
-        </button>
-      </div>
-
-      <div className="px-4 pt-2 space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
+      <div className="px-4 pt-4 space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
         {loading ? (
           Array.from({ length: 2 }).map((_, i) => <div key={i} className="card skeleton h-24" />)
         ) : campagnes.length === 0 ? (
