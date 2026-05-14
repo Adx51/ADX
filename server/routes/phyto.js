@@ -167,51 +167,73 @@ function fuzzyMatch(nomSource, parcelles) {
 }
 
 function parseRecapPDFText(text) {
-  // Prestataire
   const presMatch = text.match(/^((?:SARL|EARL|EURL|SAS)\s+[\w\s\-\.]+)/m)
   const prestataire = presMatch ? presMatch[1].trim().replace(/\s+/g, ' ') : null
-  // Année
   const yearMatch = text.match(/\b(20\d{2})\b/)
   const annee = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear()
 
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
   const parcelles = []
-  let current = null
-  let inIFT = false
 
+  // ── Passe 1 : entêtes parcelles "NOM -- X,XX ha -- Cépage -- Entité" ──
   for (const line of lines) {
-    // Skip page headers
-    if (/Imprim[eé]\s+le/i.test(line) || /Process2wine/i.test(line) || /^Page\s+\d+\s+sur/i.test(line)) continue
-    // Parcelle header: "NAME -- X.XX ha -- Cépage -- Entity"
+    if (/Imprim[eé]/i.test(line) || /process2wine/i.test(line)) continue
     const hm = line.match(/^(.+?)\s*--\s*([\d,\.]+)\s*ha\s*--\s*(.+?)\s*--\s*.+$/)
     if (hm) {
-      if (current) parcelles.push(current)
-      current = { nomSource: hm[1].trim(), surfaceHa: parseFloat(hm[2].replace(',','.')), cepage: hm[3].trim(), ift: null, cuivreKgHa: null }
-      inIFT = false
-      continue
-    }
-    if (!current) continue
-    // IFT section start (not "IFT Global")
-    if (line === 'IFT') { inIFT = true; continue }
-    // Skip column header row
-    if (inIFT && /Herbicide.*Fongicide/i.test(line)) continue
-    // IFT values: 7 space-separated comma-decimals
-    if (inIFT && !current.ift) {
-      const m = line.match(/^([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)\s+([\d,]+)/)
-      if (m) {
-        const n = s => parseFloat(s.replace(',','.'))
-        current.ift = { herbicide: n(m[1]), fongicide: n(m[2]), insecticide: n(m[3]), autres: n(m[4]), bio: n(m[5]), biocontrole: n(m[6]), total: n(m[7]) }
-        inIFT = false
-      }
-    }
-    // Cuivre kg/ha
-    if (!current.cuivreKgHa) {
-      const cm = line.match(/^([\d,]+)\s*kg\/ha$/i)
-      if (cm) current.cuivreKgHa = parseFloat(cm[1].replace(',','.'))
+      parcelles.push({
+        nomSource: hm[1].trim(),
+        surfaceHa: parseFloat(hm[2].replace(',', '.')),
+        cepage: hm[3].trim(),
+        ift: null,
+        cuivreKgHa: null,
+      })
     }
   }
-  if (current) parcelles.push(current)
-  return { prestataire, annee, parcelles: parcelles.filter(p => p.ift !== null) }
+
+  // ── Passe 2 : agréger IFT depuis les enregistrements OT ──
+  // Format OT : "DD mois YYYY – OT NNNN – description"
+  // puis nom parcelle (ligne sans chiffres), produits, "Totaux", valeur IFT
+  const otRe = /^\d{1,2}\s+\w+\s+\d{4}\s*[–—\-]+\s*OT\s+\d+/i
+  const iftMap = {}  // nom_minuscule → IFT cumulé
+
+  let otCandidate = null  // nom de parcelle candidat dans le bloc OT en cours
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (otRe.test(line)) { otCandidate = null; continue }
+    if (/^Totaux$/i.test(line)) {
+      const nextVal = lines[i + 1] || ''
+      if (/^[\d,]+$/.test(nextVal) && otCandidate) {
+        const key = otCandidate.toLowerCase()
+        iftMap[key] = (iftMap[key] || 0) + parseFloat(nextVal.replace(',', '.'))
+      }
+      otCandidate = null
+      continue
+    }
+    // Première ligne "texte seul" après l'entête OT = nom de parcelle
+    if (otCandidate === null && !/[\d,]{3,}/.test(line) && !otRe.test(line)) {
+      otCandidate = line
+    }
+  }
+
+  // ── Jointure : associer IFT OT aux parcelles par nom approché ──
+  const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[-_]/g, ' ').trim()
+  for (const p of parcelles) {
+    const pn = norm(p.nomSource)
+    let bestIft = 0, bestScore = 0
+    for (const [key, ift] of Object.entries(iftMap)) {
+      const kn = norm(key)
+      const words = pn.split(' ').filter(w => w.length > 2)
+      const matchCount = words.filter(w => kn.includes(w) || pn.includes(kn)).length
+      const score = matchCount / Math.max(words.length, 1)
+      if (score > bestScore && score > 0.3) { bestIft = ift; bestScore = score }
+    }
+    p.ift = {
+      herbicide: 0, fongicide: 0, insecticide: 0, autres: 0, bio: 0, biocontrole: 0,
+      total: Math.round(bestIft * 100) / 100
+    }
+  }
+
+  return { prestataire, annee, parcelles }
 }
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
