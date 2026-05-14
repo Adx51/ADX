@@ -41,7 +41,7 @@ export default function PhytoPage() {
 
   return (
     <div>
-      <PageHeader title="Registre phytosanitaire" back="/admin" />
+      <PageHeader title="Registre phytosanitaire" />
 
       {/* Filtres */}
       <div className="flex gap-2 px-4 pt-4 pb-2 overflow-x-auto">
