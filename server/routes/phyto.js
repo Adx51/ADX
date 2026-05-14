@@ -166,6 +166,146 @@ function fuzzyMatch(nomSource, parcelles) {
     : { parcelle_id: null, nom: null, confidence: 0 }
 }
 
+// ─── Carnet de traitement PDF parser (OT records) ────────────────────────────
+
+function normalizePhytoType(catStr) {
+  const s = catStr.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '')
+  if (s.includes('fongic')) return 'fongicide'
+  if (s.includes('insect')) return 'insecticide'
+  if (s.includes('herbic')) return 'herbicide'
+  if (s.includes('bioc') || s.includes('biocontr')) return 'biocontrole'
+  return 'autre'
+}
+
+// Regex for merged OT product line: Qty(N,NNN) IFT(N,NN) Unit IFThom(N,NN)
+const OT_NUM_RE = /(\d+,\d{3})(\d+,\d{2})(Kg|L)(\d+,\d{2})/i
+const OT_CAT_RE = /Fongicides?|Insecticides?|Herbicides?|Biocontr[oô]le|N[eé]maticides?|Acaricides?|Autres?/i
+
+function parseOTProductLine(line) {
+  const numMatch = line.match(OT_NUM_RE)
+  if (!numMatch) return null
+
+  const beforeNums = line.slice(0, line.indexOf(numMatch[0]))
+  const catMatch = beforeNums.match(OT_CAT_RE)
+
+  let nom, type = 'autre', cible = null
+  if (catMatch) {
+    nom = beforeNums.slice(0, catMatch.index).trim()
+    type = normalizePhytoType(catMatch[0])
+    cible = beforeNums.slice(catMatch.index + catMatch[0].length).trim() || null
+  } else {
+    nom = beforeNums.trim()
+  }
+
+  if (!nom) return null
+  return {
+    nom,
+    type,
+    cible: cible || null,
+    quantite: parseFloat(numMatch[1].replace(',', '.')),
+    ift: parseFloat(numMatch[2].replace(',', '.')),
+    unite: numMatch[3],
+  }
+}
+
+function parseCarnetPDFText(text) {
+  const presMatch = text.match(/^((?:SARL|EARL|EURL|SAS)\s+[\w\s\-\.]+)/m)
+  const prestataire = presMatch ? presMatch[1].trim().replace(/\s+/g, ' ') : null
+  const yearMatch = text.match(/\b(20\d{2})\b/)
+  const annee = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear()
+
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+
+  // OT header: "04 juillet 2025 – OT 8904 – T8 Circuit 3 Conv."
+  const otHeaderRe = /^(\d{1,2})\s+(\w+)\s+(\d{4})\s*[–—\-]+\s*OT\s+(\d+)\s*[–—\-]+\s*(.+)/i
+
+  const skipLine = l =>
+    /^Produits$/i.test(l) ||
+    /^NomQuantit/i.test(l) ||
+    /Imprim[eé]/i.test(l) ||
+    /process2wine/i.test(l) ||
+    /^Page\s*\d/i.test(l) ||
+    /^Totaux IFT/i.test(l)
+
+  // Each parsed entry: one (OT date + parcelle) pair
+  const traitements = []
+
+  let currentDate = null
+  let currentOTNum = null
+  let currentDesc = null
+  let currentParcelle = null
+  let currentProduits = []
+  let inOTSection = false
+
+  function flush() {
+    if (currentDate && currentProduits.length > 0) {
+      traitements.push({
+        date: currentDate,
+        ot_num: currentOTNum,
+        description: currentDesc,
+        parcelle_nom_source: currentParcelle,
+        produits: [...currentProduits],
+      })
+    }
+    currentParcelle = null
+    currentProduits = []
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (skipLine(line)) continue
+
+    // Section 1 parcelle header ("--") → not an OT section
+    if (/^.+?\s*--\s*[\d,\.]+\s*ha\s*--/.test(line)) {
+      inOTSection = false
+      continue
+    }
+
+    // OT header → start new OT
+    const otMatch = line.match(otHeaderRe)
+    if (otMatch) {
+      flush()
+      const [, day, month, year, otNum, desc] = otMatch
+      const monthNum = MONTHS_FR[month.toLowerCase()]
+      currentDate = monthNum ? `${year}-${monthNum}-${day.padStart(2, '0')}` : null
+      currentOTNum = otNum
+      currentDesc = desc.trim()
+      currentParcelle = null
+      currentProduits = []
+      inOTSection = true
+      continue
+    }
+
+    if (!inOTSection) continue
+
+    // "Totaux" line → flush block; skip the following IFT number
+    if (/^Totaux$/i.test(line)) {
+      if (i + 1 < lines.length && /^[\d,]+$/.test(lines[i + 1])) i++
+      flush()
+      continue
+    }
+
+    // Product line (merged numbers pattern)
+    const prod = parseOTProductLine(line)
+    if (prod) {
+      currentProduits.push(prod)
+      continue
+    }
+
+    // Text-only line = parcelle name candidate
+    // Exclude: pure number lines, lines with comma-numbers (like "0,25"), very long lines
+    if (!/\d,\d/.test(line) && !/^\d+$/.test(line) && line.length > 0 && line.length < 55) {
+      // If we have accumulated products, flush (new parcelle starts within same OT)
+      if (currentProduits.length > 0) flush()
+      currentParcelle = line
+    }
+  }
+
+  flush()
+
+  return { prestataire, annee, traitements }
+}
+
 function parseRecapPDFText(text) {
   const presMatch = text.match(/^((?:SARL|EARL|EURL|SAS)\s+[\w\s\-\.]+)/m)
   const prestataire = presMatch ? presMatch[1].trim().replace(/\s+/g, ' ') : null
@@ -305,7 +445,11 @@ router.get('/rapports', (req, res) => {
       LEFT JOIN parcelles p ON p.id = rpp.parcelle_id
       WHERE rpp.rapport_id = ?
     `).all(r.id)
-    const produits = db.prepare(`SELECT * FROM rapports_phyto_produits WHERE rapport_id = ?`).all(r.id)
+    const produits = db.prepare(`
+      SELECT id, rapport_id, nom, matiere_active, cible, dose, dose_homologuee, znt, dar, dre,
+             type, quantite, unite, ift_value
+      FROM rapports_phyto_produits WHERE rapport_id = ?
+    `).all(r.id)
     return { ...r, parcelles, produits }
   })
   res.json(result)
@@ -435,6 +579,79 @@ router.post('/recaps/parse-pdf', upload.single('pdf'), async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: 'Erreur lecture PDF: ' + e.message })
   }
+})
+
+// POST /api/phyto/carnet/parse-pdf — parse OT records (individual treatments) from PDF
+router.post('/carnet/parse-pdf', upload.single('pdf'), async (req, res) => {
+  let pdfParse
+  try {
+    ;({ default: pdfParse } = await import('pdf-parse'))
+  } catch {
+    return res.status(503).json({ error: 'Module pdf-parse manquant — reconstruire le conteneur.' })
+  }
+  if (!req.file) return res.status(400).json({ error: 'Fichier PDF manquant' })
+  try {
+    const data = await pdfParse(req.file.buffer)
+    const parsed = parseCarnetPDFText(data.text)
+    const allParcelles = db.prepare('SELECT id, nom FROM parcelles ORDER BY nom').all()
+
+    // Load saved mappings for this prestataire
+    const savedMappings = {}
+    if (parsed.prestataire) {
+      const rows = db.prepare(`SELECT nom_source, parcelle_id FROM phyto_parcelle_mapping WHERE prestataire = ?`).all(parsed.prestataire)
+      for (const row of rows) savedMappings[row.nom_source] = row.parcelle_id
+    }
+
+    // Fuzzy-match parcelle per traitement
+    parsed.traitements = parsed.traitements.map(t => {
+      if (!t.parcelle_nom_source) return { ...t, parcelle_id: null, nom_app: null, confidence: 0 }
+      if (savedMappings[t.parcelle_nom_source]) {
+        const ap = allParcelles.find(x => x.id === savedMappings[t.parcelle_nom_source])
+        return { ...t, parcelle_id: savedMappings[t.parcelle_nom_source], nom_app: ap?.nom || null, confidence: 1.0 }
+      }
+      const match = fuzzyMatch(t.parcelle_nom_source, allParcelles)
+      return { ...t, parcelle_id: match.parcelle_id, nom_app: match.nom, confidence: match.confidence }
+    })
+
+    parsed.allParcelles = allParcelles
+    if (parsed.traitements.length === 0) parsed.rawText = data.text.slice(0, 8000)
+    res.json(parsed)
+  } catch (e) {
+    res.status(500).json({ error: 'Erreur lecture PDF: ' + e.message })
+  }
+})
+
+// POST /api/phyto/carnet — save OT records as rapports_phyto (source=pdf_carnet)
+router.post('/carnet', (req, res) => {
+  const { prestataire, traitements } = req.body
+  if (!traitements?.length) return res.status(400).json({ error: 'traitements requis' })
+
+  const insMapping = db.prepare(`INSERT OR REPLACE INTO phyto_parcelle_mapping (prestataire, nom_source, parcelle_id, updated_at) VALUES (?,?,?,datetime('now'))`)
+  const ids = []
+
+  for (const t of traitements) {
+    if (!t.date) continue
+    const id = uuidv4()
+    db.prepare(`INSERT INTO rapports_phyto (id, date, prestataire, notes, user_id, source) VALUES (?,?,?,?,?,?)`)
+      .run(id, t.date, prestataire || null, t.ot_num ? `OT ${t.ot_num}` : null, req.userId, 'pdf_carnet')
+
+    if (t.parcelle_nom_source) {
+      db.prepare(`INSERT INTO rapports_phyto_parcelles (id, rapport_id, parcelle_id, parcelle_nom_source) VALUES (?,?,?,?)`)
+        .run(uuidv4(), id, t.parcelle_id || null, t.parcelle_nom_source)
+      if (t.parcelle_id) {
+        insMapping.run(prestataire || '', t.parcelle_nom_source, t.parcelle_id)
+      }
+    }
+
+    for (const p of (t.produits || [])) {
+      db.prepare(`INSERT INTO rapports_phyto_produits (id, rapport_id, nom, cible, type, quantite, unite, ift_value) VALUES (?,?,?,?,?,?,?,?)`)
+        .run(uuidv4(), id, p.nom, p.cible || null, p.type || null, p.quantite ?? null, p.unite || null, p.ift ?? null)
+    }
+
+    ids.push(id)
+  }
+
+  res.json({ ids, count: ids.length })
 })
 
 // GET /api/phyto/recaps/:annee — list saved recaps for a year

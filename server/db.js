@@ -436,6 +436,17 @@ if (schemaVersion < 13) {
   db.pragma('user_version = 13')
 }
 
+if (schemaVersion < 14) {
+  // source: 'email' | 'pdf_carnet' — where the rapport came from
+  try { db.exec(`ALTER TABLE rapports_phyto ADD COLUMN source TEXT DEFAULT 'email'`) } catch {}
+  // Extended product fields for OT records from PDF
+  try { db.exec(`ALTER TABLE rapports_phyto_produits ADD COLUMN type TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE rapports_phyto_produits ADD COLUMN quantite REAL`) } catch {}
+  try { db.exec(`ALTER TABLE rapports_phyto_produits ADD COLUMN unite TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE rapports_phyto_produits ADD COLUMN ift_value REAL`) } catch {}
+  db.pragma('user_version = 14')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5
