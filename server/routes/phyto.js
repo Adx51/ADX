@@ -4,8 +4,6 @@ import db from '../db.js'
 import { requireAuth, requireAdmin } from '../middleware/auth.js'
 import multer from 'multer'
 
-const pdfParse = null // import PDF désactivé
-
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
 
 // ─── Parser d'email (fonctions utilitaires) ───────────────────────────────────
@@ -347,7 +345,12 @@ router.delete('/rapports/:id', (req, res) => {
 
 // POST /api/phyto/recaps/parse-pdf — upload PDF, extract IFT per parcelle
 router.post('/recaps/parse-pdf', upload.single('pdf'), async (req, res) => {
-  if (!pdfParse) return res.status(503).json({ error: 'Module pdf-parse manquant — exécuter npm install dans server/ sur le serveur' })
+  let pdfParse
+  try {
+    ;({ default: pdfParse } = await import('pdf-parse'))
+  } catch {
+    return res.status(503).json({ error: 'Module pdf-parse manquant — reconstruire le conteneur.' })
+  }
   if (!req.file) return res.status(400).json({ error: 'Fichier PDF manquant' })
   try {
     const data = await pdfParse(req.file.buffer)

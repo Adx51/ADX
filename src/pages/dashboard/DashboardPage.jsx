@@ -82,7 +82,7 @@ export default function DashboardPage() {
       <div className="page-header">
         <div>
           <h1 className="text-xl font-bold capitalize">Bonjour {prenom} 👋</h1>
-          <p className="text-vigne-200 md:text-vigne-600 text-xs mt-0.5 capitalize">{today}</p>
+          <p className="text-gray-500 md:text-vigne-600 text-xs mt-0.5 capitalize">{today}</p>
         </div>
         <button onClick={load} className="p-2 rounded-full active:bg-vigne-600" title="Actualiser">
           <RefreshCw size={18} />
