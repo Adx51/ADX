@@ -72,10 +72,30 @@ async function request(method, path, body, isFormData = false) {
   return data
 }
 
+// Cache mémoire pour les GET — évite le skeleton flash à chaque navigation
+const _cache = new Map()
+
+function cachedGet(path) {
+  if (_cache.has(path)) {
+    // Retourne le cache instantanément, rafraîchit en arrière-plan
+    request('GET', path).then(data => _cache.set(path, data)).catch(() => {})
+    return Promise.resolve(_cache.get(path))
+  }
+  return request('GET', path).then(data => { _cache.set(path, data); return data })
+}
+
+function invalidate(path) {
+  // Invalide les entrées dont le préfixe correspond (ex: /campagnes invalide /campagnes/2024)
+  for (const key of _cache.keys()) {
+    if (key.startsWith(path) || path.startsWith(key)) _cache.delete(key)
+  }
+}
+
 export const api = {
-  get:    (path)       => request('GET',    path),
-  post:   (path, body) => request('POST',   path, body),
-  put:    (path, body) => request('PUT',    path, body),
-  delete: (path)       => request('DELETE', path),
-  upload: (path, formData) => request('POST', path, formData, true)
+  get:    (path)       => cachedGet(path),
+  post:   (path, body) => request('POST',   path, body).then(d => { invalidate(path); return d }),
+  put:    (path, body) => request('PUT',    path, body).then(d => { invalidate(path); return d }),
+  delete: (path)       => request('DELETE', path).then(d => { invalidate(path); return d }),
+  upload: (path, formData) => request('POST', path, formData, true).then(d => { invalidate(path); return d }),
+  invalidate,
 }
