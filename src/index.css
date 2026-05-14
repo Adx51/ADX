@@ -44,7 +44,7 @@
   }
   .page-header {
     @apply bg-vigne-700 text-white px-4 py-4 sticky z-10 flex items-center justify-between;
-    top: calc(44px + env(safe-area-inset-top));
+    top: 0;
     padding-top: 1rem;
     box-shadow: 0 1px 0 rgba(0,0,0,0.15);
   }
@@ -61,17 +61,9 @@
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #86efac; border-radius: 2px; }
 
-/* Page bottom padding to avoid nav overlap */
+/* Bottom padding so last content doesn't touch the edge */
 .page-content {
-  padding-bottom: calc(5rem + env(safe-area-inset-bottom));
-}
-
-/* TopBar offset: push content below the fixed mobile top bar */
-.topbar-offset {
-  padding-top: calc(44px + env(safe-area-inset-top));
-}
-@media (min-width: 768px) {
-  .topbar-offset { padding-top: 0; }
+  padding-bottom: 1rem;
 }
 
 /* ── Desktop / iPad landscape (md = 768px) ────────────────────────── */
