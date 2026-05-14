@@ -20,6 +20,10 @@ export function AuthProvider({ children }) {
         if (data?.user) {
           setUser(data.user)
           localStorage.setItem('adx_user', JSON.stringify(data.user))
+          // Préchauffer le cache des pages principales
+          api.get('/campagnes')
+          api.get('/parcelles')
+          api.get('/taches')
         } else {
           localStorage.removeItem('adx_token')
           localStorage.removeItem('adx_user')
@@ -39,6 +43,9 @@ export function AuthProvider({ children }) {
       localStorage.setItem('adx_token', data.token)
       localStorage.setItem('adx_user', JSON.stringify(data.user))
       setUser(data.user)
+      api.get('/campagnes')
+      api.get('/parcelles')
+      api.get('/taches')
       return { error: null }
     } catch (e) {
       return { error: e.message }
