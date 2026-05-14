@@ -416,6 +416,26 @@ if (schemaVersion < 12) {
   db.pragma('user_version = 12')
 }
 
+if (schemaVersion < 13) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS phyto_parcelle_mapping (
+      prestataire  TEXT NOT NULL,
+      nom_source   TEXT NOT NULL,
+      parcelle_id  TEXT NOT NULL REFERENCES parcelles(id) ON DELETE CASCADE,
+      updated_at   TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (prestataire, nom_source)
+    );
+    CREATE TABLE IF NOT EXISTS recaps_annuels_produits (
+      id                TEXT PRIMARY KEY,
+      recap_parcelle_id TEXT NOT NULL REFERENCES recaps_annuels_parcelles(id) ON DELETE CASCADE,
+      nom               TEXT NOT NULL,
+      quantite          REAL,
+      unite             TEXT
+    );
+  `)
+  db.pragma('user_version = 13')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5

@@ -175,18 +175,52 @@ function parseRecapPDFText(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
   const parcelles = []
 
-  // ── Passe 1 : entêtes parcelles "NOM -- X,XX ha -- Cépage -- Entité" ──
+  // Lignes à ignorer lors de la collecte de produits
+  const skipLine = l =>
+    /^Produits$/i.test(l) ||
+    /^NomQuantit/i.test(l) ||
+    /Imprim[eé]/i.test(l) ||
+    /process2wine/i.test(l) ||
+    /^Page\s*\d/i.test(l)
+
+  // Regex pour une ligne produit : NomProduit + Quantité + Unité fusionnés
+  const produitRe = /^(.+?)(\d+[,\.]\d{2,3})\s*(Kg|L|g|ml|cl|hl)$/i
+
+  // ── Passe 1 : entêtes parcelles + collecte des lignes produits ──
+  // On parcourt les lignes ; dès qu'on trouve un entête "--", on ouvre une parcelle
+  // et on accumule les lignes produits jusqu'à la prochaine entête "--" ou fin
+  let currentParcelle = null
+
   for (const line of lines) {
-    if (/Imprim[eé]/i.test(line) || /process2wine/i.test(line)) continue
+    if (skipLine(line)) continue
+
+    // Entête parcelle : "NOM -- X,XX ha -- Cépage -- Entité"
     const hm = line.match(/^(.+?)\s*--\s*([\d,\.]+)\s*ha\s*--\s*(.+?)\s*--\s*.+$/)
     if (hm) {
-      parcelles.push({
+      currentParcelle = {
         nomSource: hm[1].trim(),
         surfaceHa: parseFloat(hm[2].replace(',', '.')),
         cepage: hm[3].trim(),
         ift: null,
         cuivreKgHa: null,
-      })
+        produits: [],
+      }
+      parcelles.push(currentParcelle)
+      continue
+    }
+
+    // Ligne produit dans la parcelle courante
+    if (currentParcelle) {
+      // Ne pas traiter les lignes de la section OT (elles contiennent " -- ")
+      if (line.includes('--')) { currentParcelle = null; continue }
+      const pm = line.match(produitRe)
+      if (pm) {
+        currentParcelle.produits.push({
+          nom: pm[1].trim(),
+          quantite: parseFloat(pm[2].replace(',', '.')),
+          unite: pm[3],
+        })
+      }
     }
   }
 
@@ -378,11 +412,22 @@ router.post('/recaps/parse-pdf', upload.single('pdf'), async (req, res) => {
     const data = await pdfParse(req.file.buffer)
     const parsed = parseRecapPDFText(data.text)
     const allParcelles = db.prepare('SELECT id, nom FROM parcelles ORDER BY nom').all()
-    // Fuzzy-match parcelles
-    parsed.parcelles = parsed.parcelles.map(p => ({
-      ...p,
-      ...fuzzyMatch(p.nomSource, allParcelles)
-    }))
+
+    // Récupérer les mappings sauvegardés pour ce prestataire
+    const savedMappings = {}
+    if (parsed.prestataire) {
+      const rows = db.prepare(`SELECT nom_source, parcelle_id FROM phyto_parcelle_mapping WHERE prestataire = ?`).all(parsed.prestataire)
+      for (const row of rows) savedMappings[row.nom_source] = row.parcelle_id
+    }
+
+    // Fuzzy-match parcelles, avec priorité aux mappings sauvegardés
+    parsed.parcelles = parsed.parcelles.map(p => {
+      if (savedMappings[p.nomSource]) {
+        const ap = allParcelles.find(x => x.id === savedMappings[p.nomSource])
+        return { ...p, parcelle_id: savedMappings[p.nomSource], nom: ap?.nom || null, confidence: 1.0 }
+      }
+      return { ...p, ...fuzzyMatch(p.nomSource, allParcelles) }
+    })
     parsed.allParcelles = allParcelles
     // rawText inclus temporairement pour debug du parser
     parsed.rawText = data.text.slice(0, 8000)
@@ -404,7 +449,10 @@ router.get('/recaps/:annee', (req, res) => {
       LEFT JOIN parcelles p ON p.id = rap.parcelle_id
       WHERE rap.recap_id = ?
       ORDER BY parcelle_nom_source
-    `).all(r.id)
+    `).all(r.id).map(p => ({
+      ...p,
+      produits: db.prepare(`SELECT nom, quantite, unite FROM recaps_annuels_produits WHERE recap_parcelle_id = ? ORDER BY nom`).all(p.id)
+    }))
   }))
   const annees = db.prepare(`SELECT DISTINCT annee FROM recaps_annuels ORDER BY annee DESC`).all().map(r => r.annee)
   res.json({ recaps: result, annees_disponibles: annees })
@@ -417,14 +465,29 @@ router.post('/recaps', (req, res) => {
   const id = uuidv4()
   db.prepare(`INSERT INTO recaps_annuels (id, annee, prestataire, user_id) VALUES (?,?,?,?)`)
     .run(id, annee, prestataire || null, req.userId)
+
+  const insMapping = db.prepare(`INSERT OR REPLACE INTO phyto_parcelle_mapping (prestataire, nom_source, parcelle_id, updated_at) VALUES (?,?,?,datetime('now'))`)
+
   for (const p of parcelles) {
+    const pId = uuidv4()
     db.prepare(`INSERT INTO recaps_annuels_parcelles
       (id, recap_id, parcelle_id, parcelle_nom_source, surface_ha, cepage,
        ift_herbicide, ift_fongicide, ift_insecticide, ift_autres, ift_bio, ift_biocontrole, ift_total, cuivre_kg_ha)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .run(uuidv4(), id, p.parcelle_id || null, p.nomSource || p.parcelle_nom_source, p.surfaceHa || null, p.cepage || null,
+      .run(pId, id, p.parcelle_id || null, p.nomSource || p.parcelle_nom_source, p.surfaceHa || null, p.cepage || null,
         p.ift?.herbicide ?? 0, p.ift?.fongicide ?? 0, p.ift?.insecticide ?? 0, p.ift?.autres ?? 0,
         p.ift?.bio ?? 0, p.ift?.biocontrole ?? 0, p.ift?.total ?? 0, p.cuivreKgHa ?? null)
+
+    // Insérer les produits
+    for (const pr of (p.produits || [])) {
+      db.prepare(`INSERT INTO recaps_annuels_produits (id, recap_parcelle_id, nom, quantite, unite) VALUES (?,?,?,?,?)`)
+        .run(uuidv4(), pId, pr.nom, pr.quantite ?? null, pr.unite ?? null)
+    }
+
+    // Mémoriser le mapping prestataire → parcelle
+    if (p.parcelle_id) {
+      insMapping.run(prestataire || '', p.nomSource || p.parcelle_nom_source || '', p.parcelle_id)
+    }
   }
   res.json({ id })
 })

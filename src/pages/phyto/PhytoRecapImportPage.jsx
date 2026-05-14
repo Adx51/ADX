@@ -162,6 +162,17 @@ export default function PhytoRecapImportPage() {
                       <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
+
+                  {/* Produits */}
+                  {p.produits?.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {p.produits.map((pr, j) => (
+                        <span key={j} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                          {pr.nom} {pr.quantite}{pr.unite}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

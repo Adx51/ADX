@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileUp, Download, Trash2, BarChart2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { FileUp, Download, Trash2, BarChart2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { api } from '../../lib/api'
 import PageHeader from '../../components/PageHeader'
 
@@ -12,6 +12,15 @@ export default function PhytoRecapsPage() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [expandedParcelles, setExpandedParcelles] = useState(new Set())
+
+  function toggleParcelle(key) {
+    setExpandedParcelles(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
 
   useEffect(() => { load() }, [annee])
 
@@ -128,17 +137,68 @@ export default function PhytoRecapsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {r.parcelles.map((p, i) => (
-                      <tr key={i} className="border-t border-gray-100 dark:border-gray-700">
-                        <td className="py-1.5 px-1 text-gray-800 dark:text-gray-200 max-w-[120px] truncate">{p.parcelle_nom_app || p.parcelle_nom_source}</td>
-                        <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_herbicide || '—'}</td>
-                        <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_fongicide || '—'}</td>
-                        <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_insecticide || '—'}</td>
-                        <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_biocontrole || '—'}</td>
-                        <td className="py-1.5 px-1 text-right font-semibold text-gray-900 dark:text-gray-100">{p.ift_total}</td>
-                        <td className="py-1.5 px-1 text-right text-amber-600 dark:text-amber-400">{p.cuivre_kg_ha ?? '—'}</td>
-                      </tr>
-                    ))}
+                    {r.parcelles.map((p, i) => {
+                      const key = `${r.id}-${i}`
+                      const expanded = expandedParcelles.has(key)
+                      const hasProduits = p.produits?.length > 0
+                      return (
+                        <>
+                          <tr
+                            key={key}
+                            className={`border-t border-gray-100 dark:border-gray-700 ${hasProduits ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
+                            onClick={() => hasProduits && toggleParcelle(key)}
+                          >
+                            <td className="py-1.5 px-1 text-gray-800 dark:text-gray-200 max-w-[120px]">
+                              <div className="flex items-center gap-1">
+                                {hasProduits && (
+                                  expanded
+                                    ? <ChevronUp size={11} className="text-gray-400 flex-shrink-0" />
+                                    : <ChevronDown size={11} className="text-gray-400 flex-shrink-0" />
+                                )}
+                                <div>
+                                  <div className="truncate">{p.parcelle_nom_app || p.parcelle_nom_source}</div>
+                                  {(p.surface_ha || p.cepage) && (
+                                    <div className="text-gray-400 dark:text-gray-500 text-[10px] leading-tight truncate">
+                                      {[p.cepage, p.surface_ha ? `${p.surface_ha} ha` : null].filter(Boolean).join(' · ')}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_herbicide || '—'}</td>
+                            <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_fongicide || '—'}</td>
+                            <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_insecticide || '—'}</td>
+                            <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_biocontrole || '—'}</td>
+                            <td className="py-1.5 px-1 text-right font-semibold text-gray-900 dark:text-gray-100">{p.ift_total}</td>
+                            <td className="py-1.5 px-1 text-right text-amber-600 dark:text-amber-400">{p.cuivre_kg_ha ?? '—'}</td>
+                          </tr>
+                          {expanded && hasProduits && (
+                            <tr key={`${key}-produits`} className="bg-gray-50 dark:bg-gray-800/40">
+                              <td colSpan={7} className="px-3 py-2">
+                                <table className="w-full text-[11px]">
+                                  <thead>
+                                    <tr className="text-gray-400 dark:text-gray-500">
+                                      <th className="text-left font-medium pb-1">Produit</th>
+                                      <th className="text-right font-medium pb-1">Quantité</th>
+                                      <th className="text-right font-medium pb-1">Unité</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {p.produits.map((pr, j) => (
+                                      <tr key={j} className="border-t border-gray-100 dark:border-gray-700/50">
+                                        <td className="py-0.5 text-gray-700 dark:text-gray-300">{pr.nom}</td>
+                                        <td className="py-0.5 text-right text-gray-600 dark:text-gray-400">{pr.quantite}</td>
+                                        <td className="py-0.5 text-right text-gray-500 dark:text-gray-500">{pr.unite}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
