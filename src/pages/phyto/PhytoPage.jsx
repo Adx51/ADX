@@ -1,147 +1,136 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Leaf, ChevronRight } from 'lucide-react'
+import { Plus, Leaf, Upload, Trash2, ChevronRight } from 'lucide-react'
 import { api } from '../../lib/api'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import PageHeader from '../../components/PageHeader'
 
-const TYPE_STYLE = {
-  fongicide:   { label: 'Fongicide',   color: 'bg-blue-100 text-blue-700' },
-  insecticide: { label: 'Insecticide', color: 'bg-red-100 text-red-700' },
-  herbicide:   { label: 'Herbicide',   color: 'bg-orange-100 text-orange-700' },
-  biocontrole: { label: 'Biocontrôle', color: 'bg-vigne-100 text-vigne-700' },
-  autre:       { label: 'Autre',       color: 'bg-gray-100 text-gray-600' },
+const TYPE_COLOR = {
+  fongicide:   'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  insecticide: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+  herbicide:   'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
+  biocontrole: 'bg-vigne-100 text-vigne-700 dark:bg-vigne-900/30 dark:text-vigne-400',
+  autre:       'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
 }
-
-const FILTRES = [
-  { key: 'all',         label: 'Tout' },
-  { key: 'fongicide',   label: 'Fongicide' },
-  { key: 'insecticide', label: 'Insecticide' },
-  { key: 'herbicide',   label: 'Herbicide' },
-  { key: 'biocontrole', label: 'Biocontrôle' },
-  { key: 'autre',       label: 'Autre' },
-]
 
 export default function PhytoPage() {
   const navigate = useNavigate()
-  const [traitements, setTraitements] = useState([])
+  const [rapports, setRapports] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filtre, setFiltre] = useState('all')
+  const [confirmDelete, setConfirmDelete] = useState(null)
 
-  useEffect(() => {
-    api.get('/traitements')
-      .then(data => { setTraitements(data || []); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [])
+  useEffect(() => { load() }, [])
 
-  const filtered = filtre === 'all'
-    ? traitements
-    : traitements.filter(t => t.type === filtre)
+  async function load() {
+    try {
+      const data = await api.get('/phyto/rapports')
+      setRapports(data || [])
+    } catch {}
+    setLoading(false)
+  }
+
+  async function deleteRapport(id) {
+    await api.delete(`/phyto/rapports/${id}`)
+    setRapports(prev => prev.filter(r => r.id !== id))
+    setConfirmDelete(null)
+  }
 
   return (
     <div>
       <PageHeader title="Registre phytosanitaire" />
 
-      {/* Filtres */}
-      <div className="flex gap-2 px-4 pt-4 pb-2 overflow-x-auto">
-        {FILTRES.map(f => (
-          <button
-            key={f.key}
-            onClick={() => setFiltre(f.key)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              filtre === f.key
-                ? 'bg-vigne-700 text-white'
-                : 'bg-white text-gray-600 border border-gray-200'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+      {/* Boutons d'action */}
+      <div className="flex gap-2 px-4 pt-4">
+        <button
+          onClick={() => navigate('/phyto/import')}
+          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-vigne-700 text-white text-sm font-semibold active:bg-vigne-800"
+        >
+          <Upload size={16} />
+          Importer un email
+        </button>
+        <button
+          onClick={() => navigate('/phyto/new')}
+          className="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium active:bg-gray-50 dark:active:bg-gray-800"
+        >
+          <Plus size={16} />
+          Manuel
+        </button>
       </div>
 
-      {/* Liste */}
-      <div className="px-4 space-y-3 pt-2 pb-24">
+      <div className="px-4 pt-4 space-y-3 pb-8">
         {loading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="card skeleton h-20" />
-          ))
-        ) : filtered.length === 0 ? (
+          Array.from({ length: 3 }).map((_, i) => <div key={i} className="card skeleton h-24" />)
+        ) : rapports.length === 0 ? (
           <div className="text-center py-16">
             <Leaf size={48} className="mx-auto text-vigne-300 mb-4" />
-            <p className="text-gray-500 font-medium">Aucun traitement</p>
-            <p className="text-sm text-gray-400 mt-1">
-              {filtre === 'all' ? 'Commencez par ajouter un traitement.' : 'Aucun traitement de ce type.'}
-            </p>
+            <p className="text-gray-500 dark:text-gray-400 font-medium">Aucun rapport</p>
+            <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">Importez un email de traitement pour commencer</p>
           </div>
         ) : (
-          filtered.map(t => {
-            const typeInfo = TYPE_STYLE[t.type] || TYPE_STYLE.autre
+          rapports.map(r => {
+            const dateStr = r.date
+              ? format(parseISO(r.date), 'd MMMM yyyy', { locale: fr })
+              : '—'
+            const parcelleNames = r.parcelles
+              .map(p => p.parcelle_nom_app || p.parcelle_nom_source || '?')
+              .join(', ')
+            const produitNames = r.produits.map(p => p.nom).join(', ')
+
             return (
-              <button
-                key={t.id}
-                onClick={() => navigate(`/phyto/${t.id}/edit`)}
-                className="card w-full text-left active:scale-[0.99] transition-transform"
-              >
-                <div className="flex items-start gap-3">
-                  {/* Icône type */}
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${typeInfo.color}`}>
-                    <Leaf size={18} />
-                  </div>
-
-                  {/* Contenu */}
+              <div key={r.id} className="card space-y-2">
+                <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${typeInfo.color}`}>
-                        {typeInfo.label}
-                      </span>
-                      {t.dar > 0 && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                          DAR : {t.dar}j
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{dateStr}</p>
+                      {r.prestataire && (
+                        <span className="text-xs text-gray-400 dark:text-gray-500 truncate">{r.prestataire}</span>
+                      )}
+                    </div>
+                    {parcelleNames && (
+                      <p className="text-xs text-vigne-600 dark:text-vigne-400 font-medium truncate">
+                        📍 {parcelleNames}
+                      </p>
+                    )}
+                    {produitNames && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                        🧪 {produitNames}
+                      </p>
+                    )}
+                    <div className="flex gap-1.5 mt-2 flex-wrap">
+                      {r.produits.map((p, i) => p.dar && (
+                        <span key={i} className="text-xs bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
+                          {p.nom} DAR {p.dar}j
                         </span>
-                      )}
+                      ))}
                     </div>
-
-                    <p className="font-semibold text-gray-900 mt-1 truncate">{t.produit}</p>
-
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                      <span className="text-xs text-gray-500">
-                        {format(parseISO(t.date), 'd MMM yyyy', { locale: fr })}
-                      </span>
-                      {t.dose && (
-                        <span className="text-xs text-gray-500">{t.dose}</span>
-                      )}
-                      {t.operateur && (
-                        <span className="text-xs text-gray-400">{t.operateur}</span>
-                      )}
-                    </div>
-
-                    {t.parcelle_nom && (
-                      <p className="text-xs text-vigne-600 font-medium mt-0.5">{t.parcelle_nom}</p>
-                    )}
-
-                    {t.conditions && (
-                      <p className="text-xs text-gray-400 mt-0.5 truncate">{t.conditions}</p>
-                    )}
                   </div>
 
-                  <ChevronRight size={16} className="text-gray-300 flex-shrink-0 mt-1" />
+                  {confirmDelete === r.id ? (
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => deleteRapport(r.id)}
+                        className="px-2 py-1 text-xs bg-red-600 text-white rounded-lg"
+                      >Suppr.</button>
+                      <button
+                        onClick={() => setConfirmDelete(null)}
+                        className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400"
+                      >Annuler</button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDelete(r.id)}
+                      className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-red-400 flex-shrink-0"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                 </div>
-              </button>
+              </div>
             )
           })
         )}
       </div>
-
-      {/* FAB */}
-      <button
-        onClick={() => navigate('/phyto/new')}
-        className="fixed right-4 bg-vigne-700 text-white w-14 h-14 rounded-full
-                   shadow-lg flex items-center justify-center active:scale-95 transition-transform z-10"
-        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
-      >
-        <Plus size={28} />
-      </button>
     </div>
   )
 }

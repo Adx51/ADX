@@ -351,6 +351,42 @@ if (schemaVersion < 10) {
   db.pragma('user_version = 10')
 }
 
+if (schemaVersion < 11) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS rapports_phyto (
+      id           TEXT PRIMARY KEY,
+      date         TEXT NOT NULL,
+      prestataire  TEXT,
+      notes        TEXT,
+      user_id      TEXT REFERENCES users(id) ON DELETE SET NULL,
+      created_at   TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS rapports_phyto_parcelles (
+      id                 TEXT PRIMARY KEY,
+      rapport_id         TEXT NOT NULL REFERENCES rapports_phyto(id) ON DELETE CASCADE,
+      parcelle_id        TEXT REFERENCES parcelles(id) ON DELETE SET NULL,
+      parcelle_nom_source TEXT,
+      surface_ha         REAL,
+      heure              TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS rapports_phyto_produits (
+      id               TEXT PRIMARY KEY,
+      rapport_id       TEXT NOT NULL REFERENCES rapports_phyto(id) ON DELETE CASCADE,
+      nom              TEXT NOT NULL,
+      matiere_active   TEXT,
+      cible            TEXT,
+      dose             TEXT,
+      dose_homologuee  TEXT,
+      znt              TEXT,
+      dar              INTEGER,
+      dre              TEXT
+    );
+  `)
+  db.pragma('user_version = 11')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5
