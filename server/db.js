@@ -387,6 +387,35 @@ if (schemaVersion < 11) {
   db.pragma('user_version = 11')
 }
 
+if (schemaVersion < 12) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS recaps_annuels (
+      id           TEXT PRIMARY KEY,
+      annee        INTEGER NOT NULL,
+      prestataire  TEXT,
+      user_id      TEXT,
+      created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS recaps_annuels_parcelles (
+      id                  TEXT PRIMARY KEY,
+      recap_id            TEXT NOT NULL REFERENCES recaps_annuels(id) ON DELETE CASCADE,
+      parcelle_id         TEXT REFERENCES parcelles(id) ON DELETE SET NULL,
+      parcelle_nom_source TEXT NOT NULL,
+      surface_ha          REAL,
+      cepage              TEXT,
+      ift_herbicide       REAL DEFAULT 0,
+      ift_fongicide       REAL DEFAULT 0,
+      ift_insecticide     REAL DEFAULT 0,
+      ift_autres          REAL DEFAULT 0,
+      ift_bio             REAL DEFAULT 0,
+      ift_biocontrole     REAL DEFAULT 0,
+      ift_total           REAL DEFAULT 0,
+      cuivre_kg_ha        REAL
+    );
+  `)
+  db.pragma('user_version = 12')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5

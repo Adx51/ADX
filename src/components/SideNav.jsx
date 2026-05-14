@@ -1,17 +1,19 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Map, CheckSquare, Grape, Settings, Shield } from 'lucide-react'
+import { Home, Map, CheckSquare, Grape, Settings, Shield, Leaf } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { APP_VERSION } from '../lib/version'
 
 export default function SideNav() {
   const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const tabs = [
     { to: '/',          icon: Home,        label: 'Accueil',   end: true },
     { to: '/parcelles', icon: Map,         label: 'Parcelles' },
     { to: '/taches',    icon: CheckSquare, label: 'Tâches'    },
     { to: '/vendange',  icon: Grape,       label: 'Vendanges' },
+    ...(isAdmin ? [{ to: '/phyto', icon: Leaf, label: 'Phyto' }] : []),
     { to: '/reglages',  icon: Settings,    label: 'Réglages'  },
-    ...(user?.role === 'admin' ? [{ to: '/admin', icon: Shield, label: 'Admin' }] : []),
+    ...(isAdmin ? [{ to: '/admin', icon: Shield, label: 'Admin' }] : []),
   ]
 
   return (

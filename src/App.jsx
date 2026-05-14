@@ -33,6 +33,8 @@ const PhytoPage               = lazy(() => import('./pages/phyto/PhytoPage'))
 const PhytoImportPage         = lazy(() => import('./pages/phyto/PhytoImportPage'))
 const PhytoSaisonPage         = lazy(() => import('./pages/phyto/PhytoSaisonPage'))
 const PhytoForm               = lazy(() => import('./pages/phyto/PhytoForm'))
+const PhytoRecapsPage         = lazy(() => import('./pages/phyto/PhytoRecapsPage'))
+const PhytoRecapImportPage    = lazy(() => import('./pages/phyto/PhytoRecapImportPage'))
 
 function PageLoader() {
   return (
@@ -86,6 +88,9 @@ export default function App() {
                 <Route path="/phyto/saison" element={<PhytoSaisonPage />} />
                 <Route path="/phyto/new" element={<PhytoForm />} />
                 <Route path="/phyto/:id/edit" element={<PhytoForm />} />
+
+                <Route path="/phyto/recaps" element={<PhytoRecapsPage />} />
+                <Route path="/phyto/recaps/import" element={<PhytoRecapImportPage />} />
 
                 {/* Admin & Réglages */}
                 <Route path="/admin" element={<AdminPage />} />
