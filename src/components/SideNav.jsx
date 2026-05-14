@@ -17,7 +17,7 @@ export default function SideNav() {
   ]
 
   return (
-    <aside className="hidden md:flex flex-col w-56 lg:w-64 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 fixed left-0 top-0 bottom-0 z-20">
+    <aside className="hidden md:flex print:hidden flex-col w-56 lg:w-64 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 fixed left-0 top-0 bottom-0 z-20">
       <div className="px-5 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800">
         <div className="flex items-center gap-2.5">
           <span className="text-2xl">🍾</span>

@@ -68,9 +68,11 @@ export default function CampagneExport() {
       </div>
 
       {/* ── Contenu ── */}
-      <div className="px-4 py-6 space-y-8 max-w-2xl mx-auto print:px-0 print:py-0 print:max-w-none print:space-y-8">
-        {data.groupes.map(groupe => (
-          <GroupeSection key={groupe.pressoir} groupe={groupe} annee={annee} />
+      <div className="px-4 py-6 space-y-8 max-w-2xl mx-auto print:px-0 print:py-0 print:max-w-none print:space-y-0">
+        {data.groupes.map((groupe, idx) => (
+          <div key={groupe.pressoir} className={idx > 0 ? 'print:break-before-page' : ''}>
+            <GroupeSection groupe={groupe} annee={annee} />
+          </div>
         ))}
       </div>
     </div>
@@ -122,7 +124,7 @@ function GroupeSection({ groupe, annee }) {
         </thead>
         <tbody>
           {groupe.parcelles.map(p => <ParcelleTableRows key={p.parcelle_id} parcelle={p} />)}
-          <tr className="border border-gray-400 dark:border-gray-500 print:border-gray-900 bg-gray-100 dark:bg-gray-700 print:bg-gray-100">
+          <tr className="border border-gray-400 dark:border-gray-500 print:border-gray-900 bg-gray-100 dark:bg-gray-700 print-total-row">
             <td className="border border-gray-400 dark:border-gray-500 print:border-gray-900 px-3 py-2 font-bold uppercase text-gray-900 dark:text-gray-100 print:text-gray-900">
               TOTAL — {caToDisplayHa(totalSurface)}
             </td>
@@ -258,7 +260,7 @@ function ParcelleTableRows({ parcelle }) {
         </tr>
       ))}
       {hasMultiple && (
-        <tr className="bg-amber-50 dark:bg-amber-900/20 print:bg-amber-50">
+        <tr className="bg-amber-50 dark:bg-amber-900/20 print-subtotal-row">
           <td className="border border-gray-300 dark:border-gray-600 print:border-gray-300 px-3 py-1.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Total</span>

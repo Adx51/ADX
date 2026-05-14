@@ -25,7 +25,7 @@ export default function TopBar() {
 
   return (
     <div
-      className="md:hidden flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 z-30"
+      className="md:hidden print:hidden flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 z-30"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       <div className="h-11 flex items-center justify-between px-4">

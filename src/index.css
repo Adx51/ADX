@@ -66,6 +66,27 @@
   padding-bottom: 1rem;
 }
 
+/* ── Impression : forcer fond blanc / texte noir ───────────────────── */
+@media print {
+  *, *::before, *::after {
+    background-color: white !important;
+    background-image: none !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  table, th, td {
+    border-color: #555 !important;
+  }
+  /* Lignes totaux : fond gris clair */
+  .print-total-row {
+    background-color: #e5e7eb !important;
+  }
+  .print-subtotal-row {
+    background-color: #fef3c7 !important;
+  }
+}
+
 /* ── Desktop / iPad landscape (md = 768px) ────────────────────────── */
 @media (min-width: 768px) {
   .page-header {

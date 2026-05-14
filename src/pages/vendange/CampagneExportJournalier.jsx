@@ -92,7 +92,7 @@ export default function CampagneExportJournalier() {
             {/* Desktop + print */}
             <table className="hidden md:table print:table w-full border-collapse text-sm">
               <tbody>
-                <tr className="border border-gray-400 dark:border-gray-500 print:border-gray-900 bg-gray-200 dark:bg-gray-700 print:bg-gray-100">
+                <tr className="border border-gray-400 dark:border-gray-500 print:border-gray-900 bg-gray-200 dark:bg-gray-700 print-total-row">
                   <td className="border border-gray-400 dark:border-gray-500 print:border-gray-900 px-3 py-2 font-bold uppercase text-gray-900 dark:text-gray-100 print:text-gray-900">
                     TOTAL GÉNÉRAL — {data.jours.length} jour{data.jours.length > 1 ? 's' : ''}
                   </td>
@@ -175,7 +175,7 @@ function JourSection({ jour }) {
               <td className="border border-gray-300 dark:border-gray-600 print:border-gray-300 px-3 py-1.5 text-center font-semibold text-gray-900 dark:text-gray-100 print:text-gray-900">{c.poids_kg} kg</td>
             </tr>
           ))}
-          <tr className="border border-gray-400 dark:border-gray-500 print:border-gray-800 bg-amber-50 dark:bg-amber-900/20 print:bg-amber-50">
+          <tr className="border border-gray-400 dark:border-gray-500 print:border-gray-800 bg-amber-50 dark:bg-amber-900/20 print-subtotal-row">
             <td className="border border-gray-400 dark:border-gray-500 print:border-gray-800 px-3 py-1.5 text-xs font-bold text-gray-600 dark:text-gray-300 uppercase print:text-gray-600" colSpan={2}>Total du jour</td>
             <td className="border border-gray-400 dark:border-gray-500 print:border-gray-800 px-3 py-1.5 text-center font-bold text-gray-900 dark:text-gray-100 print:text-gray-900">{jour.total_caisses}</td>
             <td className="border border-gray-400 dark:border-gray-500 print:border-gray-800 px-3 py-1.5 text-center font-bold text-gray-900 dark:text-gray-100 print:text-gray-900">{Number(jour.total_poids).toFixed(0)} kg</td>

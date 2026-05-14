@@ -15,7 +15,7 @@ export default function BottomNav() {
   ]
 
   return (
-    <nav className="md:hidden flex-shrink-0 bg-white/95 dark:bg-gray-900/97 backdrop-blur-sm border-t border-gray-100 dark:border-gray-800 z-20"
+    <nav className="md:hidden print:hidden flex-shrink-0 bg-white/95 dark:bg-gray-900/97 backdrop-blur-sm border-t border-gray-100 dark:border-gray-800 z-20"
          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <div className="flex">
         {tabs.map(({ to, icon: Icon, label, end }) => (
