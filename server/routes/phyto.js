@@ -4,8 +4,14 @@ import db from '../db.js'
 import { requireAuth, requireAdmin } from '../middleware/auth.js'
 import { createRequire } from 'module'
 import multer from 'multer'
-const require = createRequire(import.meta.url)
-const pdfParse = require('pdf-parse')
+
+let pdfParse = null
+try {
+  const require = createRequire(import.meta.url)
+  pdfParse = require('pdf-parse')
+} catch {
+  console.warn('⚠ pdf-parse non disponible — exécuter npm install dans server/')
+}
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } })
 
@@ -348,6 +354,7 @@ router.delete('/rapports/:id', (req, res) => {
 
 // POST /api/phyto/recaps/parse-pdf — upload PDF, extract IFT per parcelle
 router.post('/recaps/parse-pdf', upload.single('pdf'), async (req, res) => {
+  if (!pdfParse) return res.status(503).json({ error: 'Module pdf-parse manquant — exécuter npm install dans server/ sur le serveur' })
   if (!req.file) return res.status(400).json({ error: 'Fichier PDF manquant' })
   try {
     const data = await pdfParse(req.file.buffer)
