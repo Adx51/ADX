@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FileUp, Download, Trash2, BarChart2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { api } from '../../lib/api'
@@ -117,8 +117,8 @@ export default function PhytoRecapsPage() {
                     <button onClick={() => setConfirmDelete(null)} className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400">Annuler</button>
                   </div>
                 ) : (
-                  <button onClick={() => setConfirmDelete(r.id)} className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-red-400">
-                    <Trash2 size={15} />
+                  <button onClick={() => setConfirmDelete(r.id)} className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100">
+                    <Trash2 size={16} />
                   </button>
                 )}
               </div>
@@ -142,9 +142,8 @@ export default function PhytoRecapsPage() {
                       const expanded = expandedParcelles.has(key)
                       const hasProduits = p.produits?.length > 0
                       return (
-                        <>
+                        <Fragment key={key}>
                           <tr
-                            key={key}
                             className={`border-t border-gray-100 dark:border-gray-700 ${hasProduits ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
                             onClick={() => hasProduits && toggleParcelle(key)}
                           >
@@ -173,7 +172,7 @@ export default function PhytoRecapsPage() {
                             <td className="py-1.5 px-1 text-right text-amber-600 dark:text-amber-400">{p.cuivre_kg_ha ?? '—'}</td>
                           </tr>
                           {expanded && hasProduits && (
-                            <tr key={`${key}-produits`} className="bg-gray-50 dark:bg-gray-800/40">
+                            <tr className="bg-gray-50 dark:bg-gray-800/40">
                               <td colSpan={7} className="px-3 py-2">
                                 <table className="w-full text-[11px]">
                                   <thead>
@@ -196,7 +195,7 @@ export default function PhytoRecapsPage() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </Fragment>
                       )
                     })}
                   </tbody>

@@ -127,7 +127,7 @@ export default function PhytoPage() {
                   ) : (
                     <button
                       onClick={() => setConfirmDelete(r.id)}
-                      className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-red-400 flex-shrink-0"
+                      className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 flex-shrink-0"
                     >
                       <Trash2 size={16} />
                     </button>
