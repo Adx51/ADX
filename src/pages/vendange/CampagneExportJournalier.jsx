@@ -1,15 +1,40 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Printer, ArrowLeft, Loader2, List } from 'lucide-react'
+import { ArrowLeft, Loader2, List, Download } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { api } from '../../lib/api'
+
+async function downloadPdf(annee, setDownloading) {
+  setDownloading(true)
+  try {
+    const token = localStorage.getItem('adx_token')
+    const res = await fetch(`/api/campagnes/${annee}/pdf-journalier`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    if (!res.ok) throw new Error('Erreur PDF')
+    const blob = await res.blob()
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = `vendanges-${annee}-journalier.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    alert('Impossible de générer le PDF : ' + e.message)
+  } finally {
+    setDownloading(false)
+  }
+}
 
 export default function CampagneExportJournalier() {
   const { annee } = useParams()
   const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     api.get(`/campagnes/${annee}/export-journalier`).then(d => { setData(d); setLoading(false) })
@@ -18,7 +43,7 @@ export default function CampagneExportJournalier() {
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-3 text-gray-500">
       <Loader2 size={28} className="animate-spin text-amber-500" />
-      <p className="text-sm">Génération de l'export...</p>
+      <p className="text-sm">Chargement...</p>
     </div>
   )
   if (!data) return (
@@ -27,10 +52,21 @@ export default function CampagneExportJournalier() {
     </div>
   )
 
-  return (
-    <div className="min-h-screen bg-white print:bg-white">
+  const dlBtn = (full) => (
+    <button
+      onClick={() => downloadPdf(annee, setDownloading)}
+      disabled={downloading}
+      className={`flex items-center gap-1.5 bg-amber-500 text-white px-3 ${full ? 'py-2 flex-1 justify-center' : 'py-1.5'} rounded-xl text-sm font-semibold disabled:opacity-60`}
+    >
+      {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+      {downloading ? 'Génération…' : 'Télécharger PDF'}
+    </button>
+  )
 
-      {/* ── En-tête (dark mode conservé pour les boutons) ── */}
+  return (
+    <div className="min-h-screen bg-white">
+
+      {/* ── En-tête ── */}
       <div className="print:hidden sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 space-y-2">
         <div className="flex items-center gap-2">
           <button onClick={() => navigate(`/vendange/${annee}`)}
@@ -45,10 +81,7 @@ export default function CampagneExportJournalier() {
                     className="flex items-center gap-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-xl text-sm font-medium">
               <List size={14} /> Par parcelle
             </button>
-            <button onClick={() => window.print()}
-                    className="flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1.5 rounded-xl text-sm font-semibold">
-              <Printer size={14} /> Imprimer
-            </button>
+            {dlBtn(false)}
           </div>
         </div>
         <div className="flex gap-2 md:hidden">
@@ -56,19 +89,11 @@ export default function CampagneExportJournalier() {
                   className="flex-1 flex items-center justify-center gap-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-xl text-sm font-medium">
             <List size={14} /> Par parcelle
           </button>
-          <button onClick={() => window.print()}
-                  className="flex-1 flex items-center justify-center gap-1.5 bg-amber-500 text-white px-3 py-2 rounded-xl text-sm font-semibold">
-            <Printer size={14} /> Imprimer
-          </button>
+          {dlBtn(true)}
         </div>
       </div>
 
-      <div className="px-4 py-6 space-y-6 max-w-2xl mx-auto print:px-0 print:py-0 print:max-w-none">
-
-        <div className="text-center print:block hidden">
-          <p className="font-bold text-lg uppercase tracking-wide">VENDANGES {annee}</p>
-          <p className="font-bold text-base uppercase tracking-wide text-gray-600">BILAN JOURNALIER</p>
-        </div>
+      <div className="px-4 py-6 space-y-6 max-w-2xl mx-auto">
 
         {data.jours.length === 0 ? (
           <p className="text-center text-gray-400 py-12">Aucun chargement enregistré.</p>
@@ -77,9 +102,9 @@ export default function CampagneExportJournalier() {
         )}
 
         {data.jours.length > 1 && (
-          <div className="print:break-inside-avoid">
+          <div>
             {/* Mobile */}
-            <div className="md:hidden print:hidden rounded-xl bg-gray-200 px-4 py-3 flex items-center justify-between">
+            <div className="md:hidden rounded-xl bg-gray-200 px-4 py-3 flex items-center justify-between">
               <div>
                 <p className="font-bold text-sm text-gray-900 uppercase">Total général</p>
                 <p className="text-xs text-gray-500">{data.jours.length} jours</p>
@@ -89,10 +114,10 @@ export default function CampagneExportJournalier() {
                 <p className="font-bold text-sm text-gray-900">{Number(data.total_poids).toFixed(0)} kg</p>
               </div>
             </div>
-            {/* Desktop + print */}
-            <table className="hidden md:table print:table w-full border-collapse text-sm">
+            {/* Desktop */}
+            <table className="hidden md:table w-full border-collapse text-sm">
               <tbody>
-                <tr className="border border-gray-400 bg-gray-200 print-total-row">
+                <tr className="border border-gray-400 bg-gray-200">
                   <td className="border border-gray-400 px-3 py-2 font-bold uppercase text-gray-900">
                     TOTAL GÉNÉRAL — {data.jours.length} jour{data.jours.length > 1 ? 's' : ''}
                   </td>
@@ -112,18 +137,17 @@ function JourSection({ jour }) {
   const dateLabel = format(parseISO(jour.date), 'EEEE d MMMM yyyy', { locale: fr })
 
   return (
-    <div className="print:break-inside-avoid">
-      {/* En-tête date */}
+    <div>
       <div className="flex items-center gap-3 mb-2">
         <p className="font-bold text-gray-900 capitalize">{dateLabel}</p>
         <div className="flex-1 h-px bg-gray-300" />
-        <p className="text-sm font-semibold text-gray-500 print:hidden">
+        <p className="text-sm font-semibold text-gray-500 md:hidden">
           {jour.total_caisses}c · {Number(jour.total_poids).toFixed(0)} kg
         </p>
       </div>
 
-      {/* Mobile : cards (toujours clair) */}
-      <div className="md:hidden print:hidden space-y-1.5">
+      {/* Mobile : cards */}
+      <div className="md:hidden space-y-1.5">
         {jour.chargements.map(c => (
           <div key={c.id} className="flex items-center justify-between bg-white rounded-xl px-4 py-2.5 border border-gray-100">
             <div className="flex items-center gap-3">
@@ -143,16 +167,14 @@ function JourSection({ jour }) {
         ))}
         <div className="flex items-center justify-between bg-amber-50 rounded-xl px-4 py-2.5">
           <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Total du jour</span>
-          <div className="text-right">
-            <span className="font-bold text-sm text-gray-900">
-              {jour.total_caisses}c · {Number(jour.total_poids).toFixed(0)} kg
-            </span>
-          </div>
+          <span className="font-bold text-sm text-gray-900">
+            {jour.total_caisses}c · {Number(jour.total_poids).toFixed(0)} kg
+          </span>
         </div>
       </div>
 
-      {/* Desktop + print : tableau (toujours clair) */}
-      <table className="hidden md:table print:table w-full border-collapse text-sm">
+      {/* Desktop : tableau */}
+      <table className="hidden md:table w-full border-collapse text-sm">
         <thead>
           <tr className="border border-gray-400 bg-gray-100">
             <th className="border border-gray-400 px-3 py-1.5 text-left font-bold uppercase text-xs w-16 text-gray-900">Heure</th>
@@ -175,7 +197,7 @@ function JourSection({ jour }) {
               <td className="border border-gray-300 px-3 py-1.5 text-center font-semibold text-gray-900">{c.poids_kg} kg</td>
             </tr>
           ))}
-          <tr className="border border-gray-400 bg-amber-50 print-subtotal-row">
+          <tr className="border border-gray-400 bg-amber-50">
             <td className="border border-gray-400 px-3 py-1.5 text-xs font-bold text-gray-600 uppercase" colSpan={2}>Total du jour</td>
             <td className="border border-gray-400 px-3 py-1.5 text-center font-bold text-gray-900">{jour.total_caisses}</td>
             <td className="border border-gray-400 px-3 py-1.5 text-center font-bold text-gray-900">{Number(jour.total_poids).toFixed(0)} kg</td>

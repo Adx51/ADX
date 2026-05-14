@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import db from '../db.js'
 import { requireAuth, requireDeletePermission } from '../middleware/auth.js'
+import { buildPdfExport, buildPdfJournalier } from '../lib/pdfExport.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -331,6 +332,88 @@ router.get('/:annee/export-journalier', (req, res) => {
     total_caisses: jours.reduce((s, j) => s + j.total_caisses, 0),
     total_poids:   jours.reduce((s, j) => s + j.total_poids, 0),
   })
+})
+
+// PDF par parcelle
+router.get('/:annee/pdf-export', (req, res) => {
+  const annee = parseInt(req.params.annee)
+  const campagne = db.prepare('SELECT * FROM campagnes WHERE annee = ?').get(annee)
+  if (!campagne) return res.status(404).json({ error: 'Campagne introuvable' })
+
+  const rows = db.prepare(`
+    SELECT p.id AS parcelle_id, p.nom, p.surface_totale_ca, p.commune,
+           COALESCE(p.commune_pressoir, p.commune) AS pressoir,
+           v.id AS vendange_id, v.poids_total, v.nb_caisses_total,
+           c.id AS chargement_id, c.date_chargement, c.heure_livraison,
+           c.nombre_caisses, c.poids_kg
+    FROM parcelles p
+    LEFT JOIN vendanges v ON v.parcelle_id = p.id AND v.annee = ?
+    LEFT JOIN chargements c ON c.vendange_id = v.id
+    ORDER BY COALESCE(p.commune_pressoir, p.commune), p.nom, c.date_chargement, c.heure_livraison
+  `).all(annee)
+
+  const grouped = {}
+  for (const row of rows) {
+    const pressoir = row.pressoir || 'Non affecté'
+    if (!grouped[pressoir]) grouped[pressoir] = {}
+    if (!grouped[pressoir][row.parcelle_id]) {
+      grouped[pressoir][row.parcelle_id] = {
+        nom: row.nom, surface_totale_ca: row.surface_totale_ca,
+        vendange_id: row.vendange_id, poids_total: row.poids_total || 0,
+        nb_caisses_total: row.nb_caisses_total || 0, chargements: []
+      }
+    }
+    if (row.chargement_id) {
+      grouped[pressoir][row.parcelle_id].chargements.push({
+        id: row.chargement_id, date_chargement: row.date_chargement,
+        heure_livraison: row.heure_livraison,
+        nombre_caisses: row.nombre_caisses, poids_kg: row.poids_kg
+      })
+    }
+  }
+  const groupes = Object.entries(grouped).map(([pressoir, parcelles]) => ({
+    pressoir, parcelles: Object.values(parcelles)
+  }))
+
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `attachment; filename="vendanges-${annee}-parcelles.pdf"`)
+  buildPdfExport(annee, groupes).pipe(res)
+})
+
+// PDF journalier
+router.get('/:annee/pdf-journalier', (req, res) => {
+  const annee = parseInt(req.params.annee)
+  const campagne = db.prepare('SELECT * FROM campagnes WHERE annee = ?').get(annee)
+  if (!campagne) return res.status(404).json({ error: 'Campagne introuvable' })
+
+  const rows = db.prepare(`
+    SELECT ch.id, ch.date_chargement, ch.heure_livraison,
+           ch.nombre_caisses, ch.poids_kg,
+           COALESCE(p.nom, v.parcelle_nom) AS parcelle_nom,
+           COALESCE(p.commune, '') AS commune
+    FROM chargements ch
+    JOIN vendanges v ON v.id = ch.vendange_id
+    LEFT JOIN parcelles p ON p.id = v.parcelle_id
+    WHERE v.annee = ?
+    ORDER BY ch.date_chargement ASC, ch.heure_livraison ASC NULLS LAST, parcelle_nom ASC
+  `).all(annee)
+
+  const byDate = {}
+  for (const row of rows) {
+    if (!byDate[row.date_chargement]) byDate[row.date_chargement] = []
+    byDate[row.date_chargement].push(row)
+  }
+  const jours = Object.entries(byDate).map(([date, chargements]) => ({
+    date, chargements,
+    total_caisses: chargements.reduce((s, c) => s + (c.nombre_caisses || 0), 0),
+    total_poids:   chargements.reduce((s, c) => s + (c.poids_kg || 0), 0),
+  }))
+  const total_caisses = jours.reduce((s, j) => s + j.total_caisses, 0)
+  const total_poids   = jours.reduce((s, j) => s + j.total_poids, 0)
+
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `attachment; filename="vendanges-${annee}-journalier.pdf"`)
+  buildPdfJournalier(annee, jours, total_caisses, total_poids).pipe(res)
 })
 
 router.delete('/:annee', requireDeletePermission('campagnes'), (req, res) => {
