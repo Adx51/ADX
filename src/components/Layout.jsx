@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import BottomNav from './BottomNav'
 import SideNav from './SideNav'
+import TopBar from './TopBar'
 import OfflineBanner from './OfflineBanner'
 import UpdateBanner from './UpdateBanner'
 
@@ -9,7 +10,8 @@ export default function Layout() {
   return (
     <div className="flex min-h-screen">
       <SideNav />
-      <div className="flex flex-col flex-1 min-w-0 md:ml-56 lg:ml-64">
+      <TopBar />
+      <div className="flex flex-col flex-1 min-w-0 md:ml-56 lg:ml-64 topbar-offset">
         <UpdateBanner />
         <OfflineBanner />
         <main className="flex-1 page-content">

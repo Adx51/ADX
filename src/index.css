@@ -43,7 +43,9 @@
     @apply block text-sm font-medium text-gray-700 mb-1;
   }
   .page-header {
-    @apply bg-vigne-700 text-white px-4 py-4 sticky top-0 z-10 safe-top flex items-center justify-between;
+    @apply bg-vigne-700 text-white px-4 py-4 sticky z-10 flex items-center justify-between;
+    top: calc(44px + env(safe-area-inset-top));
+    padding-top: 1rem;
     box-shadow: 0 1px 0 rgba(0,0,0,0.15);
   }
   .safe-top {
@@ -64,9 +66,18 @@
   padding-bottom: calc(5rem + env(safe-area-inset-bottom));
 }
 
+/* TopBar offset: push content below the fixed mobile top bar */
+.topbar-offset {
+  padding-top: calc(44px + env(safe-area-inset-top));
+}
+@media (min-width: 768px) {
+  .topbar-offset { padding-top: 0; }
+}
+
 /* ── Desktop / iPad landscape (md = 768px) ────────────────────────── */
 @media (min-width: 768px) {
   .page-header {
+    top: 0 !important;
     background: white !important;
     color: #111827 !important;
     border-bottom: 1px solid #f3f4f6;

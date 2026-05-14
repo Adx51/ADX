@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Map, CheckSquare, Grape, Settings, Leaf } from 'lucide-react'
+import { Home, Map, CheckSquare, Grape, Leaf } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function BottomNav() {
@@ -12,7 +12,6 @@ export default function BottomNav() {
     { to: '/taches',    icon: CheckSquare, label: 'Tâches'    },
     { to: '/vendange',  icon: Grape,       label: 'Vendange'  },
     ...(isAdmin ? [{ to: '/phyto', icon: Leaf, label: 'Phyto' }] : []),
-    { to: '/reglages',  icon: Settings,    label: 'Réglages'  },
   ]
 
   return (

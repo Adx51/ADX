@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { RefreshCw, Shield, Moon, Sun, MapPin } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+
 import PageHeader from '../../components/PageHeader'
 import { APP_VERSION } from '../../lib/version'
 import { toggleDarkMode, getDarkMode } from '../../lib/darkMode'
 import { api } from '../../lib/api'
 
 export default function ReglagesPage() {
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [dark, setDark] = useState(getDarkMode)
   const [settings, setSettings] = useState(null)
@@ -67,12 +68,6 @@ export default function ReglagesPage() {
               {user?.role === 'admin' ? 'Administrateur' : 'Utilisateur'}
             </span>
           </div>
-          <button
-            onClick={signOut}
-            className="w-full py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-medium active:bg-red-50"
-          >
-            Se déconnecter
-          </button>
         </div>
 
         {/* Apparence */}
