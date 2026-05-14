@@ -12,7 +12,7 @@ export default function Layout() {
       <SideNav />
       <div className="flex flex-col flex-1 min-w-0 md:ml-56 lg:ml-64">
         <TopBar />
-        <div className="flex-1 overflow-y-auto overscroll-none">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-none">
           <UpdateBanner />
           <OfflineBanner />
           <main className="page-content">
