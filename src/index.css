@@ -115,35 +115,71 @@
   color: #f9fafb;
 }
 
+/* ── Backgrounds ── */
+.dark .bg-white          { background-color: #1f2937 !important; }
+.dark .bg-gray-50        { background-color: #111827 !important; }
+.dark .bg-gray-100       { background-color: #1f2937 !important; }
+.dark .bg-white\/95      { background-color: rgba(17,24,39,0.97) !important; }
+
+/* ── Text colors ── */
+.dark .text-gray-900     { color: #f9fafb !important; }
+.dark .text-gray-800     { color: #f3f4f6 !important; }
+.dark .text-gray-700     { color: #e5e7eb !important; }
+.dark .text-gray-600     { color: #d1d5db !important; }
+.dark .text-gray-500     { color: #9ca3af !important; }
+.dark .text-gray-400     { color: #6b7280 !important; }
+.dark .text-gray-300     { color: #4b5563 !important; }
+
+/* ── Borders ── */
+.dark .border-gray-200   { border-color: #374151 !important; }
+.dark .border-gray-100   { border-color: #374151 !important; }
+
+/* ── Cards ── */
 .dark .card {
   background-color: #1f2937;
-  border-color: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255,255,255,0.07);
   box-shadow: 0 1px 4px rgba(0,0,0,0.4), 0 0 1px rgba(0,0,0,0.3);
 }
 
+/* ── Inputs / Forms ── */
 .dark .input {
   background-color: #1f2937;
   border-color: #374151;
   color: #f9fafb;
 }
-
-.dark .input::placeholder {
-  color: #6b7280;
+.dark .input::placeholder { color: #6b7280; }
+.dark .label              { color: #d1d5db; }
+.dark select, .dark textarea {
+  background-color: #1f2937;
+  border-color: #374151;
+  color: #f9fafb;
 }
 
-.dark .label {
-  color: #d1d5db;
-}
-
+/* ── Page header ── */
 .dark .page-header {
   background: #1f2937 !important;
   color: #f9fafb !important;
   border-bottom-color: #374151 !important;
 }
 
-/* Select / textarea dark */
-.dark select, .dark textarea {
-  background-color: #1f2937;
-  border-color: #374151;
-  color: #f9fafb;
+/* ── Sticky tab bars (Admin, etc.) ── */
+.dark .sticky.bg-white {
+  background-color: #1f2937 !important;
+  border-bottom-color: #374151 !important;
 }
+
+/* ── Filter pills (Tâches, Phyto…) ── */
+.dark .border-gray-200.text-gray-600 {
+  border-color: #4b5563 !important;
+  color: #d1d5db !important;
+}
+
+/* ── Weather card: keep sky gradient readable in dark ── */
+.dark .from-sky-50  { --tw-gradient-from: #0c1a2e !important; }
+.dark .to-blue-100  { --tw-gradient-to: #0f2a47 !important; }
+.dark .border-sky-200 { border-color: #1e3a5f !important; }
+.dark .text-sky-900  { color: #bae6fd !important; }
+.dark .text-sky-700  { color: #7dd3fc !important; }
+.dark .text-sky-600  { color: #38bdf8 !important; }
+.dark .text-sky-500  { color: #0ea5e9 !important; }
+.dark .bg-white\/60  { background-color: rgba(255,255,255,0.06) !important; }
