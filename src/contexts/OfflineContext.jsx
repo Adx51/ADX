@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { getPendingCount, getPendingOperations, removeOperation } from '../lib/offlineQueue'
+import { getPendingCount, getPendingOperations, removeOperation, clearQueue } from '../lib/offlineQueue'
 import { rawRequest } from '../lib/api'
 
 const OfflineContext = createContext(null)
@@ -27,9 +27,13 @@ export function OfflineProvider({ children }) {
       try {
         await rawRequest(op.method, op.path, op.body)
         await removeOperation(op.id)
-      } catch {
-        // Still failing — leave in queue and stop; will retry on next reconnect
-        break
+      } catch (err) {
+        if (!navigator.onLine) {
+          // Genuine network failure — stop and retry on next reconnect
+          break
+        }
+        // Server error (4xx/5xx) — operation is invalid, discard and continue
+        await removeOperation(op.id)
       }
     }
     setIsSyncing(false)
@@ -53,8 +57,13 @@ export function OfflineProvider({ children }) {
     }
   }, [refreshPendingCount, syncQueue])
 
+  const discardQueue = useCallback(async () => {
+    await clearQueue()
+    await refreshPendingCount()
+  }, [refreshPendingCount])
+
   return (
-    <OfflineContext.Provider value={{ isOnline, pendingCount, isSyncing, refreshPendingCount, syncQueue }}>
+    <OfflineContext.Provider value={{ isOnline, pendingCount, isSyncing, refreshPendingCount, syncQueue, discardQueue }}>
       {children}
     </OfflineContext.Provider>
   )
