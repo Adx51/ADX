@@ -1,11 +1,13 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { getPendingCount } from '../lib/offlineQueue'
+import { getPendingCount, getPendingOperations, removeOperation } from '../lib/offlineQueue'
+import { rawRequest } from '../lib/api'
 
 const OfflineContext = createContext(null)
 
 export function OfflineProvider({ children }) {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(0)
+  const [isSyncing, setIsSyncing] = useState(false)
 
   const refreshPendingCount = useCallback(async () => {
     try {
@@ -16,10 +18,28 @@ export function OfflineProvider({ children }) {
     }
   }, [])
 
+  const syncQueue = useCallback(async () => {
+    const ops = await getPendingOperations()
+    if (ops.length === 0) return
+
+    setIsSyncing(true)
+    for (const op of ops) {
+      try {
+        await rawRequest(op.method, op.path, op.body)
+        await removeOperation(op.id)
+      } catch {
+        // Still failing — leave in queue and stop; will retry on next reconnect
+        break
+      }
+    }
+    setIsSyncing(false)
+    await refreshPendingCount()
+  }, [refreshPendingCount])
+
   useEffect(() => {
-    const handleOnline = () => {
+    const handleOnline = async () => {
       setIsOnline(true)
-      refreshPendingCount()
+      await syncQueue()
     }
     const handleOffline = () => setIsOnline(false)
 
@@ -31,10 +51,10 @@ export function OfflineProvider({ children }) {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
-  }, [refreshPendingCount])
+  }, [refreshPendingCount, syncQueue])
 
   return (
-    <OfflineContext.Provider value={{ isOnline, pendingCount, refreshPendingCount }}>
+    <OfflineContext.Provider value={{ isOnline, pendingCount, isSyncing, refreshPendingCount, syncQueue }}>
       {children}
     </OfflineContext.Provider>
   )

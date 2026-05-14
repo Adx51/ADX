@@ -27,9 +27,8 @@ export function AuthProvider({ children }) {
         }
       })
       .catch(() => {
-        localStorage.removeItem('adx_token')
-        localStorage.removeItem('adx_user')
-        setUser(null)
+        // Network failure or server error — keep stored user, do not logout.
+        // 401 (expired token) is handled by api.js which redirects to /login.
       })
       .finally(() => setLoading(false))
   }, [])

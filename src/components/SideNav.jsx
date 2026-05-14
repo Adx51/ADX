@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { Home, Map, CheckSquare, Grape, Settings, Shield } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { APP_VERSION } from '../lib/version'
 
 export default function SideNav() {
   const { user } = useAuth()
@@ -49,7 +50,7 @@ export default function SideNav() {
       </nav>
       <div className="px-5 py-4 border-t border-gray-100">
         <p className="text-xs text-gray-400 truncate">{user?.prenom || user?.email || ''}</p>
-        <p className="text-xs text-gray-300 mt-0.5 hidden lg:block">v0.5.4</p>
+        <p className="text-xs text-gray-300 mt-0.5 hidden lg:block">v{APP_VERSION}</p>
       </div>
     </aside>
   )

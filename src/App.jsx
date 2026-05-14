@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { OfflineProvider } from './contexts/OfflineContext'
@@ -15,23 +16,34 @@ import TachesList from './pages/taches/TachesList'
 import TacheForm from './pages/taches/TacheForm'
 
 import CampagnesList from './pages/vendange/CampagnesList'
-import StatsGlobales from './pages/vendange/StatsGlobales'
 import CampagneDetail from './pages/vendange/CampagneDetail'
 import CampagneForm from './pages/vendange/CampagneForm'
-import CampagneExport from './pages/vendange/CampagneExport'
-import CampagneExportJournalier from './pages/vendange/CampagneExportJournalier'
 import VendangeDetail from './pages/vendange/VendangeDetail'
 import ChargementForm from './pages/vendange/ChargementForm'
 
-import AdminPage from './pages/admin/AdminPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
-import ReglagesPage from './pages/reglages/ReglagesPage'
+
+// Lazy-loaded pages (reduce initial bundle)
+const StatsGlobales           = lazy(() => import('./pages/vendange/StatsGlobales'))
+const CampagneExport          = lazy(() => import('./pages/vendange/CampagneExport'))
+const CampagneExportJournalier = lazy(() => import('./pages/vendange/CampagneExportJournalier'))
+const AdminPage               = lazy(() => import('./pages/admin/AdminPage'))
+const ReglagesPage            = lazy(() => import('./pages/reglages/ReglagesPage'))
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center h-32">
+      <div className="w-6 h-6 border-2 border-vigne-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <OfflineProvider>
+          <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
@@ -71,6 +83,7 @@ export default function App() {
 
             <Route path="*" element={<Navigate to="/parcelles" replace />} />
           </Routes>
+          </Suspense>
         </OfflineProvider>
       </AuthProvider>
     </BrowserRouter>
