@@ -22,7 +22,7 @@ export default function ChargementForm() {
       date_chargement: format(new Date(), 'yyyy-MM-dd'),
       nombre_caisses: '',
       poids_kg: '',
-      heure_livraison: '',
+      heure_livraison: format(new Date(), 'HH:mm'),
       notes: ''
     }
   })
