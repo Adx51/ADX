@@ -255,6 +255,8 @@ function parseCarnetPDFText(text) {
 
   // Parcelle de page (entête "--") persiste à travers les OT jusqu'au prochain --
   let pageParcelle = null
+  // Liste des parcelles détectées avec leurs infos (surface, cépage)
+  const parcellesInfo = new Map()
 
   // Buffer pour reconstituer les produits dont le nom/cible est éclaté sur plusieurs lignes PDF
   let lineBuffer = []
@@ -279,13 +281,18 @@ function parseCarnetPDFText(text) {
     const line = lines[i]
     if (skipLine(line)) continue
 
-    // Entête de page parcelle ("AVENTURES BOYER -- 0.1448 ha -- ...")
-    const headerMatch = line.match(/^(.+?)\s*--\s*[\d,\.]+\s*ha\s*--/)
+    // Entête de page parcelle ("AVENTURES BOYER -- 0.1448 ha -- Chardonnay 1 -- ...")
+    const headerMatch = line.match(/^(.+?)\s*--\s*([\d,\.]+)\s*ha\s*--\s*(.+?)\s*--/)
     if (headerMatch) {
       resetBuffer()
       flush()
       pageParcelle = headerMatch[1].trim()
       currentParcelle = pageParcelle
+      const surface = parseFloat(headerMatch[2].replace(',', '.'))
+      const cepage = headerMatch[3].trim()
+      if (!parcellesInfo.has(pageParcelle)) {
+        parcellesInfo.set(pageParcelle, { nomSource: pageParcelle, surfaceHa: surface, cepage })
+      }
       inOTSection = false
       continue
     }
@@ -330,10 +337,7 @@ function parseCarnetPDFText(text) {
 
   flush()
 
-  // Ne pas reset currentParcelle dans flush (override comportement précédent pour pageParcelle)
-  // mais préserve l'override local : currentParcelle est réinitialisé à pageParcelle au début de chaque OT
-
-  return { prestataire, annee, traitements }
+  return { prestataire, annee, traitements, parcelles: [...parcellesInfo.values()] }
 }
 
 function parseRecapPDFText(text) {
@@ -628,19 +632,18 @@ router.post('/recaps/parse-pdf', upload.single('pdf'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Fichier PDF manquant' })
   try {
     const data = await pdfParse(req.file.buffer)
-    const parsed = parseRecapPDFText(data.text)
-    const carnet = parseCarnetPDFText(data.text)  // dates OT en bonus
+    const carnet = parseCarnetPDFText(data.text)
     const allParcelles = db.prepare('SELECT id, nom FROM parcelles ORDER BY nom').all()
 
-    // Récupérer les mappings sauvegardés pour ce prestataire
+    // Mappings sauvegardés pour ce prestataire
     const savedMappings = {}
-    if (parsed.prestataire) {
-      const rows = db.prepare(`SELECT nom_source, parcelle_id FROM phyto_parcelle_mapping WHERE prestataire = ?`).all(parsed.prestataire)
+    if (carnet.prestataire) {
+      const rows = db.prepare(`SELECT nom_source, parcelle_id FROM phyto_parcelle_mapping WHERE prestataire = ?`).all(carnet.prestataire)
       for (const row of rows) savedMappings[row.nom_source] = row.parcelle_id
     }
 
-    // Fuzzy-match parcelles, avec priorité aux mappings sauvegardés
-    parsed.parcelles = parsed.parcelles.map(p => {
+    // Fuzzy-match parcelles (utilisé pour la confirmation utilisateur)
+    const parcelles = carnet.parcelles.map(p => {
       if (savedMappings[p.nomSource]) {
         const ap = allParcelles.find(x => x.id === savedMappings[p.nomSource])
         return { ...p, parcelle_id: savedMappings[p.nomSource], nom: ap?.nom || null, confidence: 1.0 }
@@ -648,8 +651,8 @@ router.post('/recaps/parse-pdf', upload.single('pdf'), async (req, res) => {
       return { ...p, ...fuzzyMatch(p.nomSource, allParcelles) }
     })
 
-    // Traitements datés : mêmes mappings
-    parsed.traitements = carnet.traitements.map(t => {
+    // Traitements : pré-lien parcelle
+    const traitements = carnet.traitements.map(t => {
       if (!t.parcelle_nom_source) return { ...t, parcelle_id: null }
       if (savedMappings[t.parcelle_nom_source]) {
         return { ...t, parcelle_id: savedMappings[t.parcelle_nom_source] }
@@ -658,9 +661,14 @@ router.post('/recaps/parse-pdf', upload.single('pdf'), async (req, res) => {
       return { ...t, parcelle_id: match.parcelle_id }
     })
 
-    parsed.allParcelles = allParcelles
-    parsed.rawText = data.text.slice(0, 8000)
-    res.json(parsed)
+    res.json({
+      prestataire: carnet.prestataire,
+      annee: carnet.annee,
+      parcelles,
+      traitements,
+      allParcelles,
+      rawText: data.text.slice(0, 8000),
+    })
   } catch (e) {
     res.status(500).json({ error: 'Erreur lecture PDF: ' + e.message })
   }
@@ -739,65 +747,127 @@ router.post('/carnet', (req, res) => {
   res.json({ ids, count: ids.length })
 })
 
-// GET /api/phyto/recaps/:annee — list saved recaps for a year
+// ─── Agrégat IFT calculé à la volée depuis rapports_phyto ─────────────────────
+function aggregateIftByYear(annee) {
+  // Tous les rapports + produits + parcelles pour l'année
+  const rows = db.prepare(`
+    SELECT
+      rp.id as rapport_id, rp.date, rp.prestataire,
+      rpp.parcelle_id, rpp.parcelle_nom_source,
+      p.nom as parcelle_nom_app,
+      rpr.nom as prod_nom, rpr.type as prod_type, rpr.ift_value, rpr.quantite, rpr.unite, rpr.dose_ha
+    FROM rapports_phyto rp
+    LEFT JOIN rapports_phyto_parcelles rpp ON rpp.rapport_id = rp.id
+    LEFT JOIN parcelles p ON p.id = rpp.parcelle_id
+    LEFT JOIN rapports_phyto_produits rpr ON rpr.rapport_id = rp.id
+    WHERE strftime('%Y', rp.date) = ?
+  `).all(String(annee))
+
+  // Grouper par parcelle (par id si lié, sinon par nom_source)
+  const parcellesMap = new Map()
+  for (const r of rows) {
+    const key = r.parcelle_id || r.parcelle_nom_source || '__sans_parcelle__'
+    if (!parcellesMap.has(key)) {
+      parcellesMap.set(key, {
+        parcelle_id: r.parcelle_id,
+        parcelle_nom_source: r.parcelle_nom_source,
+        parcelle_nom_app: r.parcelle_nom_app,
+        prestataire: r.prestataire,
+        ift_herbicide: 0, ift_fongicide: 0, ift_insecticide: 0,
+        ift_autres: 0, ift_bio: 0, ift_biocontrole: 0, ift_total: 0,
+        cuivre_kg: 0, surface_ha: null,
+        produits: [],
+      })
+    }
+    const acc = parcellesMap.get(key)
+    if (!r.prod_nom) continue
+
+    const ift = r.ift_value || 0
+    acc.ift_total += ift
+    const t = (r.prod_type || 'autre').toLowerCase()
+    if (t === 'herbicide')   acc.ift_herbicide += ift
+    else if (t === 'fongicide')   acc.ift_fongicide += ift
+    else if (t === 'insecticide') acc.ift_insecticide += ift
+    else if (t === 'biocontrole') acc.ift_biocontrole += ift
+    else acc.ift_autres += ift
+
+    // Cuivre : produits contenant "cuivre" ou "cu " ou cuivre dans le nom (heuristique simple)
+    if (/cuivre|nordox|kocide|champ\s*flo|colpenn/i.test(r.prod_nom) && r.unite?.toLowerCase() === 'kg') {
+      acc.cuivre_kg += r.quantite || 0
+    }
+
+    // Surface depuis quantite/dose_ha si dispo
+    if (!acc.surface_ha && r.dose_ha > 0 && r.quantite > 0) {
+      acc.surface_ha = Math.round(r.quantite / r.dose_ha * 100) / 100
+    }
+
+    // Cumul produits (somme quantite par nom)
+    const prodExisting = acc.produits.find(p => p.nom === r.prod_nom)
+    if (prodExisting) {
+      prodExisting.quantite = Math.round((prodExisting.quantite + (r.quantite || 0)) * 1000) / 1000
+    } else {
+      acc.produits.push({ nom: r.prod_nom, quantite: r.quantite || 0, unite: r.unite })
+    }
+  }
+
+  // Calcule cuivre kg/ha + arrondi IFT
+  const parcelles = [...parcellesMap.values()].map(p => {
+    const cuivre_kg_ha = p.surface_ha > 0 ? Math.round(p.cuivre_kg / p.surface_ha * 100) / 100 : null
+    return {
+      ...p,
+      ift_herbicide:   Math.round(p.ift_herbicide * 100) / 100,
+      ift_fongicide:   Math.round(p.ift_fongicide * 100) / 100,
+      ift_insecticide: Math.round(p.ift_insecticide * 100) / 100,
+      ift_autres:      Math.round(p.ift_autres * 100) / 100,
+      ift_bio:         0,  // pas distinguable du carnet seul
+      ift_biocontrole: Math.round(p.ift_biocontrole * 100) / 100,
+      ift_total:       Math.round(p.ift_total * 100) / 100,
+      cuivre_kg_ha,
+    }
+  })
+  parcelles.sort((a, b) => (a.parcelle_nom_app || a.parcelle_nom_source || '').localeCompare(b.parcelle_nom_app || b.parcelle_nom_source || '', 'fr'))
+
+  return parcelles
+}
+
+// GET /api/phyto/recaps/:annee — agrégat IFT calculé depuis rapports_phyto
 router.get('/recaps/:annee', (req, res) => {
   const annee = parseInt(req.params.annee)
-  const recaps = db.prepare(`SELECT * FROM recaps_annuels WHERE annee = ? ORDER BY created_at DESC`).all(annee)
-  const result = recaps.map(r => ({
-    ...r,
-    parcelles: db.prepare(`
-      SELECT rap.*, p.nom as parcelle_nom_app
-      FROM recaps_annuels_parcelles rap
-      LEFT JOIN parcelles p ON p.id = rap.parcelle_id
-      WHERE rap.recap_id = ?
-      ORDER BY parcelle_nom_source
-    `).all(r.id).map(p => ({
-      ...p,
-      produits: db.prepare(`SELECT nom, quantite, unite FROM recaps_annuels_produits WHERE recap_parcelle_id = ? ORDER BY nom`).all(p.id)
-    }))
-  }))
-  const annees = db.prepare(`SELECT DISTINCT annee FROM recaps_annuels ORDER BY annee DESC`).all().map(r => r.annee)
-  res.json({ recaps: result, annees_disponibles: annees })
+  const parcelles = aggregateIftByYear(annee)
+  // Prestataire = celui le plus représenté
+  const prestComp = {}
+  for (const p of parcelles) {
+    if (p.prestataire) prestComp[p.prestataire] = (prestComp[p.prestataire] || 0) + 1
+  }
+  const prestataire = Object.entries(prestComp).sort((a, b) => b[1] - a[1])[0]?.[0] || null
+
+  // Années avec données
+  const anneesRows = db.prepare(`SELECT DISTINCT strftime('%Y', date) as a FROM rapports_phyto WHERE date IS NOT NULL ORDER BY a DESC`).all()
+  const annees = anneesRows.map(r => parseInt(r.a)).filter(Boolean)
+
+  // 1 seul "recap" virtuel (puisqu'on agrège)
+  const recap = parcelles.length > 0
+    ? { id: `agg-${annee}`, annee, prestataire, parcelles }
+    : null
+
+  res.json({ recaps: recap ? [recap] : [], annees_disponibles: annees })
 })
 
-// POST /api/phyto/recaps — save a confirmed recap
+// POST /api/phyto/recaps — sauvegarde uniquement les traitements datés (carnet)
 router.post('/recaps', (req, res) => {
-  const { annee, prestataire, parcelles, traitements } = req.body
-  if (!annee || !parcelles?.length) return res.status(400).json({ error: 'annee et parcelles requis' })
-  const id = uuidv4()
-  db.prepare(`INSERT INTO recaps_annuels (id, annee, prestataire, user_id) VALUES (?,?,?,?)`)
-    .run(id, annee, prestataire || null, req.userId)
+  const { prestataire, parcelles, traitements } = req.body
 
+  // Mappings utilisateur (nom_source → parcelle_id) viennent de la confirmation parcelles
   const insMapping = db.prepare(`INSERT OR REPLACE INTO phyto_parcelle_mapping (prestataire, nom_source, parcelle_id, updated_at) VALUES (?,?,?,datetime('now'))`)
-
-  // Construit la table nom_source → parcelle_id depuis les choix utilisateur
   const sourceToParcelle = {}
-  for (const p of parcelles) {
+  for (const p of (parcelles || [])) {
     const src = p.nomSource || p.parcelle_nom_source
-    if (src && p.parcelle_id) sourceToParcelle[src] = p.parcelle_id
-  }
-
-  for (const p of parcelles) {
-    const pId = uuidv4()
-    db.prepare(`INSERT INTO recaps_annuels_parcelles
-      (id, recap_id, parcelle_id, parcelle_nom_source, surface_ha, cepage,
-       ift_herbicide, ift_fongicide, ift_insecticide, ift_autres, ift_bio, ift_biocontrole, ift_total, cuivre_kg_ha)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .run(pId, id, p.parcelle_id || null, p.nomSource || p.parcelle_nom_source, p.surfaceHa || null, p.cepage || null,
-        p.ift?.herbicide ?? 0, p.ift?.fongicide ?? 0, p.ift?.insecticide ?? 0, p.ift?.autres ?? 0,
-        p.ift?.bio ?? 0, p.ift?.biocontrole ?? 0, p.ift?.total ?? 0, p.cuivreKgHa ?? null)
-
-    for (const pr of (p.produits || [])) {
-      db.prepare(`INSERT INTO recaps_annuels_produits (id, recap_parcelle_id, nom, quantite, unite) VALUES (?,?,?,?,?)`)
-        .run(uuidv4(), pId, pr.nom, pr.quantite ?? null, pr.unite ?? null)
-    }
-
-    if (p.parcelle_id) {
-      insMapping.run(prestataire || '', p.nomSource || p.parcelle_nom_source || '', p.parcelle_id)
+    if (src && p.parcelle_id) {
+      sourceToParcelle[src] = p.parcelle_id
+      insMapping.run(prestataire || '', src, p.parcelle_id)
     }
   }
 
-  // Sauvegarde aussi les traitements datés (OT records) → rapports_phyto source=pdf_carnet
   let nbTraitements = 0
   if (Array.isArray(traitements)) {
     for (const t of traitements) {
@@ -806,7 +876,6 @@ router.post('/recaps', (req, res) => {
       db.prepare(`INSERT INTO rapports_phyto (id, date, prestataire, notes, user_id, source) VALUES (?,?,?,?,?,?)`)
         .run(rId, t.date, prestataire || null, t.ot_num ? `OT ${t.ot_num}${t.description ? ' — ' + t.description : ''}` : (t.description || null), req.userId, 'pdf_carnet')
 
-      // Lien parcelle : utilise le choix utilisateur si dispo, sinon le pré-rempli du parse
       const linkedId = sourceToParcelle[t.parcelle_nom_source] || t.parcelle_id || null
       if (t.parcelle_nom_source) {
         db.prepare(`INSERT INTO rapports_phyto_parcelles (id, rapport_id, parcelle_id, parcelle_nom_source) VALUES (?,?,?,?)`)
@@ -821,43 +890,37 @@ router.post('/recaps', (req, res) => {
     }
   }
 
-  res.json({ id, nbTraitements })
+  res.json({ nbTraitements })
 })
 
-// DELETE /api/phyto/recaps/:id
+// DELETE /api/phyto/recaps/:id — supprime tous les rapports d'une année (id = "agg-YYYY")
 router.delete('/recaps/:id', (req, res) => {
-  const r = db.prepare('SELECT id FROM recaps_annuels WHERE id = ?').get(req.params.id)
-  if (!r) return res.status(404).json({ error: 'Récap introuvable' })
-  db.prepare('DELETE FROM recaps_annuels WHERE id = ?').run(req.params.id)
-  res.json({ ok: true })
+  const match = req.params.id.match(/^agg-(\d{4})$/)
+  if (!match) return res.status(400).json({ error: 'id invalide' })
+  const annee = match[1]
+  const rapports = db.prepare(`SELECT id FROM rapports_phyto WHERE strftime('%Y', date) = ?`).all(annee)
+  for (const r of rapports) {
+    db.prepare('DELETE FROM rapports_phyto WHERE id = ?').run(r.id)
+  }
+  res.json({ ok: true, deleted: rapports.length })
 })
 
-// GET /api/phyto/recaps/:annee/export.csv — CSV export for CIVC
+// GET /api/phyto/recaps/:annee/export.csv — CSV export agrégé depuis rapports_phyto
 router.get('/recaps/:annee/export.csv', (req, res) => {
   const annee = parseInt(req.params.annee)
-  const rows = db.prepare(`
-    SELECT rap.parcelle_nom_source, p.nom as parcelle_nom_app, rap.surface_ha, rap.cepage,
-           rap.ift_herbicide, rap.ift_fongicide, rap.ift_insecticide, rap.ift_autres,
-           rap.ift_bio, rap.ift_biocontrole, rap.ift_total, rap.cuivre_kg_ha,
-           ra.prestataire
-    FROM recaps_annuels_parcelles rap
-    JOIN recaps_annuels ra ON ra.id = rap.recap_id
-    LEFT JOIN parcelles p ON p.id = rap.parcelle_id
-    WHERE ra.annee = ?
-    ORDER BY rap.parcelle_nom_source
-  `).all(annee)
+  const parcelles = aggregateIftByYear(annee)
 
-  const header = 'Parcelle;Surface (ha);Cépage;IFT Herbicide;IFT Fongicide;IFT Insecticide;IFT Autres;IFT Biocontrôle;IFT Total;Cuivre (kg/ha);Prestataire'
-  const csv = [header, ...rows.map(r =>
-    [r.parcelle_nom_app || r.parcelle_nom_source, r.surface_ha ?? '', r.cepage ?? '',
-     r.ift_herbicide, r.ift_fongicide, r.ift_insecticide, r.ift_autres,
-     r.ift_biocontrole, r.ift_total, r.cuivre_kg_ha ?? '', r.prestataire ?? '']
+  const header = 'Parcelle;Surface (ha);IFT Herbicide;IFT Fongicide;IFT Insecticide;IFT Autres;IFT Biocontrôle;IFT Total;Cuivre (kg/ha);Prestataire'
+  const csv = [header, ...parcelles.map(p =>
+    [p.parcelle_nom_app || p.parcelle_nom_source, p.surface_ha ?? '',
+     p.ift_herbicide, p.ift_fongicide, p.ift_insecticide, p.ift_autres,
+     p.ift_biocontrole, p.ift_total, p.cuivre_kg_ha ?? '', p.prestataire ?? '']
     .join(';')
   )].join('\n')
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8')
   res.setHeader('Content-Disposition', `attachment; filename="IFT-${annee}.csv"`)
-  res.send('﻿' + csv)  // BOM for Excel
+  res.send('﻿' + csv)
 })
 
 export default router
