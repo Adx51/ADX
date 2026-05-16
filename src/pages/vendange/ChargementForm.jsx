@@ -65,6 +65,8 @@ export default function ChargementForm() {
       } else {
         await api.post('/chargements', payload)
       }
+      api.invalidate(`/vendanges/${vendangeId}`)
+      api.invalidate('/campagnes')
       navigate(`/vendange/parcelle/${vendangeId}`)
     } catch (e) {
       setError(e.message)
