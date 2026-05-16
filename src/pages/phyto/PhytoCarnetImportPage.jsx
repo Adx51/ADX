@@ -217,7 +217,7 @@ export default function PhytoCarnetImportPage() {
                             <tr className="text-gray-400 dark:text-gray-500">
                               <th className="text-left font-medium pb-0.5">Produit</th>
                               <th className="text-left font-medium pb-0.5">Type</th>
-                              <th className="text-right font-medium pb-0.5">Qté</th>
+                              <th className="text-right font-medium pb-0.5">Dose</th>
                               <th className="text-right font-medium pb-0.5">IFT</th>
                             </tr>
                           </thead>
@@ -231,7 +231,7 @@ export default function PhytoCarnetImportPage() {
                                   </span>
                                 </td>
                                 <td className="py-0.5 text-right text-gray-500 dark:text-gray-400">
-                                  {p.quantite} {p.unite}
+                                  {p.dose_ha != null ? `${p.dose_ha} ${p.unite}/ha` : (p.quantite != null ? `${p.quantite} ${p.unite}` : '—')}
                                 </td>
                                 <td className="py-0.5 text-right text-gray-600 dark:text-gray-300 font-medium">
                                   {p.ift > 0 ? p.ift : '—'}

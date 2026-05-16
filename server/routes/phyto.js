@@ -376,7 +376,7 @@ function parseMesParcellePDFText(text) {
   // Combined dose pattern: optional surface% prefix (e.g. "87,99" max 100,XX) glued to dose (X.X+ with dot) + unit/ha
   // Surface% uses comma decimal (French), dose uses dot decimal — this distinguishes them when concatenated
   function findDoses(t) {
-    const re = /((?:100|\d{1,2})[,\.]\d{1,2})?\s*(\d{1,4}\.\d+)\s*(Kg|L|KG|HL|kg|l|g|ml)\s*\/\s*ha\b/gi
+    const re = /(\d{1,3}(?:[,\.]\d{1,2})?)?\s*(\d{1,4}\.\d+)\s*(Kg|L|KG|HL|kg|l|g|ml)\s*\/\s*ha\b/gi
     const out = []; let m
     while ((m = re.exec(t)) !== null) {
       out.push({ i: m.index, end: m.index + m[0].length, surf: m[1], dose: m[2], unit: m[3] })
