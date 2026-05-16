@@ -351,8 +351,8 @@ function isMesParcelles(text) {
 
 // ── Parser mesparcelles ("Bilan IFT MAEC - Détail par interventions") ─────────
 function parseMesParcellePDFText(text) {
-  const exploitMatch = text.match(/Exploitation\s*:\s*(.+)/m)
-  const prestataire = exploitMatch ? exploitMatch[1].trim() : null
+  const editeurMatch = text.match(/[EÉ]dit[eé] par\s*[«"]\s*(.+?)\s*[»"]/i)
+  const prestataire = editeurMatch ? editeurMatch[1].trim() : null
   const yearMatch = text.match(/Ann[eé]e de r[eé]colte\s+(\d{4})/i)
   const annee = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear()
 
