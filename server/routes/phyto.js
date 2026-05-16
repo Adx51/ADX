@@ -256,6 +256,25 @@ function parseCarnetPDFText(text) {
   // Parcelle de page (entête "--") persiste à travers les OT jusqu'au prochain --
   let pageParcelle = null
 
+  // Buffer pour reconstituer les produits dont le nom/cible est éclaté sur plusieurs lignes PDF
+  let lineBuffer = []
+  // Détecte la fin d'une ligne produit (les 4 nombres collés) — sert d'ancre de fin de row
+  const ANCHOR_RE = /(\d+[,\.]\d{3})(\d+[,\.]\d{2})(Kg|L)(\d+[,\.]\d{2})\s*$/i
+
+  function tryFlushProduct() {
+    if (!lineBuffer.length) return
+    const combined = lineBuffer.join(' ').replace(/\s+/g, ' ')
+    if (ANCHOR_RE.test(combined)) {
+      const prod = parseOTProductLine(combined)
+      if (prod) currentProduits.push(prod)
+      lineBuffer = []
+    }
+  }
+
+  function resetBuffer() {
+    lineBuffer = []
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     if (skipLine(line)) continue
@@ -263,6 +282,7 @@ function parseCarnetPDFText(text) {
     // Entête de page parcelle ("AVENTURES BOYER -- 0.1448 ha -- ...")
     const headerMatch = line.match(/^(.+?)\s*--\s*[\d,\.]+\s*ha\s*--/)
     if (headerMatch) {
+      resetBuffer()
       flush()
       pageParcelle = headerMatch[1].trim()
       currentParcelle = pageParcelle
@@ -278,9 +298,11 @@ function parseCarnetPDFText(text) {
       const newDate = monthNum ? `${year}-${monthNum}-${day.padStart(2, '0')}` : null
       // Suite de bloc OT après saut de page : même date+ot+parcelle → on continue
       if (newDate === currentDate && otNum === currentOTNum && pageParcelle === currentParcelle) {
+        resetBuffer()
         inOTSection = true
         continue
       }
+      resetBuffer()
       flush()
       currentDate = newDate
       currentOTNum = otNum
@@ -296,19 +318,14 @@ function parseCarnetPDFText(text) {
     // "Totaux" line → flush block; skip the following IFT number
     if (/^Totaux$/i.test(line)) {
       if (i + 1 < lines.length && /^[\d,]+$/.test(lines[i + 1])) i++
+      resetBuffer()
       flush()
       continue
     }
 
-    // Product line (merged numbers pattern)
-    const prod = parseOTProductLine(line)
-    if (prod) {
-      currentProduits.push(prod)
-      continue
-    }
-
-    // Tout le reste = fragment de texte (cible/description sur plusieurs lignes) → ignoré
-    // La parcelle vient uniquement de l'entête de page "--", déjà gérée plus haut
+    // Accumule dans le buffer puis tente de flush (ancre numérique à la fin)
+    lineBuffer.push(line)
+    tryFlushProduct()
   }
 
   flush()
