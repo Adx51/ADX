@@ -167,7 +167,7 @@ export default function PhytoRecapsPage() {
                             <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_herbicide || '—'}</td>
                             <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_fongicide || '—'}</td>
                             <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_insecticide || '—'}</td>
-                            <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{p.ift_biocontrole || '—'}</td>
+                            <td className="py-1.5 px-1 text-right text-gray-600 dark:text-gray-300">{(p.ift_bio || p.ift_biocontrole) ? ((p.ift_bio || 0) + (p.ift_biocontrole || 0)).toFixed(2) : '—'}</td>
                             <td className="py-1.5 px-1 text-right font-semibold text-gray-900 dark:text-gray-100">{p.ift_total}</td>
                             <td className="py-1.5 px-1 text-right text-amber-600 dark:text-amber-400">{p.cuivre_kg_ha ?? '—'}</td>
                           </tr>

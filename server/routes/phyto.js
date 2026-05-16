@@ -177,9 +177,10 @@ function normalizePhytoType(catStr) {
   return 'autre'
 }
 
-// Regex for merged OT product line: Qty(N,NNN) IFT(N,NN) Unit IFThom(N,NN)
+// Regex for merged OT product line: Dose/ha(N,NNN) Quantité(N,NN) Unité IFT(N,NN)
+// Format Process2wine v2.04 : Produit | Type | Cible | Dose (ha) | Quantité | IFT
 const OT_NUM_RE = /(\d+,\d{3})(\d+,\d{2})(Kg|L)(\d+,\d{2})/i
-const OT_CAT_RE = /Fongicides?|Insecticides?|Herbicides?|Biocontr[oô]le|N[eé]maticides?|Acaricides?|Autres?/i
+const OT_CAT_RE = /Fongicides?|Insecticides?|Herbicides?|Biocontr[oô]le|N[eé]maticides?|Acaricides?|Adjuvants?|Autres?/i
 
 function parseOTProductLine(line) {
   const numMatch = line.match(OT_NUM_RE)
@@ -202,10 +203,10 @@ function parseOTProductLine(line) {
     nom,
     type,
     cible: cible || null,
-    quantite: parseFloat(numMatch[1].replace(',', '.')),  // quantité totale pour le circuit
-    ift:      parseFloat(numMatch[2].replace(',', '.')),  // IFT contribution
+    dose_ha:  parseFloat(numMatch[1].replace(',', '.')),  // Dose appliquée / ha (1er nombre, 3 décimales)
+    quantite: parseFloat(numMatch[2].replace(',', '.')),  // Quantité totale pour la parcelle (2e, 2 décimales)
     unite:    numMatch[3],
-    dose_ha:  parseFloat(numMatch[4].replace(',', '.')),  // dose appliquée / ha (4ème nombre)
+    ift:      parseFloat(numMatch[4].replace(',', '.')),  // IFT (4e nombre, 2 décimales)
   }
 }
 
@@ -360,67 +361,94 @@ function parseRecapPDFText(text) {
     }
   }
 
-  // ── Passe 2 : extraire les blocs OT et calculer IFT par chevauchement produits ──
-  // Chaque bloc OT = {produits: [{nom, type, ift}]} — on utilise parseOTProductLine
-  const otHdrRe = /^\d{1,2}\s+[a-zÀ-ɏ]+\s+\d{4}\s*[-–—]+\s*OT\s+\d+/i
-  const otBlocks = []
-  let otProds = []
-  let inOT = false
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    if (otHdrRe.test(line)) {
-      if (otProds.length > 0) { otBlocks.push([...otProds]); otProds = [] }
-      inOT = true; continue
+  // ── Passe 2 : extraire le bloc IFT directement (1 bloc par parcelle dans le PDF) ──
+  // Format PDF : "IFT" puis entête "HerbicideFongicide..." puis ligne de 6-8 nombres
+  // Colonnes : Herbicide | Fongicide | Insecticide | Autres | Bio | Biocontrôle | Total | Total(hors bioc)
+  // Les nombres peuvent être collés (extraction PDF) : "1,049,280,000,008,807,3417,6610,32"
+  function parseStuckNums(str) {
+    const cleaned = str.replace(/[^\d,\.\s]/g, '').trim()
+    if (!cleaned) return []
+    // Format espacé : "1,04 9,28 0,00 ..."
+    if (/\s/.test(cleaned)) {
+      return cleaned.split(/\s+/)
+        .filter(s => /^\d+[,\.]\d{2,3}$/.test(s))
+        .map(s => parseFloat(s.replace(',', '.')))
     }
-    if (!inOT) continue
-    if (/^Totaux$/i.test(line)) {
-      if (i + 1 < lines.length && /^[\d,]+$/.test(lines[i + 1])) i++
-      if (otProds.length > 0) { otBlocks.push([...otProds]); otProds = [] }
-      inOT = false; continue
-    }
-    const prod = parseOTProductLine(line)
-    if (prod) otProds.push(prod)
-  }
-  if (otProds.length > 0) otBlocks.push(otProds)
-
-  // Pour chaque bloc OT, trouver la parcelle avec le plus grand chevauchement de produits
-  // Correspondance floue : un produit OT "Ampli" matches "Champ Flo Ampli" de la section 1
-  const normProd = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '')
-
-  for (const otProdList of otBlocks) {
-    if (!otProdList.length) continue
-    const otNames = otProdList.map(p => normProd(p.nom))
-
-    let bestParcelle = null, bestScore = 0
-    for (const p of parcelles) {
-      if (!p.produits.length) continue
-      const pNames = p.produits.map(pr => normProd(pr.nom))
-      // Chevauchement : proportion de produits OT trouvés dans la liste parcelle (substring)
-      const overlap = otNames.filter(on => pNames.some(pn => pn.includes(on) || on.includes(pn))).length
-      const score = overlap / Math.max(otNames.length, pNames.length, 1)
-      if (score > bestScore) { bestParcelle = p; bestScore = score }
-    }
-
-    if (bestParcelle && bestScore > 0.15) {
-      if (!bestParcelle.ift) {
-        bestParcelle.ift = { herbicide: 0, fongicide: 0, insecticide: 0, biocontrole: 0, autres: 0, total: 0 }
+    // Format collé : on suppose 2 décimales par valeur
+    // Chaque chunk entre virgules = [2 chiffres décimaux de N] + [chiffres entiers de N+1]
+    const parts = cleaned.split(',')
+    if (parts.length < 2) return []
+    const nums = []
+    let intPart = parts[0]
+    for (let i = 0; i + 1 < parts.length; i++) {
+      const next = parts[i + 1]
+      if (next.length < 2) {
+        // Dernière valeur : on prend les 2 derniers chiffres comme décimaux
+        if (i === parts.length - 2) {
+          nums.push(parseFloat(`${intPart}.${next.padStart(2, '0')}`))
+        }
+        break
       }
-      for (const prod of otProdList) {
-        const key = prod.type || 'autres'
-        bestParcelle.ift[key] = (bestParcelle.ift[key] || 0) + (prod.ift || 0)
-        bestParcelle.ift.total = (bestParcelle.ift.total || 0) + (prod.ift || 0)
-      }
+      const frac = next.substring(0, 2)
+      nums.push(parseFloat(`${intPart}.${frac}`))
+      intPart = next.substring(2)
     }
+    return nums
   }
 
-  // Arrondir IFT
+  let curIftParc = null
+  let waitForIftHeader = false
+  let waitForIftNumbers = false
+
+  for (const line of lines) {
+    if (skipLine(line)) continue
+
+    const hm = line.match(/^(.+?)\s*--\s*([\d,\.]+)\s*ha\s*--/)
+    if (hm) {
+      curIftParc = parcelles.find(p => p.nomSource === hm[1].trim()) || null
+      waitForIftHeader = false
+      waitForIftNumbers = false
+      continue
+    }
+    if (!curIftParc) continue
+
+    if (/^IFT$/i.test(line)) { waitForIftHeader = true; continue }
+
+    if (waitForIftHeader && /Herbicide/i.test(line) && /Fongicide/i.test(line)) {
+      waitForIftHeader = false
+      waitForIftNumbers = true
+      continue
+    }
+
+    if (waitForIftNumbers) {
+      const allNums = parseStuckNums(line)
+      if (allNums.length >= 6) {
+        curIftParc.ift = {
+          herbicide:   allNums[0] || 0,
+          fongicide:   allNums[1] || 0,
+          insecticide: allNums[2] || 0,
+          autres:      allNums[3] || 0,
+          bio:         allNums[4] || 0,
+          biocontrole: allNums[5] || 0,
+          total:       allNums[6] != null ? allNums[6] : (allNums[0]+allNums[1]+allNums[2]+allNums[3]+allNums[4]+allNums[5]),
+        }
+        waitForIftNumbers = false
+      }
+    }
+
+    // Détection cuivre "X,XX kg/ha"
+    const cuMatch = line.match(/^([\d,\.]+)\s*kg\/ha$/i)
+    if (cuMatch) {
+      curIftParc.cuivreKgHa = parseFloat(cuMatch[1].replace(',', '.'))
+    }
+  }
+
+  // Défaut si IFT non trouvé
   for (const p of parcelles) {
-    if (p.ift) {
-      for (const k of Object.keys(p.ift)) p.ift[k] = Math.round(p.ift[k] * 100) / 100
-    } else {
-      p.ift = { herbicide: 0, fongicide: 0, insecticide: 0, biocontrole: 0, autres: 0, total: 0 }
+    if (!p.ift) {
+      p.ift = { herbicide: 0, fongicide: 0, insecticide: 0, autres: 0, bio: 0, biocontrole: 0, total: 0 }
     }
+    for (const k of Object.keys(p.ift)) p.ift[k] = Math.round(p.ift[k] * 100) / 100
   }
 
   return { prestataire, annee, parcelles }
