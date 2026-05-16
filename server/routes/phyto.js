@@ -211,7 +211,9 @@ function parseOTProductLine(line) {
 }
 
 function parseCarnetPDFText(text) {
-  const presMatch = text.match(/^((?:SARL|EARL|EURL|SAS)\s+[\w\s\-\.]+)/m)
+  // Détection prestataire : statut juridique + nom (sans déborder de ligne)
+  // [^\n]+? non-greedy, capture jusqu'à fin de ligne ou caractère séparateur
+  const presMatch = text.match(/(?:^|\n)((?:SARL|EARL|EURL|SAS|SCEV|GAEC|SCEA)\s+[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ0-9\s\-\.&']{1,80}?)(?=\s*(?:--|\n|,|\(|$))/)
   const prestataire = presMatch ? presMatch[1].trim().replace(/\s+/g, ' ') : null
   const yearMatch = text.match(/\b(20\d{2})\b/)
   const annee = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear()
