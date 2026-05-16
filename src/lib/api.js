@@ -91,11 +91,20 @@ function invalidate(path) {
   }
 }
 
+function invalidateAll() {
+  _cache.clear()
+}
+
+function afterMutation(d) {
+  invalidateAll()
+  return d
+}
+
 export const api = {
   get:    (path)       => cachedGet(path),
-  post:   (path, body) => request('POST',   path, body).then(d => { invalidate(path); return d }),
-  put:    (path, body) => request('PUT',    path, body).then(d => { invalidate(path); return d }),
-  delete: (path)       => request('DELETE', path).then(d => { invalidate(path); return d }),
-  upload: (path, formData) => request('POST', path, formData, true).then(d => { invalidate(path); return d }),
+  post:   (path, body) => request('POST',   path, body).then(afterMutation),
+  put:    (path, body) => request('PUT',    path, body).then(afterMutation),
+  delete: (path)       => request('DELETE', path).then(afterMutation),
+  upload: (path, formData) => request('POST', path, formData, true).then(afterMutation),
   invalidate,
 }
