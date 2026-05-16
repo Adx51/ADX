@@ -357,16 +357,35 @@ function parseMesParcellePDFText(text) {
   const annee = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear()
 
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
-  const PARCELLE_RE = /^Parcelle\s*:\s*(.+?)\s*-\s*Surface\s*:\s*([\d,\.]+)\s*ha/i
+  const SURFACE_RE = /^Surface\s*:\s*([\d,\.]+)\s*ha/i
   const DATE_ROW_START = /^\d{2}\/\d{2}\/\d{2}\b/
-  // 4 trailing decimal numbers = IFT herbicide | IFT hors herbicide | IFT total | IFT biocontrole
-  const ANCHOR_RE = /(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s*$/
   const SEGMENT_RE = /^(Herbicide\s*s?|Fongi(?:\.\s*\/?\s*Bact\.?)?|Insecticide\s*s?|Biocontr[oô]le\s*s?|Autres?|Molluscicide\s*s?)/i
+
+  // IFT anchor: 4 values either concatenated "0.800.000.000.80" or space-separated "0.80 0.00 0.00 0.80"
+  function hasAnchor(t) {
+    return /(\d+\.\d{2})(\d+\.\d{2})(\d+\.\d{2})(\d+\.\d{2})\s*$/.test(t) ||
+           /(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s*$/.test(t)
+  }
+  function extractIft(t) {
+    const m = t.match(/(\d+\.\d{2})(\d+\.\d{2})(\d+\.\d{2})(\d+\.\d{2})\s*$/) ||
+              t.match(/(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s*$/)
+    if (!m) return null
+    return { full: m[0], total: parseFloat(m[3].replace(',', '.')), bio: parseFloat(m[4].replace(',', '.')) }
+  }
+
+  // Find all "value unit/ha" patterns (applied dose + ref dose)
+  function findDoses(t) {
+    const re = /(\d+[,\.]\d+)\s*(Kg|L|KG|HL|kg|l|g|ml)\s*\/\s*ha\b/gi
+    const out = []; let m
+    while ((m = re.exec(t)) !== null) out.push({ i: m.index, end: m.index + m[0].length, val: m[1], unit: m[2] })
+    return out
+  }
 
   const parcellesMap = new Map()
   const traitements = []
   let currentParcelle = null
   let currentSurfaceHa = null
+  let pendingParcelleName = null
   let lineBuffer = []
 
   function parseAndAddRow(combined) {
@@ -377,51 +396,50 @@ function parseMesParcellePDFText(text) {
     const dateStr = `20${yy}-${mm}-${dd}`
     let rest = combined.slice(full.length).trim()
 
-    const iftMatch = rest.match(ANCHOR_RE)
-    if (!iftMatch) return
-    const ift_herb  = parseFloat(iftMatch[1].replace(',', '.'))
-    const ift_total = parseFloat(iftMatch[3].replace(',', '.'))
-    const ift_bio   = parseFloat(iftMatch[4].replace(',', '.'))
-    rest = rest.slice(0, rest.lastIndexOf(iftMatch[0])).trim()
+    // Extract 4 trailing IFT values
+    const ift = extractIft(rest)
+    if (!ift) return
+    rest = rest.slice(0, rest.lastIndexOf(ift.full)).trim()
 
-    // Strip reference dose (e.g. "0,066KG/HA" or "0.066 kg/ha")
-    rest = rest.replace(/\d+[,\.]\d+\s*(?:kg|l|g|ml)\/ha\b/gi, '').trim()
-
-    // Extract applied dose (e.g. "0.04 kg/ha")
+    // Strip ref dose (rightmost /ha pattern), then extract applied dose
+    let doses = findDoses(rest)
+    if (doses.length >= 1) {
+      const ref = doses[doses.length - 1]
+      rest = (rest.slice(0, ref.i) + rest.slice(ref.end)).trim()
+    }
+    doses = findDoses(rest)
     let dose_ha = null, unite = 'Kg'
-    const doseMatch = rest.match(/(\d+[,\.]\d+)\s*(kg|l|g|ml)\s*\/\s*ha\b/i)
-    if (doseMatch) {
-      dose_ha = parseFloat(doseMatch[1].replace(',', '.'))
-      unite = /^l/i.test(doseMatch[2]) ? 'L' : 'Kg'
-      rest = rest.slice(0, rest.lastIndexOf(doseMatch[0])).trim()
+    if (doses.length >= 1) {
+      const appl = doses[doses.length - 1]
+      dose_ha = parseFloat(appl.val.replace(',', '.'))
+      unite = /^l/i.test(appl.unit) ? 'L' : 'Kg'
+      rest = (rest.slice(0, appl.i) + rest.slice(appl.end)).trim()
     }
 
-    // Strip trailing surface percentage integer (e.g. "100", "50")
-    rest = rest.replace(/\s+\d{1,3}\s*$/, '').trim()
+    // Strip trailing surface % (e.g. "83,33" directly merged with product name)
+    rest = rest.replace(/\d{1,3}[,\.]\d{2}\s*$/, '').trim()
 
     // Extract segment → type
     const segMatch = rest.match(SEGMENT_RE)
     let type = 'autre', nom = rest
     if (segMatch) {
       const seg = segMatch[1].toLowerCase()
-      if (/herbicide/.test(seg))   type = 'herbicide'
-      else if (/fongi/.test(seg))  type = 'fongicide'
+      if (/herbicide/.test(seg))    type = 'herbicide'
+      else if (/fongi/.test(seg))   type = 'fongicide'
       else if (/insecticide/.test(seg)) type = 'insecticide'
       else if (/biocont/.test(seg)) type = 'biocontrole'
       nom = rest.slice(segMatch[0].length).trim()
     }
 
-    let ift_value = ift_total
-    if (ift_bio > 0 && ift_total === 0) { type = 'biocontrole'; ift_value = ift_bio }
+    let ift_value = ift.total
+    if (ift.bio > 0 && ift.total === 0) { type = 'biocontrole'; ift_value = ift.bio }
     if (!nom) return
 
     const quantite = dose_ha != null && currentSurfaceHa
       ? Math.round(dose_ha * currentSurfaceHa * 1000) / 1000
       : null
 
-    let trt = traitements.find(t =>
-      t.date === dateStr && t.parcelle_nom_source === currentParcelle
-    )
+    let trt = traitements.find(t => t.date === dateStr && t.parcelle_nom_source === currentParcelle)
     if (!trt) {
       trt = { date: dateStr, parcelle_nom_source: currentParcelle, description: null, produits: [] }
       traitements.push(trt)
@@ -431,32 +449,51 @@ function parseMesParcellePDFText(text) {
 
   function tryFlush() {
     const combined = lineBuffer.join(' ')
-    if (!ANCHOR_RE.test(combined)) return
+    if (!hasAnchor(combined)) return
     parseAndAddRow(combined)
     lineBuffer = []
   }
 
   for (const line of lines) {
     // Skip header/footer/column-header lines
-    if (/^(Exploitation|Ann[eé]e de r[eé]colte|Commune\s*:|N°\s*Siret|Ilot N°|Segment$|Produit$|Pourcent|Dose appliqu|Dose de r[eé]f|IFT herb|IFT hors|IFT Total|Non comptab|[eÉ]dit[eé] par|Page \d|Bilan de l|D[eé]tail par)/i.test(line)) continue
+    if (/^(Exploitation|Ann[eé]e de r[eé]colte|Commune\s*:|N°\s*Siret|Ilot N°|Signature|Segment$|Produit$|Pourcent|Dose appliqu|Dose de r[eé]f|IFT herb|IFT hors|IFT [Tt]otal|Non comptab|[eÉ]dit[eé] par|Page \d|Bilan de l|D[eé]tail par)/i.test(line)) continue
 
-    const pm = line.match(PARCELLE_RE)
-    if (pm) {
+    // Parcelle header — may span two lines separated by em dash (–)
+    if (/^Parcelle\s*:/i.test(line)) {
       if (lineBuffer.length) tryFlush()
       lineBuffer = []
-      currentParcelle = pm[1].trim()
-      currentSurfaceHa = parseFloat(pm[2].replace(',', '.'))
-      if (!parcellesMap.has(currentParcelle)) {
-        parcellesMap.set(currentParcelle, { nomSource: currentParcelle, surfaceHa: currentSurfaceHa })
+      pendingParcelleName = null
+      // Single-line: "Parcelle : NOM – Surface : X ha – Ilot N° : Y"
+      const sameLine = line.match(/^Parcelle\s*:\s*(.+?)\s*[–\-]\s*Surface\s*:\s*([\d,\.]+)\s*ha/i)
+      if (sameLine) {
+        currentParcelle = sameLine[1].trim()
+        currentSurfaceHa = parseFloat(sameLine[2].replace(',', '.'))
+        if (!parcellesMap.has(currentParcelle))
+          parcellesMap.set(currentParcelle, { nomSource: currentParcelle, surfaceHa: currentSurfaceHa })
+      } else {
+        // Name on this line, surface on next line
+        pendingParcelleName = line.replace(/^Parcelle\s*:\s*/i, '').replace(/\s*[–\-]+\s*$/, '').trim()
       }
       continue
     }
 
+    // Surface line following a split parcelle header
+    if (pendingParcelleName) {
+      const sm = line.match(SURFACE_RE)
+      if (sm) {
+        currentParcelle = pendingParcelleName
+        currentSurfaceHa = parseFloat(sm[1].replace(',', '.'))
+        pendingParcelleName = null
+        if (!parcellesMap.has(currentParcelle))
+          parcellesMap.set(currentParcelle, { nomSource: currentParcelle, surfaceHa: currentSurfaceHa })
+        continue
+      }
+      pendingParcelleName = null
+    }
+
     if (!currentParcelle) continue
 
-    if (DATE_ROW_START.test(line) && lineBuffer.length > 0) {
-      tryFlush()
-    }
+    if (DATE_ROW_START.test(line) && lineBuffer.length > 0) tryFlush()
 
     lineBuffer.push(line)
     tryFlush()
