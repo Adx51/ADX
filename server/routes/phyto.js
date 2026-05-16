@@ -273,13 +273,19 @@ function parseCarnetPDFText(text) {
     // OT header → start new OT (mais conserve la parcelle de page)
     const otMatch = line.match(otHeaderRe)
     if (otMatch) {
-      flush()
       const [, day, month, year, otNum, desc] = otMatch
       const monthNum = MONTHS_FR[month.toLowerCase()]
-      currentDate = monthNum ? `${year}-${monthNum}-${day.padStart(2, '0')}` : null
+      const newDate = monthNum ? `${year}-${monthNum}-${day.padStart(2, '0')}` : null
+      // Suite de bloc OT après saut de page : même date+ot+parcelle → on continue
+      if (newDate === currentDate && otNum === currentOTNum && pageParcelle === currentParcelle) {
+        inOTSection = true
+        continue
+      }
+      flush()
+      currentDate = newDate
       currentOTNum = otNum
       currentDesc = desc.trim()
-      currentParcelle = pageParcelle  // reprend la parcelle de la page courante
+      currentParcelle = pageParcelle
       currentProduits = []
       inOTSection = true
       continue

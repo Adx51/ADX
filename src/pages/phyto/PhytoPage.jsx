@@ -73,6 +73,7 @@ function VueDateCard({ r, confirmDelete, setConfirmDelete, onDelete }) {
                 <th className="text-left py-1 px-1 font-medium">Produit</th>
                 <th className="text-left py-1 px-1 font-medium hidden sm:table-cell">Cible</th>
                 <th className="text-right py-1 px-1 font-medium">Dose app.</th>
+                <th className="text-right py-1 px-1 font-medium">Qté</th>
                 <th className="text-right py-1 px-1 font-medium">IFT</th>
               </tr>
             </thead>
@@ -91,6 +92,9 @@ function VueDateCard({ r, confirmDelete, setConfirmDelete, onDelete }) {
                   </td>
                   <td className="py-1 px-1 text-gray-500 dark:text-gray-400 hidden sm:table-cell">{p.cible || '—'}</td>
                   <td className="py-1 px-1 text-right text-gray-600 dark:text-gray-300 whitespace-nowrap">{fmtDose(p)}</td>
+                  <td className="py-1 px-1 text-right text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                    {p.quantite != null ? `${p.quantite} ${p.unite || ''}` : '—'}
+                  </td>
                   <td className="py-1 px-1 text-right font-semibold text-gray-700 dark:text-gray-200">
                     {p.ift_value > 0 ? p.ift_value : (p.dar ? <span className="text-amber-600 font-normal">DAR {p.dar}j</span> : '—')}
                   </td>
@@ -170,6 +174,7 @@ function VueParcelleGroup({ nom, entries, allRapports, confirmDelete, setConfirm
                           <th className="text-left py-1 px-2 font-medium">Produit</th>
                           <th className="text-left py-1 px-1 font-medium">Cible</th>
                           <th className="text-right py-1 px-1 font-medium whitespace-nowrap">Dose app.</th>
+                          <th className="text-right py-1 px-1 font-medium whitespace-nowrap">Qté</th>
                           <th className="text-right py-1 px-2 font-medium">IFT</th>
                         </tr>
                       </thead>
@@ -188,6 +193,9 @@ function VueParcelleGroup({ nom, entries, allRapports, confirmDelete, setConfirm
                             </td>
                             <td className="py-1 px-1 text-gray-500 dark:text-gray-400 max-w-[80px] truncate">{prod.cible || '—'}</td>
                             <td className="py-1 px-1 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">{fmtDose(prod)}</td>
+                            <td className="py-1 px-1 text-right text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                              {prod.quantite != null ? `${prod.quantite} ${prod.unite || ''}` : '—'}
+                            </td>
                             <td className="py-1 px-2 text-right">
                               {prod.ift_value > 0
                                 ? <span className="font-semibold text-gray-800 dark:text-gray-200">{prod.ift_value}</span>
