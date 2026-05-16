@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FileUp, Check, AlertCircle, ChevronDown, Loader2 } from 'lucide-react'
 import { api } from '../../lib/api'
@@ -11,6 +11,13 @@ export default function PhytoRecapImportPage() {
   const [parsed, setParsed] = useState(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [prestatairesRef, setPrestatairesRef] = useState([])
+
+  useEffect(() => {
+    api.get('/admin/referentiels/prestataire')
+      .then(d => setPrestatairesRef(d || []))
+      .catch(() => {})
+  }, [])
 
   async function handleFile(e) {
     const file = e.target.files[0]
@@ -115,7 +122,22 @@ export default function PhytoRecapImportPage() {
                 </div>
                 <div>
                   <label className="label">Prestataire</label>
-                  <input type="text" className="input" value={parsed.prestataire || ''} onChange={e => setParsed(p => ({ ...p, prestataire: e.target.value }))} />
+                  <input
+                    type="text"
+                    className="input"
+                    list="prestataires-ref"
+                    value={parsed.prestataire || ''}
+                    onChange={e => setParsed(p => ({ ...p, prestataire: e.target.value }))}
+                    placeholder="Sélectionner ou taper…"
+                  />
+                  <datalist id="prestataires-ref">
+                    {prestatairesRef.map(p => <option key={p.id} value={p.valeur} />)}
+                  </datalist>
+                  {parsed.prestataire && !prestatairesRef.some(p => p.valeur === parsed.prestataire) && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                      Nouveau prestataire — sera ajouté au référentiel à l'enregistrement.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

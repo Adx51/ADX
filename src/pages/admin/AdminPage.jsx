@@ -361,6 +361,7 @@ function RefsTab() {
     <div className="space-y-6 lg:max-w-lg">
       <RefSection type="commune" label="Communes" withInsee />
       <RefSection type="cepage" label="Cépages" />
+      <RefSection type="prestataire" label="Prestataires" />
     </div>
   )
 }
@@ -482,7 +483,7 @@ function RefSection({ type, label, withInsee = false }) {
                 onChange={e => setNewVal(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), add())}
                 className="input flex-1 py-2"
-                placeholder={`Ajouter un${type === 'commune' ? 'e commune' : ' cépage'}...`}
+                placeholder={`Ajouter un${type === 'commune' ? 'e commune' : type === 'prestataire' ? ' prestataire' : ' cépage'}...`}
               />
               <button onClick={add} className="bg-vigne-700 text-white px-3 rounded-xl active:bg-vigne-800">
                 <Plus size={18} />

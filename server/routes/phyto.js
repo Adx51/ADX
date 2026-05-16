@@ -540,6 +540,16 @@ router.post('/rapports', (req, res) => {
   const { date, prestataire, notes, parcelles, produits } = req.body
   if (!date) return res.status(400).json({ error: 'date requise' })
 
+  // Auto-ajout prestataire au référentiel
+  if (prestataire && prestataire.trim()) {
+    const trimmed = prestataire.trim()
+    const exists = db.prepare(`SELECT id FROM referentiels WHERE type = 'prestataire' AND valeur = ?`).get(trimmed)
+    if (!exists) {
+      const next = db.prepare(`SELECT COALESCE(MAX(ordre), -1) + 1 AS n FROM referentiels WHERE type = 'prestataire'`).get().n
+      db.prepare(`INSERT INTO referentiels (type, valeur, ordre) VALUES ('prestataire', ?, ?)`).run(trimmed, next)
+    }
+  }
+
   const id = uuidv4()
   db.prepare(`INSERT INTO rapports_phyto (id, date, prestataire, notes, user_id) VALUES (?,?,?,?,?)`)
     .run(id, date, prestataire || null, notes || null, req.userId)
@@ -858,6 +868,16 @@ router.get('/recaps/:annee', (req, res) => {
 // POST /api/phyto/recaps — sauvegarde uniquement les traitements datés (carnet)
 router.post('/recaps', (req, res) => {
   const { prestataire, parcelles, traitements } = req.body
+
+  // Auto-ajout du prestataire au référentiel s'il est nouveau
+  if (prestataire && prestataire.trim()) {
+    const trimmed = prestataire.trim()
+    const exists = db.prepare(`SELECT id FROM referentiels WHERE type = 'prestataire' AND valeur = ?`).get(trimmed)
+    if (!exists) {
+      const next = db.prepare(`SELECT COALESCE(MAX(ordre), -1) + 1 AS n FROM referentiels WHERE type = 'prestataire'`).get().n
+      db.prepare(`INSERT INTO referentiels (type, valeur, ordre) VALUES ('prestataire', ?, ?)`).run(trimmed, next)
+    }
+  }
 
   // Mappings utilisateur (nom_source → parcelle_id) viennent de la confirmation parcelles
   const insMapping = db.prepare(`INSERT OR REPLACE INTO phyto_parcelle_mapping (prestataire, nom_source, parcelle_id, updated_at) VALUES (?,?,?,datetime('now'))`)
