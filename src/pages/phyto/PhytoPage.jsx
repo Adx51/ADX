@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Leaf, Upload, Trash2, BookOpen, LayoutList, Layers, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Leaf, Upload, Trash2, BookOpen, LayoutList, Layers, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Package } from 'lucide-react'
 import { api } from '../../lib/api'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -148,6 +148,100 @@ function VueOTCard({ ot, rapports, confirmDelete, setConfirmDelete, onDelete }) 
   )
 }
 
+// ── Vue par produit (tableau pour saisie ComitéChampagne) ───────────────────
+function VueProduitTable({ rapports, prestataireFilter, setPrestataireFilter, prestatairesDispo }) {
+  // Aplatit : 1 ligne par (rapport, produit)
+  const rows = []
+  for (const r of rapports) {
+    if (prestataireFilter && r.prestataire !== prestataireFilter) continue
+    for (const p of r.produits) {
+      const surface = (p.dose_ha > 0 && p.quantite > 0)
+        ? Math.round(p.quantite / p.dose_ha * 100) / 100
+        : null
+      const parcelleNoms = r.parcelles.map(pc => pc.parcelle_nom_app || pc.parcelle_nom_source || '?').join(', ')
+      rows.push({
+        date: r.date,
+        prod: p,
+        surface,
+        parcelle: parcelleNoms,
+      })
+    }
+  }
+  // Tri par date desc puis par produit
+  rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.prod.nom || '').localeCompare(b.prod.nom || ''))
+
+  return (
+    <>
+      {/* Filtre prestataire */}
+      <div className="card">
+        <label className="label">Filtre prestataire</label>
+        <div className="relative">
+          <select
+            value={prestataireFilter || ''}
+            onChange={e => setPrestataireFilter(e.target.value || null)}
+            className="input text-sm pr-8 appearance-none"
+          >
+            <option value="">Tous les prestataires</option>
+            {prestatairesDispo.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+          {rows.length} ligne{rows.length > 1 ? 's' : ''} produit
+        </p>
+      </div>
+
+      {/* Tableau */}
+      <div className="card -mx-1 px-1 overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+              <th className="text-left py-2 px-2 font-semibold">Date</th>
+              <th className="text-left py-2 px-1 font-semibold">Produit</th>
+              <th className="text-left py-2 px-1 font-semibold">Cible</th>
+              <th className="text-right py-2 px-1 font-semibold whitespace-nowrap">Surface tr.</th>
+              <th className="text-right py-2 px-2 font-semibold whitespace-nowrap">Dose appl.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={i} className="border-t border-gray-100 dark:border-gray-700/50">
+                <td className="py-1.5 px-2 text-gray-700 dark:text-gray-300 whitespace-nowrap text-[11px]">
+                  {fmtDate(row.date)}
+                </td>
+                <td className="py-1.5 px-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-gray-800 dark:text-gray-200">{row.prod.nom}</span>
+                    {row.prod.type && (
+                      <span className={`text-[9px] px-1 py-0.5 rounded-full whitespace-nowrap ${TYPE_COLOR[row.prod.type] || TYPE_COLOR.autre}`}>
+                        {row.prod.type.slice(0, 4)}
+                      </span>
+                    )}
+                  </div>
+                  {row.parcelle && (
+                    <div className="text-[10px] text-vigne-600 dark:text-vigne-400 truncate max-w-[160px] mt-0.5">📍 {row.parcelle}</div>
+                  )}
+                </td>
+                <td className="py-1.5 px-1 text-gray-600 dark:text-gray-400 text-[11px] max-w-[100px]">
+                  <div className="line-clamp-2">{row.prod.cible || '—'}</div>
+                </td>
+                <td className="py-1.5 px-1 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">
+                  {row.surface != null ? `${row.surface} ha` : '—'}
+                </td>
+                <td className="py-1.5 px-2 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">
+                  {row.prod.dose_ha != null
+                    ? `${row.prod.dose_ha} ${row.prod.unite || ''}/ha`
+                    : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
+
 // ── Vue par parcelle ─────────────────────────────────────────────────────────
 function VueParcelleGroup({ nom, entries, allRapports, confirmDelete, setConfirmDelete, onDelete }) {
   const [open, setOpen] = useState(true)
@@ -264,10 +358,11 @@ export default function PhytoPage() {
   const [allRapports, setAllRapports] = useState([])
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(null)
-  const [view, setView] = useState('parcelle') // 'ot' | 'parcelle'
+  const [view, setView] = useState('parcelle') // 'ot' | 'parcelle' | 'produit'
   const [annee, setAnnee] = useState(new Date().getFullYear())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [prestataireFilter, setPrestataireFilter] = useState(null)
 
   useEffect(() => { load() }, [])
 
@@ -305,6 +400,13 @@ export default function PhytoPage() {
 
   const hasPrev = anneesDispo.includes(annee - 1)
   const hasNext = anneesDispo.includes(annee + 1)
+
+  // Liste des prestataires disponibles pour le filtre
+  const prestatairesDispo = useMemo(() => {
+    const s = new Set()
+    for (const r of rapports) if (r.prestataire) s.add(r.prestataire)
+    return [...s].sort()
+  }, [rapports])
 
   async function deleteRapport(idOrIds) {
     const ids = Array.isArray(idOrIds) ? idOrIds : [idOrIds]
@@ -442,6 +544,16 @@ export default function PhytoPage() {
           >
             <LayoutList size={13} /> Par OT
           </button>
+          <button
+            onClick={() => setView('produit')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${
+              view === 'produit'
+                ? 'bg-vigne-100 dark:bg-vigne-900/30 text-vigne-700 dark:text-vigne-400'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
+          >
+            <Package size={13} /> Par produit
+          </button>
           <div className="flex-1" />
           {confirmBulkDelete ? (
             <div className="flex gap-1">
@@ -508,7 +620,7 @@ export default function PhytoPage() {
               onDelete={deleteRapport}
             />
           ))
-        ) : (
+        ) : view === 'ot' ? (
           byOT.map(g => (
             <VueOTCard
               key={`${g.date}-${g.ot}`}
@@ -519,6 +631,13 @@ export default function PhytoPage() {
               onDelete={deleteRapport}
             />
           ))
+        ) : (
+          <VueProduitTable
+            rapports={rapports}
+            prestataireFilter={prestataireFilter}
+            setPrestataireFilter={setPrestataireFilter}
+            prestatairesDispo={prestatairesDispo}
+          />
         )}
       </div>
     </div>
