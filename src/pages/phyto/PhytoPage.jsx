@@ -150,24 +150,33 @@ function VueOTCard({ ot, rapports, confirmDelete, setConfirmDelete, onDelete }) 
 
 // ── Vue par produit (tableau pour saisie ComitéChampagne) ───────────────────
 function VueProduitTable({ rapports, prestataireFilter, setPrestataireFilter, prestatairesDispo }) {
-  // Aplatit : 1 ligne par (rapport, produit)
-  const rows = []
+  // Agrégat global : 1 ligne par (date, produit) — surfaces additionnées sur toutes les parcelles
+  const grouped = new Map()
   for (const r of rapports) {
     if (prestataireFilter && r.prestataire !== prestataireFilter) continue
     for (const p of r.produits) {
-      const surface = (p.dose_ha > 0 && p.quantite > 0)
-        ? Math.round(p.quantite / p.dose_ha * 100) / 100
-        : null
-      const parcelleNoms = r.parcelles.map(pc => pc.parcelle_nom_app || pc.parcelle_nom_source || '?').join(', ')
-      rows.push({
-        date: r.date,
-        prod: p,
-        surface,
-        parcelle: parcelleNoms,
-      })
+      const key = `${r.date}__${p.nom}`
+      const surface = (p.dose_ha > 0 && p.quantite > 0) ? p.quantite / p.dose_ha : 0
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          date: r.date,
+          prod: p,                      // dose, cible, type, unite communs au sein du même OT
+          surfaceTotale: 0,
+          quantiteTotale: 0,
+          nbParcelles: 0,
+        })
+      }
+      const agg = grouped.get(key)
+      agg.surfaceTotale += surface
+      agg.quantiteTotale += (p.quantite || 0)
+      agg.nbParcelles += (r.parcelles.length || 1)
     }
   }
-  // Tri par date desc puis par produit
+  const rows = [...grouped.values()].map(r => ({
+    ...r,
+    surfaceTotale: Math.round(r.surfaceTotale * 100) / 100,
+    quantiteTotale: Math.round(r.quantiteTotale * 1000) / 1000,
+  }))
   rows.sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.prod.nom || '').localeCompare(b.prod.nom || ''))
 
   return (
@@ -218,15 +227,12 @@ function VueProduitTable({ rapports, prestataireFilter, setPrestataireFilter, pr
                       </span>
                     )}
                   </div>
-                  {row.parcelle && (
-                    <div className="text-[10px] text-vigne-600 dark:text-vigne-400 truncate max-w-[160px] mt-0.5">📍 {row.parcelle}</div>
-                  )}
                 </td>
                 <td className="py-1.5 px-1 text-gray-600 dark:text-gray-400 text-[11px] max-w-[100px]">
                   <div className="line-clamp-2">{row.prod.cible || '—'}</div>
                 </td>
                 <td className="py-1.5 px-1 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">
-                  {row.surface != null ? `${row.surface} ha` : '—'}
+                  {row.surfaceTotale > 0 ? `${row.surfaceTotale} ha` : '—'}
                 </td>
                 <td className="py-1.5 px-2 text-right text-gray-700 dark:text-gray-300 whitespace-nowrap font-medium">
                   {row.prod.dose_ha != null
