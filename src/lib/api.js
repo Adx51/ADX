@@ -93,6 +93,7 @@ function invalidate(path) {
 
 function invalidateAll() {
   _cache.clear()
+  window.dispatchEvent(new Event('adx:data-changed'))
 }
 
 function afterMutation(d) {

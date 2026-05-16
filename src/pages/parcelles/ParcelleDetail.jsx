@@ -4,6 +4,7 @@ import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navi
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
+import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 import { locateFromCadastre } from '../../lib/cadastre'
 import PageHeader from '../../components/PageHeader'
 import MapPicker from '../../components/MapPicker'
@@ -21,6 +22,7 @@ export default function ParcelleDetail() {
   const [geoFeatures, setGeoFeatures] = useState(null)
   const [photoOpen, setPhotoOpen] = useState(false)
   const [comparaison, setComparaison] = useState(null)
+  const refreshTick = useRefreshTrigger()
 
   useEffect(() => {
     api.get(`/parcelles/${id}`).then(data => {
@@ -30,7 +32,7 @@ export default function ParcelleDetail() {
     api.get(`/parcelles/${id}/comparaison-pressoir`)
       .then(setComparaison)
       .catch(() => setComparaison(null))
-  }, [id])
+  }, [id, refreshTick])
 
   // Récupère le polygone cadastral pour l'afficher en vert sur la carte
   useEffect(() => {

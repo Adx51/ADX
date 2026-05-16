@@ -6,6 +6,7 @@ import { fr } from 'date-fns/locale'
 import { api } from '../../lib/api'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
+import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 
 export default function CampagneDetail() {
   const { annee } = useParams()
@@ -17,13 +18,8 @@ export default function CampagneDetail() {
   const [bilanEdit, setBilanEdit] = useState(false)
   const [bilanValue, setBilanValue] = useState('')
 
-  useEffect(() => { load() }, [annee])
-
-  useEffect(() => {
-    function onVisible() { if (!document.hidden) load() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [annee])
+  const refreshTick = useRefreshTrigger()
+  useEffect(() => { load() }, [annee, refreshTick])
 
   async function load() {
     const data = await api.get(`/campagnes/${annee}`)

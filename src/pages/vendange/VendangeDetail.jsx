@@ -7,6 +7,7 @@ import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
+import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 
 export default function VendangeDetail() {
   const { id } = useParams()
@@ -20,13 +21,8 @@ export default function VendangeDetail() {
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [confirmCloture, setConfirmCloture] = useState(false)
 
-  useEffect(() => { load() }, [id])
-
-  useEffect(() => {
-    function onVisible() { if (!document.hidden) load() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [id])
+  const refreshTick = useRefreshTrigger()
+  useEffect(() => { load() }, [id, refreshTick])
 
   async function load() {
     const data = await api.get(`/vendanges/${id}`)

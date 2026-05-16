@@ -4,6 +4,7 @@ import { ChevronRight, Award, Lock, BarChart2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { caToDisplayHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
+import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 
 const YEAR_COLORS = ['#d97706', '#15803d', '#7c3aed', '#e11d48', '#0891b2', '#ea580c']
 
@@ -277,6 +278,7 @@ export default function StatsGlobales() {
   const [loading, setLoading]     = useState(true)
   const [selectedYears, setSelectedYears] = useState(new Set())
   const [tab, setTab]             = useState('commune')
+  const refreshTick = useRefreshTrigger()
 
   function toggleYear(y) {
     setSelectedYears(prev => {
@@ -292,7 +294,7 @@ export default function StatsGlobales() {
       setLoading(false)
       setSelectedYears(new Set(data?.campagnes?.map(c => c.annee) || []))
     })
-  }, [])
+  }, [refreshTick])
 
   if (loading) return (
     <div>

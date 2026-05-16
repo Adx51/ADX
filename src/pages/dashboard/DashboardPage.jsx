@@ -4,6 +4,7 @@ import { fr } from 'date-fns/locale'
 import { ExternalLink, RefreshCw, CloudOff, Newspaper } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 
 const TAG_STYLE = {
   Champagne:   'bg-amber-100 text-amber-700',
@@ -65,13 +66,8 @@ export default function DashboardPage() {
     }
   }
 
-  useEffect(() => { load() }, [])
-
-  useEffect(() => {
-    function onVisible() { if (!document.hidden) load() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [])
+  const refreshTick = useRefreshTrigger()
+  useEffect(() => { load() }, [refreshTick])
 
   const today = format(new Date(), "EEEE d MMMM yyyy", { locale: fr })
   const prenom = user?.prenom || user?.email?.split('@')[0] || ''

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Grape, ChevronRight, Lock, BarChart2 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 
 function CardStats({ c }) {
   const isClosed = c.statut === 'cloturee'
@@ -63,13 +64,14 @@ export default function CampagnesList() {
   const navigate = useNavigate()
   const [campagnes, setCampagnes] = useState([])
   const [loading, setLoading] = useState(true)
+  const refreshTick = useRefreshTrigger()
 
   useEffect(() => {
     api.get('/campagnes').then(rows => {
       setCampagnes(rows || [])
       setLoading(false)
     })
-  }, [])
+  }, [refreshTick])
 
   return (
     <div>

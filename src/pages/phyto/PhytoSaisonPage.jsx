@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, CalendarDays, Leaf, FlaskConical, BarChart2 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import PageHeader from '../../components/PageHeader'
@@ -23,6 +24,7 @@ export default function PhytoSaisonPage() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('chrono') // chrono | produits | parcelles
+  const refreshTick = useRefreshTrigger()
 
   useEffect(() => {
     setLoading(true)
@@ -31,7 +33,7 @@ export default function PhytoSaisonPage() {
       .then(d => setData(d))
       .catch(() => setData(null))
       .finally(() => setLoading(false))
-  }, [annee])
+  }, [annee, refreshTick])
 
   const prevYear = () => setAnnee(a => a - 1)
   const nextYear = () => setAnnee(a => a + 1)

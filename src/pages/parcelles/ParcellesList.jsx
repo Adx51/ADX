@@ -4,6 +4,7 @@ import { Plus, Map, LogOut, ChevronRight, ChevronDown, Search, X } from 'lucide-
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, caToDisplayHa } from '../../lib/surface'
+import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 
 const STATUT_BADGE = {
   en_production: null,
@@ -43,13 +44,14 @@ export default function ParcellesList() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [collapsed, setCollapsed] = useState(new Set())
+  const refreshTick = useRefreshTrigger()
 
   useEffect(() => {
     api.get('/parcelles').then(data => {
       setParcelles(data || [])
       setLoading(false)
     })
-  }, [])
+  }, [refreshTick])
 
   function toggleCollapse(commune) {
     setCollapsed(prev => {

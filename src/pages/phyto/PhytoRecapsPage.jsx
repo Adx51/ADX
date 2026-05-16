@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { FileUp, Download, Trash2, BarChart2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { api } from '../../lib/api'
 import PageHeader from '../../components/PageHeader'
+import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 
 const CURRENT_YEAR = new Date().getFullYear()
 
@@ -13,6 +14,7 @@ export default function PhytoRecapsPage() {
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [expandedParcelles, setExpandedParcelles] = useState(new Set())
+  const refreshTick = useRefreshTrigger()
 
   function toggleParcelle(key) {
     setExpandedParcelles(prev => {
@@ -22,7 +24,7 @@ export default function PhytoRecapsPage() {
     })
   }
 
-  useEffect(() => { load() }, [annee])
+  useEffect(() => { load() }, [annee, refreshTick])
 
   async function load() {
     setLoading(true)

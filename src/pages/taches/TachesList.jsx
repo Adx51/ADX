@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import PhotoModal from '../../components/PhotoModal'
+import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 
 const STATUTS = {
   a_faire:  { label: 'À faire',  color: 'bg-gray-100 text-gray-600',   icon: Clock },
@@ -18,8 +19,9 @@ export default function TachesList() {
   const [loading, setLoading] = useState(true)
   const [filtre, setFiltre] = useState('a_faire')
   const [photoUrl, setPhotoUrl] = useState(null)
+  const refreshTick = useRefreshTrigger()
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [refreshTick])
 
   async function load() {
     const data = await api.get('/taches')

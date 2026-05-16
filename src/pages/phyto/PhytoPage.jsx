@@ -5,6 +5,7 @@ import { api } from '../../lib/api'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import PageHeader from '../../components/PageHeader'
+import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 
 const TYPE_COLOR = {
   fongicide:   'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
@@ -369,8 +370,9 @@ export default function PhytoPage() {
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [prestataireFilter, setPrestataireFilter] = useState(null)
+  const refreshTick = useRefreshTrigger()
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [refreshTick])
 
   async function load() {
     try {
