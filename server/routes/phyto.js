@@ -444,7 +444,7 @@ function parseMesParcellePDFText(text) {
       trt = { date: dateStr, parcelle_nom_source: currentParcelle, description: null, produits: [] }
       traitements.push(trt)
     }
-    trt.produits.push({ nom, type, dose_ha, quantite, unite, ift_value })
+    trt.produits.push({ nom, type, dose_ha, quantite, unite, ift: ift_value })
   }
 
   function tryFlush() {
@@ -863,7 +863,9 @@ router.post('/carnet/parse-pdf', upload.single('pdf'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Fichier PDF manquant' })
   try {
     const data = await pdfParse(req.file.buffer)
-    const parsed = parseCarnetPDFText(data.text)
+    const parsed = isMesParcelles(data.text)
+      ? parseMesParcellePDFText(data.text)
+      : parseCarnetPDFText(data.text)
     const allParcelles = db.prepare('SELECT id, nom FROM parcelles ORDER BY nom').all()
 
     // Load saved mappings for this prestataire
