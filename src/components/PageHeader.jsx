@@ -13,7 +13,7 @@ export default function PageHeader({ title, back, children }) {
           <ArrowLeft size={22} />
         </button>
       )}
-      <h1 className="text-lg font-bold flex-1 truncate">{title}</h1>
+      <h1 className="text-lg font-bold flex-1 leading-tight break-words">{title}</h1>
       {children}
     </div>
   )

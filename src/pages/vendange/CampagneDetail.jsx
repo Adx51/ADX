@@ -435,7 +435,7 @@ function ParcelleRow({ parcelle, attendu, campagneClosed, closed, onOpen, onAdd 
           }
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-900 truncate">{parcelle.nom}</p>
+          <p className="font-semibold text-gray-900 leading-tight break-words">{parcelle.nom}</p>
           {hasVendange ? (
             <>
               <p className="text-xs text-gray-500 mt-0.5 truncate">
