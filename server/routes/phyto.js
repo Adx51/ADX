@@ -202,9 +202,10 @@ function parseOTProductLine(line) {
     nom,
     type,
     cible: cible || null,
-    quantite: parseFloat(numMatch[1].replace(',', '.')),
-    ift: parseFloat(numMatch[2].replace(',', '.')),
-    unite: numMatch[3],
+    quantite: parseFloat(numMatch[1].replace(',', '.')),  // quantité totale pour le circuit
+    ift:      parseFloat(numMatch[2].replace(',', '.')),  // IFT contribution
+    unite:    numMatch[3],
+    dose_ha:  parseFloat(numMatch[4].replace(',', '.')),  // dose appliquée / ha (4ème nombre)
   }
 }
 
@@ -462,7 +463,7 @@ router.get('/rapports', (req, res) => {
     `).all(r.id)
     const produits = db.prepare(`
       SELECT id, rapport_id, nom, matiere_active, cible, dose, dose_homologuee, znt, dar, dre,
-             type, quantite, unite, ift_value
+             type, quantite, unite, ift_value, dose_ha
       FROM rapports_phyto_produits WHERE rapport_id = ?
     `).all(r.id)
     return { ...r, parcelles, produits }
@@ -659,8 +660,8 @@ router.post('/carnet', (req, res) => {
     }
 
     for (const p of (t.produits || [])) {
-      db.prepare(`INSERT INTO rapports_phyto_produits (id, rapport_id, nom, cible, type, quantite, unite, ift_value) VALUES (?,?,?,?,?,?,?,?)`)
-        .run(uuidv4(), id, p.nom, p.cible || null, p.type || null, p.quantite ?? null, p.unite || null, p.ift ?? null)
+      db.prepare(`INSERT INTO rapports_phyto_produits (id, rapport_id, nom, cible, type, quantite, unite, ift_value, dose_ha) VALUES (?,?,?,?,?,?,?,?,?)`)
+        .run(uuidv4(), id, p.nom, p.cible || null, p.type || null, p.quantite ?? null, p.unite || null, p.ift ?? null, p.dose_ha ?? null)
     }
 
     ids.push(id)

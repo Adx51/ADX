@@ -447,6 +447,14 @@ if (schemaVersion < 14) {
   db.pragma('user_version = 14')
 }
 
+if (schemaVersion < 15) {
+  // dose appliquée par ha (4ème valeur de la ligne produit OT du PDF)
+  try { db.exec(`ALTER TABLE rapports_phyto_produits ADD COLUMN dose_ha REAL`) } catch {}
+  // surface traitée pour ce produit dans ce rapport
+  try { db.exec(`ALTER TABLE rapports_phyto_parcelles ADD COLUMN surface_ha REAL`) } catch {}
+  db.pragma('user_version = 15')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5
