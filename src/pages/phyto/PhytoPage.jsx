@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Leaf, Upload, Trash2, FileText, BookOpen, LayoutList, Layers, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Leaf, Upload, Trash2, BookOpen, LayoutList, Layers, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '../../lib/api'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -26,46 +26,86 @@ function fmtDose(prod) {
   return '—'
 }
 
-// ── Vue par date (registre chronologique) ────────────────────────────────────
-function VueDateCard({ r, confirmDelete, setConfirmDelete, onDelete }) {
-  const dateStr = fmtDate(r.date)
-  const parcelleNames = r.parcelles.map(p => p.parcelle_nom_app || p.parcelle_nom_source || '?').join(', ')
+// ── Vue par OT (groupement par numéro d'OT) ──────────────────────────────────
+function VueOTCard({ ot, rapports, confirmDelete, setConfirmDelete, onDelete }) {
+  // Tous les rapports partagent date + OT — on prend le premier comme référence
+  const ref = rapports[0]
+  const dateStr = fmtDate(ref.date)
+  // Liste des parcelles (uniques) avec surfaces
+  const parcellesMap = new Map()
+  for (const r of rapports) {
+    for (const p of r.parcelles) {
+      const key = p.parcelle_id || p.parcelle_nom_source || '?'
+      if (!parcellesMap.has(key)) {
+        const nom = p.parcelle_nom_app || p.parcelle_nom_source || '?'
+        // Surface : depuis la parcelle liée ou calculée depuis quantite/dose_ha
+        let surface = p.surface_ha
+        if (!surface) {
+          const prod = r.produits.find(pr => pr.dose_ha > 0 && pr.quantite > 0)
+          if (prod) surface = Math.round(prod.quantite / prod.dose_ha * 100) / 100
+        }
+        parcellesMap.set(key, { nom, surface })
+      }
+    }
+  }
+  const parcelles = [...parcellesMap.values()]
+
+  // Produits unifiés : on prend les produits du 1er rapport, on somme les quantités sur tous
+  const produitsMerged = ref.produits.map(p => {
+    let totalQty = 0
+    for (const r of rapports) {
+      const match = r.produits.find(pr => pr.nom === p.nom)
+      if (match?.quantite) totalQty += match.quantite
+    }
+    return { ...p, quantite_totale: Math.round(totalQty * 1000) / 1000 }
+  })
+
+  const deleteKey = `ot-${ot}-${ref.date}`
+  const ids = rapports.map(r => r.id)
 
   return (
     <div className="card space-y-2">
-      {/* En-tête */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{dateStr}</p>
-            {r.source === 'pdf_carnet' && (
+            <span className="text-xs font-semibold text-vigne-600 dark:text-vigne-400">OT {ot}</span>
+            {ref.source === 'pdf_carnet' && (
               <span className="text-[10px] bg-vigne-50 dark:bg-vigne-900/20 text-vigne-600 dark:text-vigne-400 px-1.5 py-0.5 rounded-full">PDF</span>
             )}
-            {r.prestataire && (
-              <span className="text-xs text-gray-400 dark:text-gray-500 truncate">{r.prestataire}</span>
-            )}
-            {r.notes && (
-              <span className="text-xs text-gray-400 dark:text-gray-500 truncate">{r.notes}</span>
+            {ref.prestataire && (
+              <span className="text-xs text-gray-400 dark:text-gray-500 truncate">{ref.prestataire}</span>
             )}
           </div>
-          {parcelleNames && (
-            <p className="text-xs text-vigne-600 dark:text-vigne-400 font-medium truncate mt-0.5">📍 {parcelleNames}</p>
+          {ref.notes && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{ref.notes.replace(/^OT\s+\d+\s*—?\s*/, '')}</p>
           )}
         </div>
-        {confirmDelete === r.id ? (
+        {confirmDelete === deleteKey ? (
           <div className="flex gap-1 flex-shrink-0">
-            <button onClick={() => onDelete(r.id)} className="px-2 py-1 text-xs bg-red-600 text-white rounded-lg">Suppr.</button>
+            <button onClick={() => onDelete(ids)} className="px-2 py-1 text-xs bg-red-600 text-white rounded-lg">Suppr. tout</button>
             <button onClick={() => setConfirmDelete(null)} className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400">Annuler</button>
           </div>
         ) : (
-          <button onClick={() => setConfirmDelete(r.id)} className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0">
+          <button onClick={() => setConfirmDelete(deleteKey)} className="p-2 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 flex-shrink-0">
             <Trash2 size={16} />
           </button>
         )}
       </div>
 
-      {/* Produits */}
-      {r.produits.length > 0 && (
+      {/* Parcelles concernées */}
+      {parcelles.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {parcelles.map((p, i) => (
+            <span key={i} className="text-[10px] bg-vigne-50 dark:bg-vigne-900/20 text-vigne-700 dark:text-vigne-400 px-1.5 py-0.5 rounded-full">
+              📍 {p.nom}{p.surface ? ` · ${p.surface} ha` : ''}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Produits (dose/IFT constants par OT, quantité = total cumulée parcelles) */}
+      {produitsMerged.length > 0 && (
         <div className="overflow-x-auto -mx-1">
           <table className="w-full text-xs">
             <thead>
@@ -73,12 +113,12 @@ function VueDateCard({ r, confirmDelete, setConfirmDelete, onDelete }) {
                 <th className="text-left py-1 px-1 font-medium">Produit</th>
                 <th className="text-left py-1 px-1 font-medium hidden sm:table-cell">Cible</th>
                 <th className="text-right py-1 px-1 font-medium">Dose app.</th>
-                <th className="text-right py-1 px-1 font-medium">Qté</th>
+                <th className="text-right py-1 px-1 font-medium">Qté tot.</th>
                 <th className="text-right py-1 px-1 font-medium">IFT</th>
               </tr>
             </thead>
             <tbody>
-              {r.produits.map((p, j) => (
+              {produitsMerged.map((p, j) => (
                 <tr key={j} className="border-t border-gray-100 dark:border-gray-700/50">
                   <td className="py-1 px-1">
                     <div className="flex items-center gap-1.5">
@@ -93,7 +133,7 @@ function VueDateCard({ r, confirmDelete, setConfirmDelete, onDelete }) {
                   <td className="py-1 px-1 text-gray-500 dark:text-gray-400 hidden sm:table-cell">{p.cible || '—'}</td>
                   <td className="py-1 px-1 text-right text-gray-600 dark:text-gray-300 whitespace-nowrap">{fmtDose(p)}</td>
                   <td className="py-1 px-1 text-right text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                    {p.quantite != null ? `${p.quantite} ${p.unite || ''}` : '—'}
+                    {p.quantite_totale > 0 ? `${p.quantite_totale} ${p.unite || ''}` : '—'}
                   </td>
                   <td className="py-1 px-1 text-right font-semibold text-gray-700 dark:text-gray-200">
                     {p.ift_value > 0 ? p.ift_value : (p.dar ? <span className="text-amber-600 font-normal">DAR {p.dar}j</span> : '—')}
@@ -224,7 +264,7 @@ export default function PhytoPage() {
   const [allRapports, setAllRapports] = useState([])
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(null)
-  const [view, setView] = useState('parcelle') // 'date' | 'parcelle'
+  const [view, setView] = useState('parcelle') // 'ot' | 'parcelle'
   const [annee, setAnnee] = useState(new Date().getFullYear())
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
@@ -266,9 +306,10 @@ export default function PhytoPage() {
   const hasPrev = anneesDispo.includes(annee - 1)
   const hasNext = anneesDispo.includes(annee + 1)
 
-  async function deleteRapport(id) {
-    await api.delete(`/phyto/rapports/${id}`)
-    setAllRapports(prev => prev.filter(r => r.id !== id))
+  async function deleteRapport(idOrIds) {
+    const ids = Array.isArray(idOrIds) ? idOrIds : [idOrIds]
+    await Promise.all(ids.map(id => api.delete(`/phyto/rapports/${id}`)))
+    setAllRapports(prev => prev.filter(r => !ids.includes(r.id)))
     setConfirmDelete(null)
   }
 
@@ -284,6 +325,20 @@ export default function PhytoPage() {
     }
     setBulkDeleting(false)
   }
+
+  // Groupement par OT (date + numéro OT extrait des notes)
+  const byOT = useMemo(() => {
+    if (view !== 'ot') return null
+    const map = {}
+    for (const r of rapports) {
+      const otMatch = r.notes?.match(/OT\s+(\d+)/i)
+      const otNum = otMatch ? otMatch[1] : 'sans-ot'
+      const key = `${r.date}__${otNum}`
+      if (!map[key]) map[key] = { date: r.date, ot: otNum, rapports: [] }
+      map[key].rapports.push(r)
+    }
+    return Object.values(map).sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+  }, [rapports, view])
 
   // Groupement par parcelle
   const byParcelle = useMemo(() => {
@@ -336,12 +391,6 @@ export default function PhytoPage() {
         >
           <Plus size={15} /> Manuel
         </button>
-        <button
-          onClick={() => navigate('/phyto/recaps')}
-          className="flex items-center justify-center gap-1.5 px-3 py-3 rounded-2xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium"
-        >
-          <FileText size={15} /> IFT
-        </button>
       </div>
 
       {/* Sélecteur d'année */}
@@ -384,14 +433,14 @@ export default function PhytoPage() {
             <Layers size={13} /> Par parcelle
           </button>
           <button
-            onClick={() => setView('date')}
+            onClick={() => setView('ot')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${
-              view === 'date'
+              view === 'ot'
                 ? 'bg-vigne-100 dark:bg-vigne-900/30 text-vigne-700 dark:text-vigne-400'
                 : 'text-gray-500 dark:text-gray-400'
             }`}
           >
-            <LayoutList size={13} /> Par date
+            <LayoutList size={13} /> Par OT
           </button>
           <div className="flex-1" />
           {confirmBulkDelete ? (
@@ -460,10 +509,11 @@ export default function PhytoPage() {
             />
           ))
         ) : (
-          rapports.map(r => (
-            <VueDateCard
-              key={r.id}
-              r={r}
+          byOT.map(g => (
+            <VueOTCard
+              key={`${g.date}-${g.ot}`}
+              ot={g.ot}
+              rapports={g.rapports}
               confirmDelete={confirmDelete}
               setConfirmDelete={setConfirmDelete}
               onDelete={deleteRapport}

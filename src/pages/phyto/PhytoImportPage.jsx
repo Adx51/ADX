@@ -30,9 +30,14 @@ export default function PhytoImportPage() {
   async function handleSave() {
     setSaving(true)
     try {
+      // OT → préfixe des notes : "OT XXXX — <notes>"
+      const notesWithOT = parsed.ot
+        ? `OT ${parsed.ot}${parsed.notes ? ' — ' + parsed.notes : ''}`
+        : (parsed.notes || null)
       await api.post('/phyto/rapports', {
         date:        parsed.date,
         prestataire: parsed.prestataire,
+        notes:       notesWithOT,
         parcelles:   parsed.parcelles,
         produits:    parsed.produits,
       })
@@ -115,6 +120,27 @@ export default function PhytoImportPage() {
                   value={parsed.prestataire || ''}
                   onChange={e => setParsed(p => ({ ...p, prestataire: e.target.value }))}
                   placeholder="Nom du prestataire"
+                />
+              </div>
+              <div>
+                <label className="label">N° OT (optionnel)</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={parsed.ot || ''}
+                  onChange={e => setParsed(p => ({ ...p, ot: e.target.value }))}
+                  placeholder="ex: 8284"
+                  inputMode="numeric"
+                />
+              </div>
+              <div>
+                <label className="label">Description (optionnel)</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={parsed.notes || ''}
+                  onChange={e => setParsed(p => ({ ...p, notes: e.target.value }))}
+                  placeholder="ex: T1 Circuit 2 Conv."
                 />
               </div>
             </div>
