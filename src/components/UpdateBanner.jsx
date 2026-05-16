@@ -1,30 +1,40 @@
+import { useEffect } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
-import { RefreshCw } from 'lucide-react'
 
 export default function UpdateBanner() {
   const { needRefresh: [needRefresh], updateServiceWorker } = useRegisterSW({
     onRegistered(r) {
-      // Vérifie une mise à jour toutes les 60s
-      if (r) setInterval(() => r.update(), 60 * 1000)
+      // Check for new version every 30s
+      if (r) setInterval(() => r.update(), 30 * 1000)
     },
   })
 
-  if (!needRefresh) return null
+  useEffect(() => {
+    if (!needRefresh) return
 
-  return (
-    <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between
-                    bg-vigne-700 text-white px-4 py-3 shadow-lg"
-         style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
-      <p className="text-sm font-medium">Nouvelle version disponible</p>
-      <button
-        onClick={() => updateServiceWorker(true)}
-        className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30
-                   text-white text-sm font-semibold px-3 py-1.5 rounded-xl
-                   active:scale-95 transition-all"
-      >
-        <RefreshCw size={14} />
-        Mettre à jour
-      </button>
-    </div>
-  )
+    function isTyping() {
+      const el = document.activeElement
+      return el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)
+    }
+
+    function tryUpdate() {
+      if (isTyping()) return
+      updateServiceWorker(true)
+    }
+
+    tryUpdate()
+
+    function onVisible() {
+      if (!document.hidden) tryUpdate()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    const id = setInterval(tryUpdate, 5000)
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(id)
+    }
+  }, [needRefresh, updateServiceWorker])
+
+  return null
 }
