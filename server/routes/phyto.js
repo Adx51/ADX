@@ -250,21 +250,27 @@ function parseCarnetPDFText(text) {
         produits: [...currentProduits],
       })
     }
-    currentParcelle = null
     currentProduits = []
   }
+
+  // Parcelle de page (entête "--") persiste à travers les OT jusqu'au prochain --
+  let pageParcelle = null
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     if (skipLine(line)) continue
 
-    // Section 1 parcelle header ("--") → not an OT section
-    if (/^.+?\s*--\s*[\d,\.]+\s*ha\s*--/.test(line)) {
+    // Entête de page parcelle ("AVENTURES BOYER -- 0.1448 ha -- ...")
+    const headerMatch = line.match(/^(.+?)\s*--\s*[\d,\.]+\s*ha\s*--/)
+    if (headerMatch) {
+      flush()
+      pageParcelle = headerMatch[1].trim()
+      currentParcelle = pageParcelle
       inOTSection = false
       continue
     }
 
-    // OT header → start new OT
+    // OT header → start new OT (mais conserve la parcelle de page)
     const otMatch = line.match(otHeaderRe)
     if (otMatch) {
       flush()
@@ -273,7 +279,7 @@ function parseCarnetPDFText(text) {
       currentDate = monthNum ? `${year}-${monthNum}-${day.padStart(2, '0')}` : null
       currentOTNum = otNum
       currentDesc = desc.trim()
-      currentParcelle = null
+      currentParcelle = pageParcelle  // reprend la parcelle de la page courante
       currentProduits = []
       inOTSection = true
       continue
@@ -295,16 +301,17 @@ function parseCarnetPDFText(text) {
       continue
     }
 
-    // Text-only line = parcelle name candidate
-    // Exclude: pure number lines, lines with comma-numbers (like "0,25"), very long lines
+    // Text-only line dans un OT = nom de parcelle local (override page)
     if (!/\d,\d/.test(line) && !/^\d+$/.test(line) && line.length > 0 && line.length < 55) {
-      // If we have accumulated products, flush (new parcelle starts within same OT)
       if (currentProduits.length > 0) flush()
       currentParcelle = line
     }
   }
 
   flush()
+
+  // Ne pas reset currentParcelle dans flush (override comportement précédent pour pageParcelle)
+  // mais préserve l'override local : currentParcelle est réinitialisé à pageParcelle au début de chaque OT
 
   return { prestataire, annee, traitements }
 }
@@ -602,6 +609,7 @@ router.post('/recaps/parse-pdf', upload.single('pdf'), async (req, res) => {
   try {
     const data = await pdfParse(req.file.buffer)
     const parsed = parseRecapPDFText(data.text)
+    const carnet = parseCarnetPDFText(data.text)  // dates OT en bonus
     const allParcelles = db.prepare('SELECT id, nom FROM parcelles ORDER BY nom').all()
 
     // Récupérer les mappings sauvegardés pour ce prestataire
@@ -619,8 +627,18 @@ router.post('/recaps/parse-pdf', upload.single('pdf'), async (req, res) => {
       }
       return { ...p, ...fuzzyMatch(p.nomSource, allParcelles) }
     })
+
+    // Traitements datés : mêmes mappings
+    parsed.traitements = carnet.traitements.map(t => {
+      if (!t.parcelle_nom_source) return { ...t, parcelle_id: null }
+      if (savedMappings[t.parcelle_nom_source]) {
+        return { ...t, parcelle_id: savedMappings[t.parcelle_nom_source] }
+      }
+      const match = fuzzyMatch(t.parcelle_nom_source, allParcelles)
+      return { ...t, parcelle_id: match.parcelle_id }
+    })
+
     parsed.allParcelles = allParcelles
-    // rawText inclus temporairement pour debug du parser
     parsed.rawText = data.text.slice(0, 8000)
     res.json(parsed)
   } catch (e) {
@@ -724,13 +742,20 @@ router.get('/recaps/:annee', (req, res) => {
 
 // POST /api/phyto/recaps — save a confirmed recap
 router.post('/recaps', (req, res) => {
-  const { annee, prestataire, parcelles } = req.body
+  const { annee, prestataire, parcelles, traitements } = req.body
   if (!annee || !parcelles?.length) return res.status(400).json({ error: 'annee et parcelles requis' })
   const id = uuidv4()
   db.prepare(`INSERT INTO recaps_annuels (id, annee, prestataire, user_id) VALUES (?,?,?,?)`)
     .run(id, annee, prestataire || null, req.userId)
 
   const insMapping = db.prepare(`INSERT OR REPLACE INTO phyto_parcelle_mapping (prestataire, nom_source, parcelle_id, updated_at) VALUES (?,?,?,datetime('now'))`)
+
+  // Construit la table nom_source → parcelle_id depuis les choix utilisateur
+  const sourceToParcelle = {}
+  for (const p of parcelles) {
+    const src = p.nomSource || p.parcelle_nom_source
+    if (src && p.parcelle_id) sourceToParcelle[src] = p.parcelle_id
+  }
 
   for (const p of parcelles) {
     const pId = uuidv4()
@@ -742,18 +767,41 @@ router.post('/recaps', (req, res) => {
         p.ift?.herbicide ?? 0, p.ift?.fongicide ?? 0, p.ift?.insecticide ?? 0, p.ift?.autres ?? 0,
         p.ift?.bio ?? 0, p.ift?.biocontrole ?? 0, p.ift?.total ?? 0, p.cuivreKgHa ?? null)
 
-    // Insérer les produits
     for (const pr of (p.produits || [])) {
       db.prepare(`INSERT INTO recaps_annuels_produits (id, recap_parcelle_id, nom, quantite, unite) VALUES (?,?,?,?,?)`)
         .run(uuidv4(), pId, pr.nom, pr.quantite ?? null, pr.unite ?? null)
     }
 
-    // Mémoriser le mapping prestataire → parcelle
     if (p.parcelle_id) {
       insMapping.run(prestataire || '', p.nomSource || p.parcelle_nom_source || '', p.parcelle_id)
     }
   }
-  res.json({ id })
+
+  // Sauvegarde aussi les traitements datés (OT records) → rapports_phyto source=pdf_carnet
+  let nbTraitements = 0
+  if (Array.isArray(traitements)) {
+    for (const t of traitements) {
+      if (!t.date) continue
+      const rId = uuidv4()
+      db.prepare(`INSERT INTO rapports_phyto (id, date, prestataire, notes, user_id, source) VALUES (?,?,?,?,?,?)`)
+        .run(rId, t.date, prestataire || null, t.ot_num ? `OT ${t.ot_num}${t.description ? ' — ' + t.description : ''}` : (t.description || null), req.userId, 'pdf_carnet')
+
+      // Lien parcelle : utilise le choix utilisateur si dispo, sinon le pré-rempli du parse
+      const linkedId = sourceToParcelle[t.parcelle_nom_source] || t.parcelle_id || null
+      if (t.parcelle_nom_source) {
+        db.prepare(`INSERT INTO rapports_phyto_parcelles (id, rapport_id, parcelle_id, parcelle_nom_source) VALUES (?,?,?,?)`)
+          .run(uuidv4(), rId, linkedId, t.parcelle_nom_source)
+      }
+
+      for (const pr of (t.produits || [])) {
+        db.prepare(`INSERT INTO rapports_phyto_produits (id, rapport_id, nom, cible, type, quantite, unite, ift_value, dose_ha) VALUES (?,?,?,?,?,?,?,?,?)`)
+          .run(uuidv4(), rId, pr.nom, pr.cible || null, pr.type || null, pr.quantite ?? null, pr.unite || null, pr.ift ?? null, pr.dose_ha ?? null)
+      }
+      nbTraitements++
+    }
+  }
+
+  res.json({ id, nbTraitements })
 })
 
 // DELETE /api/phyto/recaps/:id

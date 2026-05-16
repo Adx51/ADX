@@ -50,12 +50,15 @@ export default function PhytoRecapImportPage() {
   async function handleSave() {
     setSaving(true)
     try {
-      await api.post('/phyto/recaps', {
+      const res = await api.post('/phyto/recaps', {
         annee: parsed.annee,
         prestataire: parsed.prestataire,
         parcelles: parsed.parcelles,
+        traitements: parsed.traitements || [],
       })
-      navigate('/phyto/recaps')
+      api.invalidate('/phyto/rapports')
+      // Si des traitements datés ont été sauvegardés, retour au registre, sinon au récap
+      navigate(res.nbTraitements > 0 ? '/phyto' : '/phyto/recaps')
     } catch (e) {
       setError(e.message)
       setSaving(false)
@@ -177,6 +180,18 @@ export default function PhytoRecapImportPage() {
               ))}
             </div>
 
+            {/* Traitements datés détectés */}
+            {parsed.traitements?.length > 0 && (
+              <div className="card space-y-1">
+                <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                  Traitements datés détectés
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {parsed.traitements.length} traitement(s) avec date seront ajoutés au registre /phyto avec leurs produits, doses et IFT.
+                </p>
+              </div>
+            )}
+
             {error && (
               <div className="flex items-center gap-2 text-red-600 text-sm card">
                 <AlertCircle size={14} /> {error}
@@ -186,7 +201,7 @@ export default function PhytoRecapImportPage() {
             <div className="space-y-2">
               <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center justify-center gap-2">
                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                {saving ? 'Enregistrement…' : 'Enregistrer le récapitulatif'}
+                {saving ? 'Enregistrement…' : `Enregistrer (récap + ${parsed.traitements?.length || 0} traitements)`}
               </button>
               <button onClick={() => setStep('upload')} className="w-full py-2.5 text-sm text-gray-500 dark:text-gray-400">
                 ← Recommencer
