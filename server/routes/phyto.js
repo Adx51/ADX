@@ -301,11 +301,8 @@ function parseCarnetPDFText(text) {
       continue
     }
 
-    // Text-only line dans un OT = nom de parcelle local (override page)
-    if (!/\d,\d/.test(line) && !/^\d+$/.test(line) && line.length > 0 && line.length < 55) {
-      if (currentProduits.length > 0) flush()
-      currentParcelle = line
-    }
+    // Tout le reste = fragment de texte (cible/description sur plusieurs lignes) → ignoré
+    // La parcelle vient uniquement de l'entête de page "--", déjà gérée plus haut
   }
 
   flush()

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Leaf, Upload, Trash2, FileText, BookOpen, LayoutList, Layers, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Leaf, Upload, Trash2, FileText, BookOpen, LayoutList, Layers, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react'
 import { api } from '../../lib/api'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -213,25 +213,68 @@ function VueParcelleGroup({ nom, entries, allRapports, confirmDelete, setConfirm
 // ── Page principale ───────────────────────────────────────────────────────────
 export default function PhytoPage() {
   const navigate = useNavigate()
-  const [rapports, setRapports] = useState([])
+  const [allRapports, setAllRapports] = useState([])
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [view, setView] = useState('parcelle') // 'date' | 'parcelle'
+  const [annee, setAnnee] = useState(new Date().getFullYear())
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   useEffect(() => { load() }, [])
 
   async function load() {
     try {
       const data = await api.get('/phyto/rapports')
-      setRapports(data || [])
+      setAllRapports(data || [])
     } catch {}
     setLoading(false)
   }
 
+  // Années disponibles + filtrage
+  const anneesDispo = useMemo(() => {
+    const s = new Set()
+    for (const r of allRapports) {
+      const y = r.date ? new Date(r.date).getFullYear() : null
+      if (y) s.add(y)
+    }
+    return [...s].sort((a, b) => b - a)
+  }, [allRapports])
+
+  // Au chargement, sélectionne l'année la plus récente avec des données si l'année courante est vide
+  useEffect(() => {
+    if (anneesDispo.length > 0 && !anneesDispo.includes(annee)) {
+      setAnnee(anneesDispo[0])
+    }
+  }, [anneesDispo])
+
+  const rapports = useMemo(() => {
+    return allRapports.filter(r => {
+      const y = r.date ? new Date(r.date).getFullYear() : null
+      return y === annee
+    })
+  }, [allRapports, annee])
+
+  const hasPrev = anneesDispo.includes(annee - 1)
+  const hasNext = anneesDispo.includes(annee + 1)
+
   async function deleteRapport(id) {
     await api.delete(`/phyto/rapports/${id}`)
-    setRapports(prev => prev.filter(r => r.id !== id))
+    setAllRapports(prev => prev.filter(r => r.id !== id))
     setConfirmDelete(null)
+  }
+
+  async function deleteAllForYear() {
+    setBulkDeleting(true)
+    try {
+      const ids = rapports.map(r => r.id)
+      await Promise.all(ids.map(id => api.delete(`/phyto/rapports/${id}`)))
+      setAllRapports(prev => prev.filter(r => !ids.includes(r.id)))
+      setConfirmBulkDelete(false)
+    } catch (e) {
+      alert('Erreur suppression : ' + e.message)
+    }
+    setBulkDeleting(false)
   }
 
   // Groupement par parcelle
@@ -293,9 +336,35 @@ export default function PhytoPage() {
         </button>
       </div>
 
-      {/* Toggle vue */}
+      {/* Sélecteur d'année */}
+      {!loading && anneesDispo.length > 0 && (
+        <div className="flex items-center justify-center gap-3 px-4 pt-3">
+          <button
+            onClick={() => setAnnee(a => a - 1)}
+            disabled={!hasPrev}
+            className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30"
+          >
+            <ChevronLeft size={16} className="text-gray-600 dark:text-gray-300" />
+          </button>
+          <span className="text-lg font-bold text-gray-900 dark:text-gray-100 min-w-[60px] text-center">{annee}</span>
+          <button
+            onClick={() => setAnnee(a => a + 1)}
+            disabled={!hasNext}
+            className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30"
+          >
+            <ChevronRight size={16} className="text-gray-600 dark:text-gray-300" />
+          </button>
+          {rapports.length > 0 && (
+            <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">
+              {rapports.length} traitement{rapports.length > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Toggle vue + bulk delete */}
       {!loading && rapports.length > 0 && (
-        <div className="flex gap-1 px-4 pt-3">
+        <div className="flex items-center gap-1 px-4 pt-3">
           <button
             onClick={() => setView('parcelle')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${
@@ -316,6 +385,32 @@ export default function PhytoPage() {
           >
             <LayoutList size={13} /> Par date
           </button>
+          <div className="flex-1" />
+          {confirmBulkDelete ? (
+            <div className="flex gap-1">
+              <button
+                onClick={deleteAllForYear}
+                disabled={bulkDeleting}
+                className="px-2.5 py-1.5 text-xs bg-red-600 text-white rounded-lg font-medium disabled:opacity-50"
+              >
+                {bulkDeleting ? '…' : `Confirmer (${rapports.length})`}
+              </button>
+              <button
+                onClick={() => setConfirmBulkDelete(false)}
+                disabled={bulkDeleting}
+                className="px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400"
+              >
+                Annuler
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmBulkDelete(true)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              <Trash2 size={13} /> Tout {annee}
+            </button>
+          )}
         </div>
       )}
 
