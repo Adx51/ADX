@@ -32,6 +32,7 @@ export default function ParcelleForm() {
   const [cadastreFeatures, setCadastreFeatures] = useState(null)
   const [communes, setCommunes] = useState([])   // [{valeur, code_insee}]
   const [cepages, setCepages] = useState([])      // [{valeur}]
+  const [parcelleData, setParcelleData] = useState(null)
 
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
@@ -56,24 +57,32 @@ export default function ParcelleForm() {
     if (!isEdit) return
     api.get(`/parcelles/${id}`).then(data => {
       if (!data) return
-      setValue('nom', data.nom)
-      setValue('ares',         Math.floor((data.surface_totale_ca || 0) / 100))
-      setValue('centiares',    (data.surface_totale_ca || 0) % 100 || '')
-      setValue('ares_p',       Math.floor((data.surface_plantee_ca || 0) / 100))
-      setValue('centiares_p',  (data.surface_plantee_ca || 0) % 100 || '')
-      setValue('nombre_routes', data.nombre_routes || '')
-      setValue('commune', data.commune || '')
-      setValue('commune_pressoir', data.commune_pressoir || '')
-      setValue('statut', data.statut || 'en_production')
-      setValue('annee_plantation', data.annee_plantation || '')
-      setValue('gps_lat', data.gps_lat || '')
-      setValue('gps_lng', data.gps_lng || '')
-      setValue('notes', data.notes || '')
-      setValue('reference_cadastrale', data.reference_cadastrale || '')
+      setParcelleData(data)
       setCepagesSelected(Array.isArray(data.cepages) ? data.cepages : [])
       setExistingPhotoUrl(data.photo_url)
     })
-  }, [id, isEdit, setValue])
+  }, [id, isEdit])
+
+  // Applique les valeurs au formulaire seulement quand les référentiels (communes)
+  // sont chargés, sinon les <select> n'ont pas encore les <option> et ignorent la valeur.
+  useEffect(() => {
+    if (!parcelleData || communes.length === 0) return
+    const data = parcelleData
+    setValue('nom', data.nom)
+    setValue('ares',         Math.floor((data.surface_totale_ca || 0) / 100))
+    setValue('centiares',    (data.surface_totale_ca || 0) % 100 || '')
+    setValue('ares_p',       Math.floor((data.surface_plantee_ca || 0) / 100))
+    setValue('centiares_p',  (data.surface_plantee_ca || 0) % 100 || '')
+    setValue('nombre_routes', data.nombre_routes || '')
+    setValue('commune', data.commune || '')
+    setValue('commune_pressoir', data.commune_pressoir || '')
+    setValue('statut', data.statut || 'en_production')
+    setValue('annee_plantation', data.annee_plantation || '')
+    setValue('gps_lat', data.gps_lat || '')
+    setValue('gps_lng', data.gps_lng || '')
+    setValue('notes', data.notes || '')
+    setValue('reference_cadastrale', data.reference_cadastrale || '')
+  }, [parcelleData, communes, setValue])
 
   function toggleCepage(c) {
     setCepagesSelected(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])
