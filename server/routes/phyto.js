@@ -455,8 +455,8 @@ function parseMesParcellePDFText(text) {
   }
 
   for (const line of lines) {
-    // Skip header/footer/column-header lines
-    if (/^(Exploitation|Ann[eé]e de r[eé]colte|Commune\s*:|N°\s*Siret|Ilot N°|Signature|Segment$|Produit$|Pourcent|Dose appliqu|Dose de r[eé]f|IFT herb|IFT hors|IFT [Tt]otal|Non comptab|[eÉ]dit[eé] par|Page \d|Bilan de l|D[eé]tail par)/i.test(line)) continue
+    // Skip header/footer/column-header lines (including PDF-split fragments)
+    if (/^(Exploitation|Ann[eé]e de r[eé]colte|Commune\s*:|N°\s*Siret|Ilot N°|Signature|Segment$|Produit$|Pourcent|Surf\.$|Trait[eé]e$|\(%\)$|Dose appliqu|Dose de r[eé]f|IFT herb|IFT hors|IFT [Tt]otal|Non comptab|comptabilis|[eÉ]dit[eé] par|Page \d|Bilan de l|D[eé]tail par)/i.test(line)) continue
 
     // Parcelle header — may span two lines separated by em dash (–)
     if (/^Parcelle\s*:/i.test(line)) {
@@ -493,7 +493,10 @@ function parseMesParcellePDFText(text) {
 
     if (!currentParcelle) continue
 
-    if (DATE_ROW_START.test(line) && lineBuffer.length > 0) tryFlush()
+    if (DATE_ROW_START.test(line) && lineBuffer.length > 0) {
+      tryFlush()
+      lineBuffer = [] // Discard any header noise left in buffer
+    }
 
     lineBuffer.push(line)
     tryFlush()
