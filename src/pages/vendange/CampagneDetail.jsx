@@ -209,10 +209,10 @@ export default function CampagneDetail() {
                 </span>
               </div>
               <div className="h-2.5 bg-amber-200 rounded-full overflow-hidden">
-                <div className="h-full bg-amber-600 rounded-full transition-all"
+                <div className={`h-full rounded-full transition-all ${pctTotal > 100 ? 'bg-vigne-600' : 'bg-amber-600'}`}
                      style={{ width: `${Math.min(pctTotal, 100)}%` }} />
               </div>
-              <p className="text-xs text-center text-amber-700 font-semibold mt-1">
+              <p className={`text-xs text-center font-semibold mt-1 ${pctTotal > 100 ? 'text-vigne-700' : 'text-amber-700'}`}>
                 {pctTotal}% de l'objectif campagne
               </p>
             </div>

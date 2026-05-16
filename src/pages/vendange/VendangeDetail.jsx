@@ -84,7 +84,7 @@ export default function VendangeDetail() {
     : null
 
   const poidsReel = Number(vendange.poids_total || 0)
-  const pctAtteint = kgAttendu ? Math.min(Math.round((poidsReel / kgAttendu) * 100), 100) : null
+  const pctAtteint = kgAttendu ? Math.round((poidsReel / kgAttendu) * 100) : null
 
   const byDate = chargements.reduce((acc, c) => {
     const key = c.date_chargement
@@ -141,11 +141,11 @@ export default function VendangeDetail() {
               </div>
               <div className="h-2 bg-amber-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-amber-600 rounded-full transition-all"
-                  style={{ width: `${pctAtteint}%` }}
+                  className={`h-full rounded-full transition-all ${pctAtteint > 100 ? 'bg-vigne-600' : 'bg-amber-600'}`}
+                  style={{ width: `${Math.min(pctAtteint, 100)}%` }}
                 />
               </div>
-              <p className="text-xs text-center text-amber-700 font-semibold mt-1">
+              <p className={`text-xs text-center font-semibold mt-1 ${pctAtteint > 100 ? 'text-vigne-700' : 'text-amber-700'}`}>
                 {pctAtteint}% de l'objectif
               </p>
             </div>
