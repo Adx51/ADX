@@ -325,9 +325,12 @@ function parseRecapPDFText(text) {
     /process2wine/i.test(l) ||
     /^Page\s*\d/i.test(l)
 
-  // Require whitespace before the quantity to avoid eating trailing digits of product names
-  // e.g. "HM Folp 80 0,14Kg" → nom="HM Folp 80", qty=0.14  (not "HM Folp 8" qty=00,14)
-  const produitRe = /^(.+?)\s+(\d+[,\.]\d{2,3})\s*(Kg|L|g|ml|cl|hl)$/i
+  // Quantité = "0,XX" ou "X,XX" ou "XX,XX" (1-2 chiffres, pas de zéro initial multiple)
+  // .+ greedy → préfère le nom de produit le plus long
+  // "Freeway 4800,14L" → nom="Freeway 480" qty=0,14
+  // "HM Folp 800,14Kg" → nom="HM Folp 80" qty=0,14
+  // "LBG-01F340,43L"   → nom="LBG-01F34" qty=0,43
+  const produitRe = /^(.+)\s*((?:0|[1-9][0-9]?)[,\.][0-9]{2,3})\s*(Kg|L|g|ml|cl|hl)$/i
 
   // ── Passe 1 : entêtes parcelles (section "--") + produits annuels ──
   let currentParcelle = null
