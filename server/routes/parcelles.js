@@ -60,6 +60,68 @@ router.get('/:id', (req, res) => {
   res.json({ ...parseParcelle(p), vendanges })
 })
 
+// Comparaison rendement année par année : cette parcelle vs moyenne des parcelles
+// rattachées au même pressoir de référence (commune_pressoir || commune)
+router.get('/:id/comparaison-pressoir', (req, res) => {
+  const p = db.prepare('SELECT * FROM parcelles WHERE id = ?').get(req.params.id)
+  if (!p) return res.status(404).json({ error: 'Parcelle introuvable' })
+
+  const pressoir = p.commune_pressoir || p.commune
+  if (!pressoir) return res.json({ pressoir: null, annees: [] })
+
+  // Toutes les parcelles rattachées au même pressoir (y compris celle-ci)
+  const groupParcelles = db.prepare(`
+    SELECT id, surface_plantee_ca, surface_totale_ca
+    FROM parcelles
+    WHERE COALESCE(NULLIF(commune_pressoir, ''), commune) = ?
+  `).all(pressoir)
+
+  const ids = groupParcelles.map(x => x.id)
+  if (ids.length === 0) return res.json({ pressoir, annees: [] })
+
+  // Vendanges du groupe
+  const placeholders = ids.map(() => '?').join(',')
+  const vendanges = db.prepare(`
+    SELECT parcelle_id, annee, poids_total
+    FROM vendanges
+    WHERE parcelle_id IN (${placeholders})
+  `).all(...ids)
+
+  // surface en ha utilisée pour le calcul du rendement (plantée prioritaire, sinon totale)
+  function surfaceHa(par) {
+    const ca = par.surface_plantee_ca || par.surface_totale_ca || 0
+    return ca / 10000
+  }
+  const parcelleMap = new Map(groupParcelles.map(x => [x.id, x]))
+
+  // Agrège par année
+  const byYear = new Map()
+  for (const v of vendanges) {
+    const par = parcelleMap.get(v.parcelle_id)
+    const ha = surfaceHa(par)
+    if (!ha || !v.poids_total) continue
+    if (!byYear.has(v.annee)) byYear.set(v.annee, { poidsGroup: 0, haGroup: 0, parcelleSet: new Set(), kgha_parcelle: null })
+    const y = byYear.get(v.annee)
+    y.poidsGroup += v.poids_total
+    y.haGroup    += ha
+    y.parcelleSet.add(v.parcelle_id)
+    if (v.parcelle_id === p.id) {
+      y.kgha_parcelle = Math.round(v.poids_total / ha)
+    }
+  }
+
+  const annees = [...byYear.entries()]
+    .map(([annee, y]) => ({
+      annee,
+      kgha_parcelle: y.kgha_parcelle,
+      kgha_pressoir: y.haGroup > 0 ? Math.round(y.poidsGroup / y.haGroup) : null,
+      n_parcelles:   y.parcelleSet.size
+    }))
+    .sort((a, b) => a.annee - b.annee)
+
+  res.json({ pressoir, annees })
+})
+
 router.put('/:id', (req, res) => {
   const p = db.prepare('SELECT id FROM parcelles WHERE id = ?').get(req.params.id)
   if (!p) return res.status(404).json({ error: 'Parcelle introuvable' })

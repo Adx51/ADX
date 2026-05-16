@@ -20,12 +20,16 @@ export default function ParcelleDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [geoFeatures, setGeoFeatures] = useState(null)
   const [photoOpen, setPhotoOpen] = useState(false)
+  const [comparaison, setComparaison] = useState(null)
 
   useEffect(() => {
     api.get(`/parcelles/${id}`).then(data => {
       setParcelle(data)
       setLoading(false)
     })
+    api.get(`/parcelles/${id}/comparaison-pressoir`)
+      .then(setComparaison)
+      .catch(() => setComparaison(null))
   }, [id])
 
   // Récupère le polygone cadastral pour l'afficher en vert sur la carte
@@ -188,6 +192,23 @@ export default function ParcelleDetail() {
                     <span className="flex items-center gap-1 text-xs text-gray-500">
                       <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#9ca3af" strokeWidth="1.5" strokeDasharray="4,2"/></svg>
                       objectif
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {comparaison?.pressoir && comparaison.annees?.filter(a => a.kgha_parcelle != null).length >= 1 && (
+                <div className="card mb-3 p-3">
+                  <p className="text-xs font-semibold text-gray-700 mb-1">
+                    Rendement vs moyenne pressoir <span className="text-vigne-700">{comparaison.pressoir}</span>
+                  </p>
+                  <ComparaisonChart data={comparaison.annees} />
+                  <div className="flex items-center gap-4 mt-2 justify-center">
+                    <span className="flex items-center gap-1 text-xs text-gray-500">
+                      <span className="inline-block w-3 h-3 rounded-sm bg-amber-400" /> Cette parcelle
+                    </span>
+                    <span className="flex items-center gap-1 text-xs text-gray-500">
+                      <span className="inline-block w-3 h-3 rounded-sm bg-vigne-600" /> Moyenne pressoir
                     </span>
                   </div>
                 </div>
@@ -359,6 +380,81 @@ function VendangeChart({ vendanges, surfaceCa }) {
           {d.annee}
         </text>
       ))}
+    </svg>
+  )
+}
+
+function ComparaisonChart({ data }) {
+  // Max 6 années, en chronologique
+  const rows = [...data].slice(-6)
+  if (rows.length === 0) return null
+
+  const W = 320, H = 150
+  const PAD = { top: 22, right: 10, bottom: 26, left: 10 }
+  const CW = W - PAD.left - PAD.right
+  const CH = H - PAD.top - PAD.bottom
+
+  const allValues = rows.flatMap(r => [r.kgha_parcelle || 0, r.kgha_pressoir || 0])
+  const maxY = Math.max(...allValues, 1) * 1.2
+
+  const xStep = CW / rows.length
+  const xPos = i => PAD.left + i * xStep + xStep / 2
+  const yPos = v => PAD.top + CH - (v / maxY) * CH
+  const barW = xStep * 0.32
+
+  const yGuides = [0.5, 1].map(f => ({ pct: f, val: Math.round(maxY * f) }))
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ display: 'block' }}>
+      {yGuides.map(({ pct, val }) => {
+        const y = yPos(maxY * pct)
+        return (
+          <g key={pct}>
+            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#f3f4f6" strokeWidth="1" />
+            <text x={PAD.left + 2} y={y - 2} fontSize="8" fill="#d1d5db">
+              {val >= 1000 ? `${Math.round(val / 1000)}k` : val}
+            </text>
+          </g>
+        )
+      })}
+
+      {rows.map((r, i) => {
+        const cx = xPos(i)
+        const vp = r.kgha_parcelle || 0
+        const vg = r.kgha_pressoir || 0
+        return (
+          <g key={r.annee}>
+            {vp > 0 && (
+              <>
+                <rect x={cx - barW - 1} y={yPos(vp)} width={barW} height={CH - (yPos(vp) - PAD.top)}
+                      rx="2" fill="#fbbf24" />
+                <text x={cx - barW / 2 - 1} y={yPos(vp) - 3} textAnchor="middle"
+                      fontSize="8" fill="#92400e" fontWeight="600">
+                  {vp >= 1000 ? `${Math.round(vp / 100) / 10}k` : vp}
+                </text>
+              </>
+            )}
+            {vg > 0 && (
+              <>
+                <rect x={cx + 1} y={yPos(vg)} width={barW} height={CH - (yPos(vg) - PAD.top)}
+                      rx="2" fill="#15803d" />
+                <text x={cx + barW / 2 + 1} y={yPos(vg) - 3} textAnchor="middle"
+                      fontSize="8" fill="#14532d" fontWeight="600">
+                  {vg >= 1000 ? `${Math.round(vg / 100) / 10}k` : vg}
+                </text>
+              </>
+            )}
+            <text x={cx} y={H - 8} textAnchor="middle" fontSize="10" fill="#6b7280">
+              {r.annee}
+            </text>
+            {r.n_parcelles > 1 && (
+              <text x={cx} y={H - 0} textAnchor="middle" fontSize="7" fill="#9ca3af">
+                {r.n_parcelles} parc.
+              </text>
+            )}
+          </g>
+        )
+      })}
     </svg>
   )
 }
