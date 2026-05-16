@@ -417,14 +417,14 @@ function ParcelleSection({ parcelles, attendu, campagneClosed, closed, onOpen, o
 function ParcelleRow({ parcelle, attendu, campagneClosed, closed, onOpen, onAdd }) {
   const hasVendange = Boolean(parcelle.vendange_id)
   const rendement   = hasVendange ? rendementKgHa(parcelle.poids_total, parcelle.surface_totale_ca) : null
-  const canAdd      = !campagneClosed && !closed && onAdd
+  const showAdd     = !campagneClosed && !closed
 
   return (
     <div className={`card p-0 overflow-hidden flex items-stretch ${closed ? 'opacity-60' : ''}`}>
       <button
         onClick={(!hasVendange && campagneClosed) ? undefined : onOpen}
         disabled={!hasVendange && campagneClosed}
-        className="flex items-center gap-3 flex-1 text-left p-4 active:bg-gray-50"
+        className="flex items-center gap-3 flex-1 min-w-0 text-left p-4 active:bg-gray-50"
       >
         <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
           closed ? 'bg-gray-100' : hasVendange ? 'bg-amber-100' : 'bg-gray-100'
@@ -438,7 +438,7 @@ function ParcelleRow({ parcelle, attendu, campagneClosed, closed, onOpen, onAdd 
           <p className="font-semibold text-gray-900 truncate">{parcelle.nom}</p>
           {hasVendange ? (
             <>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-gray-500 mt-0.5 truncate">
                 {Number(parcelle.poids_total || 0).toFixed(0)} kg · {parcelle.nb_caisses_total || 0} caisses
                 {rendement && <span className="text-vigne-600"> · {rendement.toLocaleString('fr-FR')} kg/ha</span>}
               </p>
@@ -447,7 +447,7 @@ function ParcelleRow({ parcelle, attendu, campagneClosed, closed, onOpen, onAdd 
               )}
             </>
           ) : (
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-gray-400 mt-0.5 truncate">
               {caToDisplay(parcelle.surface_totale_ca)}
               {!campagneClosed && <span className="text-amber-600 font-medium"> · Tap + pour commencer</span>}
             </p>
@@ -456,9 +456,9 @@ function ParcelleRow({ parcelle, attendu, campagneClosed, closed, onOpen, onAdd 
         <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
       </button>
 
-      {canAdd && (
+      {showAdd && (
         <button
-          onClick={onAdd}
+          onClick={onAdd || onOpen}
           className="flex items-center justify-center w-14 border-l border-gray-100 bg-amber-50 active:bg-amber-100 flex-shrink-0"
         >
           <Plus size={20} className="text-amber-600" />

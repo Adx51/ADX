@@ -52,10 +52,11 @@ export default function ChargementForm() {
     setSaving(true)
     setError('')
     try {
+      const poidsStr = String(data.poids_kg || '').replace(',', '.').trim()
       const payload = {
         vendange_id:     vendangeId,
-        nombre_caisses:  parseInt(data.nombre_caisses),
-        poids_kg:        parseFloat(data.poids_kg),
+        nombre_caisses:  parseInt(data.nombre_caisses, 10),
+        poids_kg:        parseFloat(poidsStr),
         date_chargement: data.date_chargement,
         heure_livraison: data.heure_livraison || null,
         notes:           data.notes || null,
@@ -135,21 +136,21 @@ export default function ChargementForm() {
                   <Package size={15} className="text-amber-500" />
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Caisses *</label>
                 </div>
-                <input type="number" inputMode="numeric"
+                <input type="text" inputMode="numeric" pattern="[0-9]*"
                        autoFocus={!isEdit}
                        className="w-full text-center text-4xl font-bold text-gray-900 outline-none bg-transparent py-1"
-                       min="1" placeholder="0"
-                       {...register('nombre_caisses', { required: true, min: 1 })} />
+                       placeholder="0"
+                       {...register('nombre_caisses', { required: true, min: 1, valueAsNumber: false })} />
               </div>
               <div className="p-4 flex flex-col items-center">
                 <div className="flex items-center gap-2 mb-3">
                   <Scale size={15} className="text-amber-500" />
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Poids (kg) *</label>
                 </div>
-                <input type="number" inputMode="decimal" step="0.1"
+                <input type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*"
                        className="w-full text-center text-4xl font-bold text-amber-700 outline-none bg-transparent py-1"
-                       min="0" placeholder="0"
-                       {...register('poids_kg', { required: true, min: 0 })} />
+                       placeholder="0"
+                       {...register('poids_kg', { required: true, min: 0, valueAsNumber: false })} />
               </div>
             </div>
 
