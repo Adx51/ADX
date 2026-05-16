@@ -357,7 +357,7 @@ function parseMesParcellePDFText(text) {
   const annee = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear()
 
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
-  const SURFACE_RE = /^Surface\s*:\s*([\d,\.]+)\s*ha/i
+  const SURFACE_RE = /^Surface\s*:\s*([\d,\.]+)\s*ha(?:\s*[–\-]\s*Ilot\s*N°\s*:\s*(\d+))?/i
   const DATE_ROW_START = /^\d{2}\/\d{2}\/\d{2}\b/
   const SEGMENT_RE = /^(Herbicide\s*s?|Fongi(?:\.\s*\/?\s*Bact\.?)?|Insecticide\s*s?|Biocontr[oô]le\s*s?|Autres?|Molluscicide\s*s?)/i
 
@@ -373,11 +373,14 @@ function parseMesParcellePDFText(text) {
     return { full: m[0], total: parseFloat(m[3].replace(',', '.')), bio: parseFloat(m[4].replace(',', '.')) }
   }
 
-  // Find all "value unit/ha" patterns (applied dose + ref dose)
+  // Combined dose pattern: optional surface% prefix (e.g. "87,99" max 100,XX) glued to dose (X.X+ with dot) + unit/ha
+  // Surface% uses comma decimal (French), dose uses dot decimal — this distinguishes them when concatenated
   function findDoses(t) {
-    const re = /(\d+[,\.]\d+)\s*(Kg|L|KG|HL|kg|l|g|ml)\s*\/\s*ha\b/gi
+    const re = /((?:100|\d{1,2})[,\.]\d{1,2})?\s*(\d{1,4}\.\d+)\s*(Kg|L|KG|HL|kg|l|g|ml)\s*\/\s*ha\b/gi
     const out = []; let m
-    while ((m = re.exec(t)) !== null) out.push({ i: m.index, end: m.index + m[0].length, val: m[1], unit: m[2] })
+    while ((m = re.exec(t)) !== null) {
+      out.push({ i: m.index, end: m.index + m[0].length, surf: m[1], dose: m[2], unit: m[3] })
+    }
     return out
   }
 
@@ -401,7 +404,9 @@ function parseMesParcellePDFText(text) {
     if (!ift) return
     rest = rest.slice(0, rest.lastIndexOf(ift.full)).trim()
 
-    // Strip ref dose (rightmost /ha pattern), then extract applied dose
+    // Strip ref dose (rightmost match), then extract applied dose
+    // The combined regex captures surface% glued with dose, so stripping the applied dose match
+    // also removes the surface% prefix in one shot — no separate surface stripping needed.
     let doses = findDoses(rest)
     if (doses.length >= 1) {
       const ref = doses[doses.length - 1]
@@ -411,13 +416,10 @@ function parseMesParcellePDFText(text) {
     let dose_ha = null, unite = 'Kg'
     if (doses.length >= 1) {
       const appl = doses[doses.length - 1]
-      dose_ha = parseFloat(appl.val.replace(',', '.'))
+      dose_ha = parseFloat(appl.dose)
       unite = /^l/i.test(appl.unit) ? 'L' : 'Kg'
       rest = (rest.slice(0, appl.i) + rest.slice(appl.end)).trim()
     }
-
-    // Strip trailing surface % (e.g. "83,33" directly merged with product name)
-    rest = rest.replace(/\d{1,3}[,\.]\d{2}\s*$/, '').trim()
 
     // Extract segment → type
     const segMatch = rest.match(SEGMENT_RE)
@@ -459,19 +461,22 @@ function parseMesParcellePDFText(text) {
     if (/^(Exploitation|Ann[eé]e de r[eé]colte|Commune\s*:|N°\s*Siret|Ilot N°|Signature|Segment$|Produit$|Pourcent|Surf\.$|Trait[eé]e$|\(%\)$|Dose appliqu|Dose de r[eé]f|IFT herb|IFT hors|IFT [Tt]otal|Non comptab|comptabilis|[eÉ]dit[eé] par|Page \d|Bilan de l|D[eé]tail par)/i.test(line)) continue
 
     // Parcelle header — may span two lines separated by em dash (–)
+    // Ilot N° is appended to the name for uniqueness (multiple parcelles can share the same name)
     if (/^Parcelle\s*:/i.test(line)) {
       if (lineBuffer.length) tryFlush()
       lineBuffer = []
       pendingParcelleName = null
       // Single-line: "Parcelle : NOM – Surface : X ha – Ilot N° : Y"
-      const sameLine = line.match(/^Parcelle\s*:\s*(.+?)\s*[–\-]\s*Surface\s*:\s*([\d,\.]+)\s*ha/i)
+      const sameLine = line.match(/^Parcelle\s*:\s*(.+?)\s*[–\-]\s*Surface\s*:\s*([\d,\.]+)\s*ha(?:\s*[–\-]\s*Ilot\s*N°\s*:\s*(\d+))?/i)
       if (sameLine) {
-        currentParcelle = sameLine[1].trim()
+        const baseName = sameLine[1].trim()
+        const ilot = sameLine[3]
+        currentParcelle = ilot ? `${baseName} — Ilot ${ilot}` : baseName
         currentSurfaceHa = parseFloat(sameLine[2].replace(',', '.'))
         if (!parcellesMap.has(currentParcelle))
           parcellesMap.set(currentParcelle, { nomSource: currentParcelle, surfaceHa: currentSurfaceHa })
       } else {
-        // Name on this line, surface on next line
+        // Name on this line, surface (and possibly Ilot) on next line
         pendingParcelleName = line.replace(/^Parcelle\s*:\s*/i, '').replace(/\s*[–\-]+\s*$/, '').trim()
       }
       continue
@@ -481,7 +486,8 @@ function parseMesParcellePDFText(text) {
     if (pendingParcelleName) {
       const sm = line.match(SURFACE_RE)
       if (sm) {
-        currentParcelle = pendingParcelleName
+        const ilot = sm[2]
+        currentParcelle = ilot ? `${pendingParcelleName} — Ilot ${ilot}` : pendingParcelleName
         currentSurfaceHa = parseFloat(sm[1].replace(',', '.'))
         pendingParcelleName = null
         if (!parcellesMap.has(currentParcelle))
