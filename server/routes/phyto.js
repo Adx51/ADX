@@ -342,6 +342,130 @@ function parseCarnetPDFText(text) {
   return { prestataire, annee, traitements, parcelles: [...parcellesInfo.values()] }
 }
 
+// ── Format detection ──────────────────────────────────────────────────────────
+function isMesParcelles(text) {
+  return /Bilan de l.IFT MAEC/i.test(text) ||
+         /mesparcelles/i.test(text) ||
+         /D[eé]tail par interventions/i.test(text)
+}
+
+// ── Parser mesparcelles ("Bilan IFT MAEC - Détail par interventions") ─────────
+function parseMesParcellePDFText(text) {
+  const exploitMatch = text.match(/Exploitation\s*:\s*(.+)/m)
+  const prestataire = exploitMatch ? exploitMatch[1].trim() : null
+  const yearMatch = text.match(/Ann[eé]e de r[eé]colte\s+(\d{4})/i)
+  const annee = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear()
+
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  const PARCELLE_RE = /^Parcelle\s*:\s*(.+?)\s*-\s*Surface\s*:\s*([\d,\.]+)\s*ha/i
+  const DATE_ROW_START = /^\d{2}\/\d{2}\/\d{2}\b/
+  // 4 trailing decimal numbers = IFT herbicide | IFT hors herbicide | IFT total | IFT biocontrole
+  const ANCHOR_RE = /(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s+(\d+[,\.]\d+)\s*$/
+  const SEGMENT_RE = /^(Herbicide\s*s?|Fongi(?:\.\s*\/?\s*Bact\.?)?|Insecticide\s*s?|Biocontr[oô]le\s*s?|Autres?|Molluscicide\s*s?)/i
+
+  const parcellesMap = new Map()
+  const traitements = []
+  let currentParcelle = null
+  let currentSurfaceHa = null
+  let lineBuffer = []
+
+  function parseAndAddRow(combined) {
+    if (/^Total\b/i.test(combined)) return
+    const dateMatch = combined.match(/^(\d{2})\/(\d{2})\/(\d{2})\s+/)
+    if (!dateMatch) return
+    const [full, dd, mm, yy] = dateMatch
+    const dateStr = `20${yy}-${mm}-${dd}`
+    let rest = combined.slice(full.length).trim()
+
+    const iftMatch = rest.match(ANCHOR_RE)
+    if (!iftMatch) return
+    const ift_herb  = parseFloat(iftMatch[1].replace(',', '.'))
+    const ift_total = parseFloat(iftMatch[3].replace(',', '.'))
+    const ift_bio   = parseFloat(iftMatch[4].replace(',', '.'))
+    rest = rest.slice(0, rest.lastIndexOf(iftMatch[0])).trim()
+
+    // Strip reference dose (e.g. "0,066KG/HA" or "0.066 kg/ha")
+    rest = rest.replace(/\d+[,\.]\d+\s*(?:kg|l|g|ml)\/ha\b/gi, '').trim()
+
+    // Extract applied dose (e.g. "0.04 kg/ha")
+    let dose_ha = null, unite = 'Kg'
+    const doseMatch = rest.match(/(\d+[,\.]\d+)\s*(kg|l|g|ml)\s*\/\s*ha\b/i)
+    if (doseMatch) {
+      dose_ha = parseFloat(doseMatch[1].replace(',', '.'))
+      unite = /^l/i.test(doseMatch[2]) ? 'L' : 'Kg'
+      rest = rest.slice(0, rest.lastIndexOf(doseMatch[0])).trim()
+    }
+
+    // Strip trailing surface percentage integer (e.g. "100", "50")
+    rest = rest.replace(/\s+\d{1,3}\s*$/, '').trim()
+
+    // Extract segment → type
+    const segMatch = rest.match(SEGMENT_RE)
+    let type = 'autre', nom = rest
+    if (segMatch) {
+      const seg = segMatch[1].toLowerCase()
+      if (/herbicide/.test(seg))   type = 'herbicide'
+      else if (/fongi/.test(seg))  type = 'fongicide'
+      else if (/insecticide/.test(seg)) type = 'insecticide'
+      else if (/biocont/.test(seg)) type = 'biocontrole'
+      nom = rest.slice(segMatch[0].length).trim()
+    }
+
+    let ift_value = ift_total
+    if (ift_bio > 0 && ift_total === 0) { type = 'biocontrole'; ift_value = ift_bio }
+    if (!nom) return
+
+    const quantite = dose_ha != null && currentSurfaceHa
+      ? Math.round(dose_ha * currentSurfaceHa * 1000) / 1000
+      : null
+
+    let trt = traitements.find(t =>
+      t.date === dateStr && t.parcelle_nom_source === currentParcelle
+    )
+    if (!trt) {
+      trt = { date: dateStr, parcelle_nom_source: currentParcelle, description: null, produits: [] }
+      traitements.push(trt)
+    }
+    trt.produits.push({ nom, type, dose_ha, quantite, unite, ift_value })
+  }
+
+  function tryFlush() {
+    const combined = lineBuffer.join(' ')
+    if (!ANCHOR_RE.test(combined)) return
+    parseAndAddRow(combined)
+    lineBuffer = []
+  }
+
+  for (const line of lines) {
+    // Skip header/footer/column-header lines
+    if (/^(Exploitation|Ann[eé]e de r[eé]colte|Commune\s*:|N°\s*Siret|Ilot N°|Segment$|Produit$|Pourcent|Dose appliqu|Dose de r[eé]f|IFT herb|IFT hors|IFT Total|Non comptab|[eÉ]dit[eé] par|Page \d|Bilan de l|D[eé]tail par)/i.test(line)) continue
+
+    const pm = line.match(PARCELLE_RE)
+    if (pm) {
+      if (lineBuffer.length) tryFlush()
+      lineBuffer = []
+      currentParcelle = pm[1].trim()
+      currentSurfaceHa = parseFloat(pm[2].replace(',', '.'))
+      if (!parcellesMap.has(currentParcelle)) {
+        parcellesMap.set(currentParcelle, { nomSource: currentParcelle, surfaceHa: currentSurfaceHa })
+      }
+      continue
+    }
+
+    if (!currentParcelle) continue
+
+    if (DATE_ROW_START.test(line) && lineBuffer.length > 0) {
+      tryFlush()
+    }
+
+    lineBuffer.push(line)
+    tryFlush()
+  }
+  if (lineBuffer.length) tryFlush()
+
+  return { prestataire, annee, traitements, parcelles: [...parcellesMap.values()] }
+}
+
 function parseRecapPDFText(text) {
   const presMatch = text.match(/^((?:SARL|EARL|EURL|SAS)\s+[\w\s\-\.]+)/m)
   const prestataire = presMatch ? presMatch[1].trim().replace(/\s+/g, ' ') : null
@@ -644,7 +768,9 @@ router.post('/recaps/parse-pdf', upload.single('pdf'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Fichier PDF manquant' })
   try {
     const data = await pdfParse(req.file.buffer)
-    const carnet = parseCarnetPDFText(data.text)
+    const carnet = isMesParcelles(data.text)
+      ? parseMesParcellePDFText(data.text)
+      : parseCarnetPDFText(data.text)
     const allParcelles = db.prepare('SELECT id, nom FROM parcelles ORDER BY nom').all()
 
     // Mappings sauvegardés pour ce prestataire
@@ -804,7 +930,7 @@ function aggregateIftByYear(annee) {
     else acc.ift_autres += ift
 
     // Cuivre : produits contenant "cuivre" ou "cu " ou cuivre dans le nom (heuristique simple)
-    if (/cuivre|nordox|kocide|champ\s*flo|colpenn/i.test(r.prod_nom) && r.unite?.toLowerCase() === 'kg') {
+    if (/cuivre|nordox|kocide|champ\s*flo|colpenn|bouillie\s*bordelaise/i.test(r.prod_nom) && r.unite?.toLowerCase() === 'kg') {
       acc.cuivre_kg += r.quantite || 0
     }
 
