@@ -380,7 +380,7 @@ function parseMesParcellePDFText(text) {
   // À la place : on matche dose+unité, puis on splitte un préfixe "100" en
   // post-traitement (les doses phyto réelles ne dépassent jamais 100).
   function findDoses(t) {
-    const re = /(\d{1,4}\.\d+)\s*(Kg|L|KG|HL|kg|l|g|ml)\s*\/\s*ha\b/gi
+    const re = /(\d{1,4}(?:\.\d+)?)\s*(Kg|L|KG|HL|kg|l|g|ml)\s*\/\s*ha\b/gi
     const out = []; let m
     while ((m = re.exec(t)) !== null) {
       let dose = m[1]
