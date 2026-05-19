@@ -415,12 +415,17 @@ function parseMesParcellePDFText(text) {
     if (!ift) return
     rest = rest.slice(0, rest.lastIndexOf(ift.full)).trim()
 
-    // Strip ref dose (rightmost match), then extract applied dose
-    // The combined regex captures surface% glued with dose, so stripping the applied dose match
-    // also removes the surface% prefix in one shot — no separate surface stripping needed.
+    // Strip ref dose (rightmost match), then extract applied dose.
+    // pdfjs may concatenate the surface% column with the dose:
+    //  - integer surf (100): "1006.0 L/ha" → handled by findDoses split
+    //  - decimal surf with comma (e.g. 83,33%): pdfjs splits at the comma,
+    //    so the decimal part "33" gets prepended to the dose → "333 Kg/ha".
+    // Generic fix: if applied dose > ref dose (impossible), strip leading digits.
     let doses = findDoses(rest)
+    let refVal = null
     if (doses.length >= 1) {
       const ref = doses[doses.length - 1]
+      refVal = parseFloat(ref.dose)
       rest = (rest.slice(0, ref.i) + rest.slice(ref.end)).trim()
     }
     doses = findDoses(rest)
@@ -429,6 +434,14 @@ function parseMesParcellePDFText(text) {
       const appl = doses[doses.length - 1]
       dose_ha = parseFloat(appl.dose)
       unite = /^l/i.test(appl.unit) ? 'L' : 'Kg'
+      // If applied > ref, leading digits are a surface% decimal — strip them.
+      if (refVal !== null && dose_ha > refVal && appl.dose.length > 1) {
+        for (let trim = 1; trim <= 3; trim++) {
+          if (trim >= appl.dose.length) break
+          const candidate = parseFloat(appl.dose.slice(trim))
+          if (candidate > 0 && candidate <= refVal) { dose_ha = candidate; break }
+        }
+      }
       rest = (rest.slice(0, appl.i) + rest.slice(appl.end)).trim()
     }
 
