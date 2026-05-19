@@ -373,13 +373,24 @@ function parseMesParcellePDFText(text) {
     return { full: m[0], total: parseFloat(m[3].replace(',', '.')), bio: parseFloat(m[4].replace(',', '.')) }
   }
 
-  // Combined dose pattern: optional surface% prefix (e.g. "87,99" max 100,XX) glued to dose (X.X+ with dot) + unit/ha
-  // Surface% uses comma decimal (French), dose uses dot decimal — this distinguishes them when concatenated
+  // pdfjs colle parfois la colonne "Pourcent. Surf. Traitée" (souvent "100") à
+  // la dose suivante : "1006.0 L/ha" doit être lu comme surf=100, dose=6.0.
+  // Le précédent regex avec préfixe optionnel pouvait backtracker et consommer
+  // l'espace via \s* avec un surf vide, puis matcher tout "1006.0" comme dose.
+  // À la place : on matche dose+unité, puis on splitte un préfixe "100" en
+  // post-traitement (les doses phyto réelles ne dépassent jamais 100).
   function findDoses(t) {
-    const re = /(\d{1,3}(?:[,\.]\d{1,2})?)?\s*(\d{1,4}\.\d+)\s*(Kg|L|KG|HL|kg|l|g|ml)\s*\/\s*ha\b/gi
+    const re = /(\d{1,4}\.\d+)\s*(Kg|L|KG|HL|kg|l|g|ml)\s*\/\s*ha\b/gi
     const out = []; let m
     while ((m = re.exec(t)) !== null) {
-      out.push({ i: m.index, end: m.index + m[0].length, surf: m[1], dose: m[2], unit: m[3] })
+      let dose = m[1]
+      let surf = null
+      if (parseFloat(dose) >= 100 && dose.startsWith('100') && dose.length > 3) {
+        surf = '100'
+        const rest = dose.slice(3)
+        dose = rest.startsWith('.') ? '0' + rest : rest
+      }
+      out.push({ i: m.index, end: m.index + m[0].length, surf, dose, unit: m[2] })
     }
     return out
   }
