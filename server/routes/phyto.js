@@ -456,6 +456,9 @@ function parseMesParcellePDFText(text) {
       else if (/biocont/.test(seg)) type = 'biocontrole'
       nom = rest.slice(segMatch[0].length).trim()
     }
+    // Strip surface% suffix glued to product name by pdfjs (e.g. "RAMI83,33" → "RAMI",
+    // "CENT-787,33" → "CENT-7"). Pattern: 1–2 digits OR 100, then comma/dot, then 0–2 digits.
+    nom = nom.replace(/\s*(?:100|\d{1,2})[,\.]\d{0,2}\s*$/, '').trim()
 
     let ift_value = ift.total
     if (ift.bio > 0 && ift.total === 0) { type = 'biocontrole'; ift_value = ift.bio }
