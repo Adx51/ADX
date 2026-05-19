@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import bcrypt from 'bcryptjs'
 import path from 'path'
 import db, { ADMIN_EMAIL, backupDb } from '../db.js'
 import { requireAuth, requireAdmin } from '../middleware/auth.js'
@@ -79,6 +80,18 @@ router.put('/users/:id/role', (req, res) => {
     return res.status(400).json({ error: 'Cet administrateur ne peut pas être rétrogradé' })
   }
   db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, req.params.id)
+  res.json({ success: true })
+})
+
+router.put('/users/:id/password', async (req, res) => {
+  const { password } = req.body
+  if (!password || password.length < 6) {
+    return res.status(400).json({ error: 'Mot de passe trop court (6 caractères minimum)' })
+  }
+  const u = db.prepare('SELECT id FROM users WHERE id = ?').get(req.params.id)
+  if (!u) return res.status(404).json({ error: 'Utilisateur introuvable' })
+  const hash = await bcrypt.hash(password, 12)
+  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hash, req.params.id)
   res.json({ success: true })
 })
 

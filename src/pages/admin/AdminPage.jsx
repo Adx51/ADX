@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, List, Trash2, Crown, User, Plus, X, Edit2, Check, Database, Download, Shield, ChevronDown, Leaf, ChevronRight } from 'lucide-react'
+import { Users, List, Trash2, Crown, User, Plus, X, Edit2, Check, Database, Download, Shield, ChevronDown, Leaf, ChevronRight, Eye, EyeOff, KeyRound } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import PageHeader from '../../components/PageHeader'
@@ -235,7 +235,12 @@ function EditUserForm({ user, onSave, onCancel }) {
   const [prenom, setPrenom] = useState(user.prenom)
   const [nom, setNom] = useState(user.nom)
   const [email, setEmail] = useState(user.email)
+  const [password, setPassword] = useState('')
+  const [showPwd, setShowPwd] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [pwdSaving, setPwdSaving] = useState(false)
+  const [pwdError, setPwdError] = useState('')
+  const [pwdOk, setPwdOk] = useState(false)
 
   async function submit(e) {
     e.preventDefault()
@@ -244,34 +249,86 @@ function EditUserForm({ user, onSave, onCancel }) {
     setSaving(false)
   }
 
+  async function savePassword() {
+    if (password.length < 6) { setPwdError('6 caractères minimum'); return }
+    setPwdSaving(true); setPwdError(''); setPwdOk(false)
+    try {
+      await api.put(`/admin/users/${user.id}/password`, { password })
+      setPassword(''); setPwdOk(true)
+      setTimeout(() => setPwdOk(false), 3000)
+    } catch (e) {
+      setPwdError(e.message)
+    } finally {
+      setPwdSaving(false)
+    }
+  }
+
   return (
-    <form onSubmit={submit} className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="label">Prénom</label>
-          <input className="input py-2" value={prenom} onChange={e => setPrenom(e.target.value)} required />
+    <div className="space-y-4">
+      <form onSubmit={submit} className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="label">Prénom</label>
+            <input className="input py-2" value={prenom} onChange={e => setPrenom(e.target.value)} required />
+          </div>
+          <div>
+            <label className="label">Nom</label>
+            <input className="input py-2" value={nom} onChange={e => setNom(e.target.value)} required />
+          </div>
         </div>
         <div>
-          <label className="label">Nom</label>
-          <input className="input py-2" value={nom} onChange={e => setNom(e.target.value)} required />
+          <label className="label">Email</label>
+          <input className="input py-2" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
         </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={onCancel}
+                  className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 active:bg-gray-50">
+            Annuler
+          </button>
+          <button type="submit" disabled={saving}
+                  className="flex-1 py-2 rounded-xl bg-vigne-700 text-white text-sm font-medium active:bg-vigne-800 flex items-center justify-center gap-1.5">
+            <Check size={14} />
+            {saving ? 'Enregistrement...' : 'Enregistrer'}
+          </button>
+        </div>
+      </form>
+
+      {/* Réinitialisation du mot de passe */}
+      <div className="border-t border-gray-100 pt-3 space-y-2">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+          <KeyRound size={12} /> Nouveau mot de passe
+        </p>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <input
+              type={showPwd ? 'text' : 'password'}
+              value={password}
+              onChange={e => { setPassword(e.target.value); setPwdError(''); setPwdOk(false) }}
+              className="input py-2 pr-9 w-full"
+              placeholder="Nouveau mot de passe…"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPwd(v => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400"
+            >
+              {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={savePassword}
+            disabled={pwdSaving || !password}
+            className="px-3 py-2 rounded-xl bg-amber-500 text-white text-sm font-medium active:bg-amber-600 disabled:opacity-40 flex items-center gap-1.5"
+          >
+            <KeyRound size={14} />
+            {pwdSaving ? '…' : 'Changer'}
+          </button>
+        </div>
+        {pwdError && <p className="text-xs text-red-600">{pwdError}</p>}
+        {pwdOk && <p className="text-xs text-vigne-700 font-medium">✓ Mot de passe mis à jour</p>}
       </div>
-      <div>
-        <label className="label">Email</label>
-        <input className="input py-2" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-      </div>
-      <div className="flex gap-2">
-        <button type="button" onClick={onCancel}
-                className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 active:bg-gray-50">
-          Annuler
-        </button>
-        <button type="submit" disabled={saving}
-                className="flex-1 py-2 rounded-xl bg-vigne-700 text-white text-sm font-medium active:bg-vigne-800 flex items-center justify-center gap-1.5">
-          <Check size={14} />
-          {saving ? 'Enregistrement...' : 'Enregistrer'}
-        </button>
-      </div>
-    </form>
+    </div>
   )
 }
 
