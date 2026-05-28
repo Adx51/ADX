@@ -338,16 +338,17 @@ function ActiviteSection({ activite, navigate }) {
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
                 <CheckSquare size={12} /> Tâches
               </p>
-              {activeTaches.map(t => {
+              {taches.map(t => {
                 const s = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
                 const { Icon } = s
+                const done = t.statut === 'termine'
                 return (
                   <button key={t.id} onClick={() => navigate(`/taches/${t.id}/edit`)}
-                    className="w-full flex items-center gap-2.5 text-left active:opacity-70">
+                    className={`w-full flex items-center gap-2.5 text-left active:opacity-70 ${done ? 'opacity-50' : ''}`}>
                     <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${s.bg}`}>
                       <Icon size={12} className={s.color} />
                     </span>
-                    <span className="flex-1 text-sm text-gray-800">{t.titre}</span>
+                    <span className={`flex-1 text-sm ${done ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.titre}</span>
                     {t.date_echeance && (
                       <span className="text-xs text-gray-400 flex-shrink-0">
                         {new Date(t.date_echeance).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
@@ -356,11 +357,6 @@ function ActiviteSection({ activite, navigate }) {
                   </button>
                 )
               })}
-              {doneTaches.length > 0 && (
-                <p className="text-xs text-gray-400 pt-1">
-                  + {doneTaches.length} terminée{doneTaches.length > 1 ? 's' : ''}
-                </p>
-              )}
             </div>
           )}
 
