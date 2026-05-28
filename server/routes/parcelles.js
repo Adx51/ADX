@@ -111,6 +111,7 @@ router.get('/:id/comparaison-pressoir', (req, res) => {
   }
 
   const annees = [...byYear.entries()]
+    .filter(([, y]) => y.kgha_parcelle !== null) // n'afficher que les années où cette parcelle a des données
     .map(([annee, y]) => ({
       annee,
       kgha_parcelle: y.kgha_parcelle,
@@ -120,6 +121,28 @@ router.get('/:id/comparaison-pressoir', (req, res) => {
     .sort((a, b) => a.annee - b.annee)
 
   res.json({ pressoir, annees })
+})
+
+router.get('/:id/activite', (req, res) => {
+  const p = db.prepare('SELECT id FROM parcelles WHERE id = ?').get(req.params.id)
+  if (!p) return res.status(404).json({ error: 'Parcelle introuvable' })
+
+  const taches = db.prepare(`
+    SELECT id, titre, statut, priorite, date_echeance, created_at
+    FROM taches
+    WHERE parcelle_id = ?
+    ORDER BY date_echeance ASC NULLS LAST, created_at DESC
+  `).all(req.params.id)
+
+  const traitements = db.prepare(`
+    SELECT id, date, type, produit, dose
+    FROM traitements
+    WHERE parcelle_id = ?
+    ORDER BY date DESC
+    LIMIT 30
+  `).all(req.params.id)
+
+  res.json({ taches, traitements })
 })
 
 router.put('/:id', (req, res) => {

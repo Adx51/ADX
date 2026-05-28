@@ -188,14 +188,14 @@ export default function TacheForm() {
           <div>
             <label className="label flex items-center gap-1.5">
               <LayoutTemplate size={13} className="text-vigne-600" />
-              Depuis un modèle
+              Type de tâche
             </label>
             <select
               className="input"
               defaultValue=""
               onChange={e => { if (e.target.value) setValue('titre', e.target.value) }}
             >
-              <option value="">— Choisir un modèle (optionnel) —</option>
+              <option value="">— Choisir une tâche —</option>
               {modeles.map((m, i) => (
                 <option key={i} value={m.valeur}>{m.valeur}</option>
               ))}

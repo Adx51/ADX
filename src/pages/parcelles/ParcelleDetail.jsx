@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation, Expand } from 'lucide-react'
+import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation, Expand, Sprout, CheckSquare, Clock, AlertCircle, Check, ChevronDown } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
@@ -22,6 +22,7 @@ export default function ParcelleDetail() {
   const [geoFeatures, setGeoFeatures] = useState(null)
   const [photoOpen, setPhotoOpen] = useState(false)
   const [comparaison, setComparaison] = useState(null)
+  const [activite, setActivite] = useState(null)
   const refreshTick = useRefreshTrigger()
 
   useEffect(() => {
@@ -32,6 +33,9 @@ export default function ParcelleDetail() {
     api.get(`/parcelles/${id}/comparaison-pressoir`)
       .then(setComparaison)
       .catch(() => setComparaison(null))
+    api.get(`/parcelles/${id}/activite`)
+      .then(setActivite)
+      .catch(() => setActivite(null))
   }, [id, refreshTick])
 
   // Récupère le polygone cadastral pour l'afficher en vert sur la carte
@@ -169,13 +173,33 @@ export default function ParcelleDetail() {
           </div>
         )}
 
+        {activite && (
+          <ActiviteSection activite={activite} navigate={navigate} />
+        )}
+
         <div>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2">
             <h2 className="font-bold text-gray-900">Historique vendanges</h2>
             <Link to="/vendange" className="text-vigne-700 text-sm font-semibold">
               + Voir
             </Link>
           </div>
+          {(parcelle.commune || parcelle.commune_pressoir || (Array.isArray(parcelle.cepages) && parcelle.cepages.length > 0)) && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {(parcelle.commune_pressoir || parcelle.commune) && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-vigne-100 text-vigne-800 text-xs font-semibold">
+                  <MapPin size={10} />
+                  {parcelle.commune_pressoir || parcelle.commune}
+                </span>
+              )}
+              {Array.isArray(parcelle.cepages) && parcelle.cepages.map(c => (
+                <span key={c} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-medium">
+                  <Grape size={10} />
+                  {c}
+                </span>
+              ))}
+            </div>
+          )}
 
           {(!parcelle.vendanges || parcelle.vendanges.length === 0) ? (
             <div className="card text-center py-6">
@@ -267,6 +291,102 @@ export default function ParcelleDetail() {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+const STATUT_TACHE = {
+  a_faire:  { label: 'À faire',  color: 'text-gray-500', bg: 'bg-gray-100', Icon: Clock },
+  en_cours: { label: 'En cours', color: 'text-blue-600',  bg: 'bg-blue-100', Icon: AlertCircle },
+  termine:  { label: 'Terminée', color: 'text-vigne-600', bg: 'bg-vigne-100', Icon: Check },
+}
+
+const TYPE_TRAITEMENT = {
+  fongicide:   { label: 'Fongicide',    color: 'text-emerald-700', bg: 'bg-emerald-100' },
+  insecticide: { label: 'Insecticide',  color: 'text-orange-700',  bg: 'bg-orange-100' },
+  herbicide:   { label: 'Herbicide',    color: 'text-yellow-700',  bg: 'bg-yellow-100' },
+  biocontrole: { label: 'Biocontrôle',  color: 'text-teal-700',    bg: 'bg-teal-100' },
+  autre:       { label: 'Autre',        color: 'text-gray-600',    bg: 'bg-gray-100' },
+}
+
+function ActiviteSection({ activite, navigate }) {
+  const [open, setOpen] = useState(true)
+  const { taches, traitements } = activite
+
+  const hasTaches = taches.length > 0
+  const hasTraitements = traitements.length > 0
+
+  if (!hasTaches && !hasTraitements) return null
+
+  const activeTaches = taches.filter(t => t.statut !== 'termine')
+  const doneTaches = taches.filter(t => t.statut === 'termine')
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center justify-between w-full mb-2"
+      >
+        <h2 className="font-bold text-gray-900">Activité de la saison</h2>
+        <ChevronDown size={16} className={`text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="space-y-2">
+          {hasTaches && (
+            <div className="card space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                <CheckSquare size={12} /> Tâches
+              </p>
+              {activeTaches.map(t => {
+                const s = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
+                const { Icon } = s
+                return (
+                  <button key={t.id} onClick={() => navigate(`/taches/${t.id}/edit`)}
+                    className="w-full flex items-center gap-2.5 text-left active:opacity-70">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${s.bg}`}>
+                      <Icon size={12} className={s.color} />
+                    </span>
+                    <span className="flex-1 text-sm text-gray-800">{t.titre}</span>
+                    {t.date_echeance && (
+                      <span className="text-xs text-gray-400 flex-shrink-0">
+                        {new Date(t.date_echeance).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+              {doneTaches.length > 0 && (
+                <p className="text-xs text-gray-400 pt-1">
+                  + {doneTaches.length} terminée{doneTaches.length > 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+          )}
+
+          {hasTraitements && (
+            <div className="card space-y-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                <Sprout size={12} /> Traitements récents
+              </p>
+              {traitements.slice(0, 8).map(t => {
+                const typ = TYPE_TRAITEMENT[t.type] || TYPE_TRAITEMENT.autre
+                return (
+                  <div key={t.id} className="flex items-center gap-2.5">
+                    <span className={`px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 ${typ.bg} ${typ.color}`}>
+                      {typ.label}
+                    </span>
+                    <span className="flex-1 text-sm text-gray-800 truncate">{t.produit}</span>
+                    <span className="text-xs text-gray-400 flex-shrink-0">
+                      {new Date(t.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
