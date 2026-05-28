@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Trash2, ChevronDown, Search } from 'lucide-react'
+import { Trash2, ChevronDown, Search, LayoutTemplate } from 'lucide-react'
 import { api } from '../../lib/api'
 import { uploadPhoto } from '../../lib/uploadPhoto'
 import PageHeader from '../../components/PageHeader'
@@ -116,6 +116,7 @@ export default function TacheForm() {
   const [photo, setPhoto] = useState(null)
   const [existingPhotoUrl, setExistingPhotoUrl] = useState(null)
   const [parcelles, setParcelles] = useState([])
+  const [modeles, setModeles] = useState([])
   const [parcelleId, setParcelleId] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -125,6 +126,7 @@ export default function TacheForm() {
 
   useEffect(() => {
     api.get('/parcelles').then(p => setParcelles(p || []))
+    api.get('/referentiels/modele_tache').then(m => setModeles(m || []))
 
     if (isEdit) {
       api.get(`/taches/${id}`).then(t => {
@@ -181,6 +183,25 @@ export default function TacheForm() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="px-4 pt-4 space-y-5 pb-8">
         {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>}
+
+        {!isEdit && modeles.length > 0 && (
+          <div>
+            <label className="label flex items-center gap-1.5">
+              <LayoutTemplate size={13} className="text-vigne-600" />
+              Depuis un modèle
+            </label>
+            <select
+              className="input"
+              defaultValue=""
+              onChange={e => { if (e.target.value) setValue('titre', e.target.value) }}
+            >
+              <option value="">— Choisir un modèle (optionnel) —</option>
+              {modeles.map((m, i) => (
+                <option key={i} value={m.valeur}>{m.valeur}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <label className="label">Tâche *</label>

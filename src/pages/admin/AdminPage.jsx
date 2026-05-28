@@ -416,6 +416,7 @@ function BackupTab() {
 function RefsTab() {
   return (
     <div className="space-y-6 lg:max-w-lg">
+      <RefSection type="modele_tache" label="Modèles de tâche" />
       <RefSection type="commune" label="Communes" withInsee />
       <RefSection type="cepage" label="Cépages" />
       <RefSection type="prestataire" label="Prestataires" />
