@@ -217,7 +217,7 @@ export default function ParcelleDetail() {
                     </span>
                     <span className="flex items-center gap-1 text-xs text-gray-500">
                       <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#9ca3af" strokeWidth="1.5" strokeDasharray="4,2"/></svg>
-                      objectif
+                      objectif appellation
                     </span>
                   </div>
                 </div>
