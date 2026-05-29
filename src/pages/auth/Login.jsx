@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -67,11 +67,8 @@ export default function Login() {
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-500 mt-6">
-            Pas encore de compte ?{' '}
-            <Link to="/register" className="text-vigne-700 font-semibold">
-              Créer un compte
-            </Link>
+          <p className="text-center text-xs text-gray-400 mt-6">
+            Accès réservé — comptes créés par l'administrateur du domaine.
           </p>
         </div>
       </div>

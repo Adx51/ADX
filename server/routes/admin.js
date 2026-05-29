@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import path from 'path'
+import { v4 as uuidv4 } from 'uuid'
 import db, { ADMIN_EMAIL, backupDb } from '../db.js'
 import { requireAuth, requireAdmin } from '../middleware/auth.js'
 
@@ -31,6 +32,26 @@ router.get('/export', (req, res) => {
 })
 
 // ── Users ────────────────────────────────────────────────────────────────────
+
+router.post('/users', async (req, res) => {
+  const { email, password, prenom, nom, role } = req.body
+  if (!email?.trim() || !password) return res.status(400).json({ error: 'Email et mot de passe requis' })
+  if (password.length < 6) return res.status(400).json({ error: 'Mot de passe trop court (6 caractères minimum)' })
+
+  const normalizedEmail = email.toLowerCase().trim()
+  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail)
+  if (existing) return res.status(409).json({ error: 'Cet email est déjà utilisé' })
+
+  const r = role === 'admin' ? 'admin' : 'user'
+  const hash = await bcrypt.hash(password, 12)
+  const id = uuidv4()
+  db.prepare(`
+    INSERT INTO users (id, email, password, prenom, nom, role)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id, normalizedEmail, hash, (prenom || '').trim(), (nom || '').trim(), r)
+
+  res.json(db.prepare('SELECT id, email, prenom, nom, role, can_delete, created_at FROM users WHERE id = ?').get(id))
+})
 
 router.get('/users', (req, res) => {
   const users = db.prepare(

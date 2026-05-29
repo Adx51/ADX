@@ -72,10 +72,17 @@ function UsersTab() {
   const [error, setError] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [permsId, setPermsId] = useState(null)
+  const [showCreate, setShowCreate] = useState(false)
 
   useEffect(() => {
     api.get('/admin/users').then(data => { setUsers(data || []); setLoading(false) })
   }, [])
+
+  async function createUser(fields) {
+    const created = await api.post('/admin/users', fields)
+    setUsers(prev => [...prev, { ...created, can_delete: created.can_delete || {} }])
+    setShowCreate(false)
+  }
 
   async function saveEdit(u, fields) {
     setError('')
@@ -133,6 +140,18 @@ function UsersTab() {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">{error}</div>
       )}
+
+      {showCreate ? (
+        <CreateUserForm onCreate={createUser} onCancel={() => setShowCreate(false)} />
+      ) : (
+        <button
+          onClick={() => setShowCreate(true)}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-vigne-300 text-vigne-700 text-sm font-medium active:bg-vigne-50"
+        >
+          <Plus size={16} /> Ajouter un utilisateur
+        </button>
+      )}
+
       {users.map(u => (
         <div key={u.id} className="card overflow-hidden">
           {editingId === u.id ? (
@@ -329,6 +348,81 @@ function EditUserForm({ user, onSave, onCancel }) {
         {pwdOk && <p className="text-xs text-vigne-700 font-medium">✓ Mot de passe mis à jour</p>}
       </div>
     </div>
+  )
+}
+
+function CreateUserForm({ onCreate, onCancel }) {
+  const [prenom, setPrenom] = useState('')
+  const [nom, setNom] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [role, setRole] = useState('user')
+  const [showPwd, setShowPwd] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  async function submit(e) {
+    e.preventDefault()
+    if (password.length < 6) { setError('Mot de passe : 6 caractères minimum'); return }
+    setSaving(true); setError('')
+    try {
+      await onCreate({ prenom, nom, email, password, role })
+    } catch (e) {
+      setError(e.message); setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="card space-y-3 border-vigne-200">
+      <p className="font-semibold text-gray-900 text-sm">Nouvel utilisateur</p>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="label">Prénom</label>
+          <input className="input py-2" value={prenom} onChange={e => setPrenom(e.target.value)} required />
+        </div>
+        <div>
+          <label className="label">Nom</label>
+          <input className="input py-2" value={nom} onChange={e => setNom(e.target.value)} required />
+        </div>
+      </div>
+      <div>
+        <label className="label">Email</label>
+        <input className="input py-2" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+      </div>
+      <div>
+        <label className="label">Mot de passe</label>
+        <div className="relative">
+          <input
+            type={showPwd ? 'text' : 'password'}
+            className="input py-2 pr-9 w-full"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Min. 6 caractères"
+            required
+          />
+          <button type="button" onClick={() => setShowPwd(v => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400">
+            {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        </div>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" checked={role === 'admin'} onChange={e => setRole(e.target.checked ? 'admin' : 'user')} />
+        Administrateur
+      </label>
+      <div className="flex gap-2">
+        <button type="button" onClick={onCancel}
+                className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 active:bg-gray-50">
+          Annuler
+        </button>
+        <button type="submit" disabled={saving}
+                className="flex-1 py-2 rounded-xl bg-vigne-700 text-white text-sm font-medium active:bg-vigne-800 flex items-center justify-center gap-1.5">
+          <Plus size={14} />
+          {saving ? 'Création...' : 'Créer'}
+        </button>
+      </div>
+    </form>
   )
 }
 

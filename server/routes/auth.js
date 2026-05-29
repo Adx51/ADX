@@ -2,7 +2,7 @@ import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { v4 as uuidv4 } from 'uuid'
-import db, { ADMIN_EMAIL } from '../db.js'
+import db from '../db.js'
 
 const router = Router()
 
@@ -21,12 +21,20 @@ router.post('/register', async (req, res) => {
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' })
   if (password.length < 6) return res.status(400).json({ error: 'Mot de passe trop court (6 caractères minimum)' })
 
+  // Inscription publique fermée : seul le tout premier compte (amorçage) est autorisé.
+  // Les comptes suivants sont créés par un administrateur (POST /api/admin/users).
+  const { n: userCount } = db.prepare('SELECT COUNT(*) AS n FROM users').get()
+  if (userCount > 0) {
+    return res.status(403).json({ error: 'Les inscriptions sont fermées. Contactez un administrateur.' })
+  }
+
   const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase())
   if (existing) return res.status(409).json({ error: 'Cet email est déjà utilisé' })
 
   const hash = await bcrypt.hash(password, 12)
   const id = uuidv4()
-  const role = email.toLowerCase() === ADMIN_EMAIL ? 'admin' : 'user'
+  // Le tout premier utilisateur (amorçage) est l'administrateur propriétaire.
+  const role = 'admin'
 
   db.prepare(`
     INSERT INTO users (id, email, password, prenom, nom, role)
