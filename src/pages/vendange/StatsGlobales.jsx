@@ -117,7 +117,7 @@ function RendementChart({ data }) {
         </g>
       ))}
       <path d={areaPath} fill="url(#rdt-grad)" />
-      {attenduPath && <path d={attenduPath} fill="none" stroke="#d1d5db" strokeWidth="1.5" strokeDasharray="6,3" strokeLinecap="round" />}
+      {attenduPath && <path d={attenduPath} fill="none" stroke="#94a3b8" strokeWidth="2" strokeDasharray="6,3" strokeLinecap="round" />}
       <path d={linePath} fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       {pts.map(p => (
         <g key={p.annee}>
@@ -153,21 +153,18 @@ function ProductionChart({ data }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-      <defs>
-        <linearGradient id="prod-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor="#15803d" stopOpacity="0.85" />
-          <stop offset="100%" stopColor="#15803d" stopOpacity="0.3" />
-        </linearGradient>
-      </defs>
       {active.map((d, i) => {
         const bh     = (d.poids_total / maxY) * CH
         const x      = xCenter(i) - barW / 2
         const y      = yPos(d.poids_total)
         const isBest = d.poids_total === bestVal
+        // Record : vert foncé plein. Autres : vert clair — toujours lisible sur fond blanc.
+        const color  = isBest ? '#15803d' : '#86efac'
+        const textColor = isBest ? '#14532d' : '#166534'
         return (
           <g key={d.annee}>
-            <rect x={x} y={y} width={barW} height={bh} rx="6" fill={isBest ? '#15803d' : 'url(#prod-grad)'} />
-            <text x={xCenter(i)} y={y-6} textAnchor="middle" fontSize="10" fill="#14532d" fontWeight={isBest ? '700' : '600'}>{fmtK(d.poids_total)}</text>
+            <rect x={x} y={y} width={barW} height={bh} rx="6" fill={color} />
+            <text x={xCenter(i)} y={y-6} textAnchor="middle" fontSize="10" fill={textColor} fontWeight={isBest ? '700' : '600'}>{fmtK(d.poids_total)}</text>
             <text x={xCenter(i)} y={H-8} textAnchor="middle" fontSize="11" fill="#9ca3af">{d.annee}</text>
           </g>
         )
@@ -377,7 +374,7 @@ export default function StatsGlobales() {
             <p className="font-bold text-gray-900">Rendement kg/ha</p>
             {campagnes.some(c => c.rendement_attendu_kgha) && (
               <div className="flex items-center gap-1 text-xs text-gray-400">
-                <svg width="14" height="6"><line x1="0" y1="3" x2="14" y2="3" stroke="#d1d5db" strokeWidth="1.5" strokeDasharray="4,2" /></svg>
+                <svg width="14" height="6"><line x1="0" y1="3" x2="14" y2="3" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4,2" /></svg>
                 objectif
               </div>
             )}
@@ -414,7 +411,7 @@ export default function StatsGlobales() {
                 <p className="font-bold text-gray-900">Rendement kg/ha</p>
                 {campagnes.some(c => c.rendement_attendu_kgha) && (
                   <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                    <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="#d1d5db" strokeWidth="1.5" strokeDasharray="5,3" /></svg>
+                    <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="5,3" /></svg>
                     objectif appellation
                   </div>
                 )}
