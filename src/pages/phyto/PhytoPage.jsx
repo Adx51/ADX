@@ -416,20 +416,28 @@ export default function PhytoPage() {
     return [...s].sort()
   }, [rapports])
 
+  // Supprime une liste d'ids et renvoie ceux réellement supprimés (les échecs sont ignorés).
+  async function deleteIds(ids) {
+    const results = await Promise.allSettled(ids.map(id => api.delete(`/phyto/rapports/${id}`)))
+    const okIds = ids.filter((_, i) => results[i].status === 'fulfilled')
+    if (okIds.length > 0) setAllRapports(prev => prev.filter(r => !okIds.includes(r.id)))
+    const failed = ids.length - okIds.length
+    return { okIds, failed }
+  }
+
   async function deleteRapport(idOrIds) {
     const ids = Array.isArray(idOrIds) ? idOrIds : [idOrIds]
-    await Promise.all(ids.map(id => api.delete(`/phyto/rapports/${id}`)))
-    setAllRapports(prev => prev.filter(r => !ids.includes(r.id)))
+    const { failed } = await deleteIds(ids)
     setConfirmDelete(null)
+    if (failed > 0) alert(`${failed} rapport(s) n'ont pas pu être supprimés. Réessayez.`)
   }
 
   async function deleteAllForYear() {
     setBulkDeleting(true)
     try {
-      const ids = rapports.map(r => r.id)
-      await Promise.all(ids.map(id => api.delete(`/phyto/rapports/${id}`)))
-      setAllRapports(prev => prev.filter(r => !ids.includes(r.id)))
+      const { failed } = await deleteIds(rapports.map(r => r.id))
       setConfirmBulkDelete(false)
+      if (failed > 0) alert(`${failed} rapport(s) n'ont pas pu être supprimés. Réessayez.`)
     } catch (e) {
       alert('Erreur suppression : ' + e.message)
     }

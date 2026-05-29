@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Edit2, Trash2, Lock, Unlock, ChevronRight, Grape, TrendingUp, TrendingDown, Calendar, Target, Plus, Printer } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
@@ -17,6 +17,10 @@ export default function CampagneDetail() {
   const [confirmCloture, setConfirmCloture] = useState(false)
   const [bilanEdit, setBilanEdit] = useState(false)
   const [bilanValue, setBilanValue] = useState('')
+
+  // Verrou anti-double-tap : empêche deux créations de vendange concurrentes
+  // pour la même parcelle (sinon navigation cassée / doublons côté serveur).
+  const creatingRef = useRef(new Set())
 
   const refreshTick = useRefreshTrigger()
   useEffect(() => { load() }, [annee, refreshTick])
@@ -50,22 +54,27 @@ export default function CampagneDetail() {
     load()
   }
 
-  async function openParcelle(parcelle_id, vendange_id) {
-    if (vendange_id) {
-      navigate(`/vendange/parcelle/${vendange_id}`)
-    } else {
+  // Crée la vendange si besoin, en se protégeant des taps multiples.
+  async function ensureVendange(parcelle_id, vendange_id) {
+    if (vendange_id) return vendange_id
+    if (creatingRef.current.has(parcelle_id)) return null // création déjà en cours
+    creatingRef.current.add(parcelle_id)
+    try {
       const v = await api.post('/vendanges', { parcelle_id, annee: parseInt(annee) })
-      navigate(`/vendange/parcelle/${v.id}`)
+      return v?.id || null
+    } finally {
+      creatingRef.current.delete(parcelle_id)
     }
   }
 
+  async function openParcelle(parcelle_id, vendange_id) {
+    const id = await ensureVendange(parcelle_id, vendange_id)
+    if (id) navigate(`/vendange/parcelle/${id}`)
+  }
+
   async function quickChargement(parcelle_id, vendange_id) {
-    if (vendange_id) {
-      navigate(`/vendange/parcelle/${vendange_id}/chargement/new`)
-    } else {
-      const v = await api.post('/vendanges', { parcelle_id, annee: parseInt(annee) })
-      navigate(`/vendange/parcelle/${v.id}/chargement/new`)
-    }
+    const id = await ensureVendange(parcelle_id, vendange_id)
+    if (id) navigate(`/vendange/parcelle/${id}/chargement/new`)
   }
 
   if (loading) return (

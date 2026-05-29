@@ -26,18 +26,28 @@ router.post('/', (req, res) => {
   const { parcelle_id, annee, notes } = req.body
   if (!parcelle_id || !annee) return res.status(400).json({ error: 'Parcelle et année requises' })
 
-  const parcelle = db.prepare('SELECT id FROM parcelles WHERE id = ?').get(parcelle_id)
-  if (!parcelle) return res.status(404).json({ error: 'Parcelle introuvable' })
+  const parcelleFull = db.prepare('SELECT id, nom FROM parcelles WHERE id = ?').get(parcelle_id)
+  if (!parcelleFull) return res.status(404).json({ error: 'Parcelle introuvable' })
 
-  const existing = db.prepare('SELECT id FROM vendanges WHERE parcelle_id = ? AND annee = ?').get(parcelle_id, annee)
-  if (existing) return res.status(409).json({ error: 'Une vendange existe déjà pour cette parcelle et cette année' })
+  // Idempotent : une vendange existe déjà pour cette parcelle/année → la renvoyer telle quelle.
+  // Évite qu'un double-tap (deux POST quasi simultanés) crée des doublons ou casse la navigation.
+  const existing = db.prepare('SELECT * FROM vendanges WHERE parcelle_id = ? AND annee = ?').get(parcelle_id, annee)
+  if (existing) return res.json(existing)
 
-  const parcelleFull = db.prepare('SELECT nom FROM parcelles WHERE id = ?').get(parcelle_id)
   const id = uuidv4()
-  db.prepare(`
-    INSERT INTO vendanges (id, user_id, parcelle_id, parcelle_nom, annee, notes)
-    VALUES (?,?,?,?,?,?)
-  `).run(id, req.userId, parcelle_id, parcelleFull?.nom || null, annee, notes || null)
+  try {
+    db.prepare(`
+      INSERT INTO vendanges (id, user_id, parcelle_id, parcelle_nom, annee, notes)
+      VALUES (?,?,?,?,?,?)
+    `).run(id, req.userId, parcelle_id, parcelleFull.nom || null, annee, notes || null)
+  } catch (e) {
+    // Course critique : l'index unique a rejeté l'insert car une autre requête a gagné.
+    if (e.code === 'SQLITE_CONSTRAINT_UNIQUE' || /UNIQUE/i.test(e.message)) {
+      const row = db.prepare('SELECT * FROM vendanges WHERE parcelle_id = ? AND annee = ?').get(parcelle_id, annee)
+      if (row) return res.json(row)
+    }
+    throw e
+  }
 
   res.json(db.prepare('SELECT * FROM vendanges WHERE id = ?').get(id))
 })

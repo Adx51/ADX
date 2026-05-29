@@ -48,6 +48,19 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Isole les libs tierces dans des chunks séparés : ils changent rarement,
+        // donc restent en cache navigateur entre deux déploiements de l'app.
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-date':  ['date-fns'],
+          'vendor-icons': ['lucide-react'],
+        }
+      }
+    }
+  },
   server: {
     proxy: {
       '/api':    { target: 'http://localhost:3001', changeOrigin: true },

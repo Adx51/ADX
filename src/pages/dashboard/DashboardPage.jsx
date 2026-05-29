@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ExternalLink, RefreshCw, CloudOff, Newspaper } from 'lucide-react'
@@ -35,6 +35,10 @@ export default function DashboardPage() {
   const [nErr, setNErr]       = useState(false)
   const [nLoading, setNLoading] = useState(true)
 
+  // Suivi du montage + id du timer de retry, pour éviter les setState après démontage
+  const mountedRef = useRef(true)
+  const retryRef = useRef(null)
+
   async function load() {
     setWErr(false)
     setNErr(false)
@@ -43,6 +47,7 @@ export default function DashboardPage() {
       api.get('/dashboard/weather'),
       api.get('/dashboard/news'),
     ])
+    if (!mountedRef.current) return
     if (w.status === 'fulfilled' && !w.value?.error) setWeather(w.value)
     else setWErr(true)
     if (n.status === 'fulfilled' && Array.isArray(n.value)) {
@@ -51,13 +56,14 @@ export default function DashboardPage() {
         setNLoading(false)
       } else {
         // Cache vide côté serveur (fetch en arrière-plan) — retry dans 5s
-        setTimeout(async () => {
+        retryRef.current = setTimeout(async () => {
           try {
             const fresh = await api.get('/dashboard/news')
+            if (!mountedRef.current) return
             if (Array.isArray(fresh) && fresh.length > 0) setNews(fresh)
             else setNErr(true)
-          } catch { setNErr(true) }
-          setNLoading(false)
+          } catch { if (mountedRef.current) setNErr(true) }
+          if (mountedRef.current) setNLoading(false)
         }, 5000)
       }
     } else {
@@ -67,7 +73,14 @@ export default function DashboardPage() {
   }
 
   const refreshTick = useRefreshTrigger()
-  useEffect(() => { load() }, [refreshTick])
+  useEffect(() => {
+    mountedRef.current = true
+    load()
+    return () => {
+      mountedRef.current = false
+      if (retryRef.current) clearTimeout(retryRef.current)
+    }
+  }, [refreshTick])
 
   const today = format(new Date(), "EEEE d MMMM yyyy", { locale: fr })
   const prenom = user?.prenom || user?.email?.split('@')[0] || ''

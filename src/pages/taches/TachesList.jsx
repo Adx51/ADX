@@ -164,8 +164,18 @@ export default function TachesList() {
   async function toggleStatut(tache) {
     const next = tache.statut === 'a_faire' ? 'en_cours'
                : tache.statut === 'en_cours' ? 'termine' : 'a_faire'
-    await api.put(`/taches/${tache.id}`, { ...tache, statut: next })
+    const prevStatut = tache.statut
+    // Mise à jour optimiste : feedback immédiat, puis on confirme avec le serveur
     setTaches(prev => prev.map(t => t.id === tache.id ? { ...t, statut: next } : t))
+    try {
+      await api.put(`/taches/${tache.id}`, { ...tache, statut: next })
+    } catch (e) {
+      // Hors ligne : l'opération est mise en file → on garde l'état optimiste.
+      // Vraie erreur serveur : on revient à l'état précédent.
+      if (!e?.offline) {
+        setTaches(prev => prev.map(t => t.id === tache.id ? { ...t, statut: prevStatut } : t))
+      }
+    }
   }
 
   // Available seasons from loaded taches, most recent first

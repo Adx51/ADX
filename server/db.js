@@ -455,6 +455,44 @@ if (schemaVersion < 15) {
   db.pragma('user_version = 15')
 }
 
+if (schemaVersion < 16) {
+  // La migration v8 a recréé la table `vendanges` sans la contrainte
+  // UNIQUE(parcelle_id, annee) présente dans le schéma initial. On la restaure
+  // via un index unique. Avant ça, on dédoublonne d'éventuels doublons existants
+  // en fusionnant les chargements sur la vendange la plus ancienne (gardée).
+  const dups = db.prepare(`
+    SELECT parcelle_id, annee, COUNT(*) AS n
+    FROM vendanges
+    WHERE parcelle_id IS NOT NULL
+    GROUP BY parcelle_id, annee
+    HAVING n > 1
+  `).all()
+
+  if (dups.length > 0) {
+    const merge = db.transaction(() => {
+      for (const { parcelle_id, annee } of dups) {
+        const rows = db.prepare(`
+          SELECT id FROM vendanges
+          WHERE parcelle_id = ? AND annee = ?
+          ORDER BY created_at ASC, id ASC
+        `).all(parcelle_id, annee)
+        const keepId = rows[0].id
+        for (const { id } of rows.slice(1)) {
+          // Rapatrier les chargements sur la vendange conservée, puis supprimer le doublon
+          db.prepare(`UPDATE chargements SET vendange_id = ? WHERE vendange_id = ?`).run(keepId, id)
+          db.prepare(`DELETE FROM vendanges WHERE id = ?`).run(id)
+        }
+      }
+    })
+    merge()
+  }
+
+  // Index unique partiel : ignore les vendanges sans parcelle (parcelle supprimée)
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_vendanges_parcelle_annee
+           ON vendanges(parcelle_id, annee) WHERE parcelle_id IS NOT NULL`)
+  db.pragma('user_version = 16')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5
