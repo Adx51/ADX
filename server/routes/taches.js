@@ -22,15 +22,19 @@ router.get('/', (req, res) => {
 })
 
 router.post('/', (req, res) => {
-  const { titre, description, parcelle_id, statut, priorite, date_echeance, photo_url } = req.body
+  const { titre, description, parcelle_id, commune, statut, priorite, date_echeance, photo_url } = req.body
   if (!titre) return res.status(400).json({ error: 'Le titre est requis' })
+
+  // Une tâche cible soit une parcelle, soit une commune entière, soit rien (générale)
+  const pid = parcelle_id || null
+  const com = pid ? null : (commune || null)
 
   const id = uuidv4()
   db.prepare(`
     INSERT INTO taches
-      (id, user_id, parcelle_id, titre, description, statut, priorite, date_echeance, photo_url)
-    VALUES (?,?,?,?,?,?,?,?,?)
-  `).run(id, req.userId, parcelle_id || null, titre, description || null,
+      (id, user_id, parcelle_id, commune, titre, description, statut, priorite, date_echeance, photo_url)
+    VALUES (?,?,?,?,?,?,?,?,?,?)
+  `).run(id, req.userId, pid, com, titre, description || null,
          statut || 'a_faire', priorite || 'normale', date_echeance || null, photo_url || null)
 
   res.json(db.prepare('SELECT * FROM taches WHERE id = ?').get(id))
@@ -46,13 +50,15 @@ router.put('/:id', (req, res) => {
   const t = db.prepare('SELECT id FROM taches WHERE id = ?').get(req.params.id)
   if (!t) return res.status(404).json({ error: 'Tâche introuvable' })
 
-  const { titre, description, parcelle_id, statut, priorite, date_echeance, photo_url } = req.body
+  const { titre, description, parcelle_id, commune, statut, priorite, date_echeance, photo_url } = req.body
+  const pid = parcelle_id || null
+  const com = pid ? null : (commune || null)
   db.prepare(`
     UPDATE taches SET
-      titre = ?, description = ?, parcelle_id = ?, statut = ?,
+      titre = ?, description = ?, parcelle_id = ?, commune = ?, statut = ?,
       priorite = ?, date_echeance = ?, photo_url = ?, updated_at = datetime('now')
     WHERE id = ?
-  `).run(titre, description || null, parcelle_id || null, statut,
+  `).run(titre, description || null, pid, com, statut,
          priorite, date_echeance || null, photo_url || null, req.params.id)
 
   res.json(db.prepare('SELECT * FROM taches WHERE id = ?').get(req.params.id))

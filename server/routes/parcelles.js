@@ -124,15 +124,16 @@ router.get('/:id/comparaison-pressoir', (req, res) => {
 })
 
 router.get('/:id/activite', (req, res) => {
-  const p = db.prepare('SELECT id FROM parcelles WHERE id = ?').get(req.params.id)
+  const p = db.prepare('SELECT id, commune FROM parcelles WHERE id = ?').get(req.params.id)
   if (!p) return res.status(404).json({ error: 'Parcelle introuvable' })
 
+  // Tâches de la parcelle + tâches ciblant toute sa commune
   const taches = db.prepare(`
-    SELECT id, titre, statut, priorite, date_echeance, created_at
+    SELECT id, titre, statut, priorite, date_echeance, created_at, commune
     FROM taches
-    WHERE parcelle_id = ?
+    WHERE parcelle_id = ? OR (commune IS NOT NULL AND commune = ?)
     ORDER BY date_echeance ASC NULLS LAST, created_at DESC
-  `).all(req.params.id)
+  `).all(req.params.id, p.commune || '')
 
   const traitements = db.prepare(`
     SELECT id, date, type, produit, dose

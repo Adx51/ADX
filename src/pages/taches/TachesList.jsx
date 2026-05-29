@@ -43,6 +43,7 @@ function TacheCard({ t, onToggle, onPhoto, navigate }) {
           </p>
         </div>
         {t.parcelles && <p className="text-xs text-vigne-600 dark:text-vigne-400 mt-0.5">{t.parcelles.nom}</p>}
+        {!t.parcelles && t.commune && <p className="text-xs text-vigne-600 dark:text-vigne-400 mt-0.5">📍 {t.commune} · toute la commune</p>}
         {t.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{t.description}</p>}
         {t.date_echeance && (
           <p className={`text-xs mt-1 ${overdue ? 'text-red-500 font-medium' : dueToday ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
@@ -73,7 +74,8 @@ function VueParParcelle({ taches, toggleStatut, setPhotoUrl, navigate }) {
   function grouper(liste) {
     const groups = {}
     for (const t of liste) {
-      const key = t.parcelles?.nom || '— Sans parcelle —'
+      const key = t.parcelles?.nom
+        || (t.commune ? `Commune : ${t.commune}` : '— Sans parcelle —')
       if (!groups[key]) groups[key] = []
       groups[key].push(t)
     }

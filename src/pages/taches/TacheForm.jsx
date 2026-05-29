@@ -21,11 +21,12 @@ function groupParcellesByCommune(parcelles) {
   return [...known, ...other].map(commune => ({ commune, parcelles: groups[commune] }))
 }
 
+// value = { parcelle_id, commune } — cible une parcelle, une commune entière, ou rien
 function ParcellePicker({ parcelles, value, onChange }) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const inputRef = useRef(null)
-  const selected = parcelles.find(p => p.id === value)
+  const selectedParcelle = parcelles.find(p => p.id === value.parcelle_id)
 
   const filtered = search.trim()
     ? parcelles.filter(p =>
@@ -34,13 +35,16 @@ function ParcellePicker({ parcelles, value, onChange }) {
     : parcelles
 
   const groups = groupParcellesByCommune(filtered)
-  const multiCommune = groups.length > 1
 
-  function select(id) {
-    onChange(id)
+  function select(next) {
+    onChange(next)
     setOpen(false)
     setSearch('')
   }
+
+  const label = value.commune
+    ? `Toute la commune ${value.commune}`
+    : selectedParcelle ? selectedParcelle.nom : '— Toutes les parcelles —'
 
   return (
     <div className="relative">
@@ -48,8 +52,8 @@ function ParcellePicker({ parcelles, value, onChange }) {
         className="input flex items-center justify-between cursor-pointer select-none"
         onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50) }}
       >
-        <span className={selected ? 'text-gray-900' : 'text-gray-400'}>
-          {selected ? selected.nom : '— Toutes les parcelles —'}
+        <span className={(value.commune || selectedParcelle) ? 'text-gray-900' : 'text-gray-400'}>
+          {label}
         </span>
         <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
       </div>
@@ -65,7 +69,7 @@ function ParcellePicker({ parcelles, value, onChange }) {
                   ref={inputRef}
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder="Rechercher une parcelle…"
+                  placeholder="Rechercher une parcelle ou commune…"
                   className="w-full pl-8 pr-3 py-2 text-sm bg-gray-50 rounded-lg border border-gray-200 focus:outline-none focus:border-vigne-400"
                 />
               </div>
@@ -74,8 +78,8 @@ function ParcellePicker({ parcelles, value, onChange }) {
             <div className="max-h-60 overflow-y-auto">
               <button
                 type="button"
-                onClick={() => select('')}
-                className={`w-full px-4 py-2.5 text-left text-sm italic text-gray-400 hover:bg-gray-50 active:bg-gray-100 ${!value ? 'bg-vigne-50' : ''}`}
+                onClick={() => select({ parcelle_id: '', commune: '' })}
+                className={`w-full px-4 py-2.5 text-left text-sm italic text-gray-400 hover:bg-gray-50 active:bg-gray-100 ${(!value.parcelle_id && !value.commune) ? 'bg-vigne-50' : ''}`}
               >
                 — Toutes les parcelles —
               </button>
@@ -84,22 +88,96 @@ function ParcellePicker({ parcelles, value, onChange }) {
                 <p className="px-4 py-3 text-sm text-gray-400 italic text-center">Aucun résultat</p>
               ) : groups.map(({ commune, parcelles: list }) => (
                 <div key={commune}>
-                  {multiCommune && (
-                    <div className="px-4 py-1.5 text-xs font-semibold text-vigne-700 uppercase tracking-wide bg-gray-50 border-t border-gray-100">
-                      {commune}
-                    </div>
+                  {/* En-tête de commune cliquable → cible toute la commune */}
+                  {commune !== 'Sans commune' && (
+                    <button
+                      type="button"
+                      onClick={() => select({ parcelle_id: '', commune })}
+                      className={`w-full flex items-center justify-between gap-2 px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide border-t border-gray-100 ${
+                        value.commune === commune ? 'bg-vigne-100 text-vigne-700' : 'bg-gray-50 text-vigne-700 hover:bg-vigne-50'
+                      }`}
+                    >
+                      <span>{commune}</span>
+                      <span className="normal-case font-medium text-[10px] text-gray-400">Toute la commune →</span>
+                    </button>
                   )}
                   {list.map(p => (
                     <button
                       key={p.id}
                       type="button"
-                      onClick={() => select(p.id)}
-                      className={`w-full px-4 py-2.5 text-left text-sm hover:bg-vigne-50 active:bg-vigne-100 ${value === p.id ? 'bg-vigne-50 font-semibold text-vigne-700' : 'text-gray-900'}`}
+                      onClick={() => select({ parcelle_id: p.id, commune: '' })}
+                      className={`w-full px-4 py-2.5 text-left text-sm hover:bg-vigne-50 active:bg-vigne-100 ${value.parcelle_id === p.id ? 'bg-vigne-50 font-semibold text-vigne-700' : 'text-gray-900'}`}
                     >
                       {p.nom}
                     </button>
                   ))}
                 </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// Sélecteur de type de tâche — même look que ParcellePicker (recherche + liste)
+function ModelePicker({ modeles, value, onChange }) {
+  const [search, setSearch] = useState('')
+  const [open, setOpen] = useState(false)
+  const inputRef = useRef(null)
+
+  const filtered = search.trim()
+    ? modeles.filter(m => m.valeur.toLowerCase().includes(search.toLowerCase()))
+    : modeles
+
+  function select(v) {
+    onChange(v)
+    setOpen(false)
+    setSearch('')
+  }
+
+  return (
+    <div className="relative">
+      <div
+        className="input flex items-center justify-between cursor-pointer select-none"
+        onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50) }}
+      >
+        <span className={value ? 'text-gray-900' : 'text-gray-400'}>
+          {value || '— Choisir un type —'}
+        </span>
+        <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
+      </div>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => { setOpen(false); setSearch('') }} />
+          <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-xl shadow-xl mt-1 overflow-hidden">
+            <div className="p-2 border-b border-gray-100">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  ref={inputRef}
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Rechercher un type…"
+                  className="w-full pl-8 pr-3 py-2 text-sm bg-gray-50 rounded-lg border border-gray-200 focus:outline-none focus:border-vigne-400"
+                />
+              </div>
+            </div>
+
+            <div className="max-h-60 overflow-y-auto">
+              {filtered.length === 0 ? (
+                <p className="px-4 py-3 text-sm text-gray-400 italic text-center">Aucun résultat</p>
+              ) : filtered.map((m, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => select(m.valeur)}
+                  className={`w-full px-4 py-2.5 text-left text-sm hover:bg-vigne-50 active:bg-vigne-100 ${value === m.valeur ? 'bg-vigne-50 font-semibold text-vigne-700' : 'text-gray-900'}`}
+                >
+                  {m.valeur}
+                </button>
               ))}
             </div>
           </div>
@@ -117,7 +195,8 @@ export default function TacheForm() {
   const [existingPhotoUrl, setExistingPhotoUrl] = useState(null)
   const [parcelles, setParcelles] = useState([])
   const [modeles, setModeles] = useState([])
-  const [parcelleId, setParcelleId] = useState('')
+  const [cible, setCible] = useState({ parcelle_id: '', commune: '' })
+  const [modeleChoisi, setModeleChoisi] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -136,7 +215,7 @@ export default function TacheForm() {
           setValue('statut',        t.statut)
           setValue('priorite',      t.priorite)
           setValue('date_echeance', t.date_echeance || '')
-          setParcelleId(t.parcelle_id || '')
+          setCible({ parcelle_id: t.parcelle_id || '', commune: t.commune || '' })
           setExistingPhotoUrl(t.photo_url)
         }
       })
@@ -153,7 +232,8 @@ export default function TacheForm() {
       const payload = {
         titre:         data.titre,
         description:   data.description || null,
-        parcelle_id:   parcelleId || null,
+        parcelle_id:   cible.parcelle_id || null,
+        commune:       cible.commune || null,
         statut:        data.statut || 'a_faire',
         priorite:      data.priorite || 'normale',
         date_echeance: data.date_echeance || null,
@@ -190,16 +270,11 @@ export default function TacheForm() {
               <LayoutTemplate size={13} className="text-vigne-600" />
               Type de tâche
             </label>
-            <select
-              className="input"
-              defaultValue=""
-              onChange={e => { if (e.target.value) setValue('titre', e.target.value) }}
-            >
-              <option value="">— Choisir une tâche —</option>
-              {modeles.map((m, i) => (
-                <option key={i} value={m.valeur}>{m.valeur}</option>
-              ))}
-            </select>
+            <ModelePicker
+              modeles={modeles}
+              value={modeleChoisi}
+              onChange={v => { setModeleChoisi(v); setValue('titre', v) }}
+            />
           </div>
         )}
 
@@ -214,8 +289,8 @@ export default function TacheForm() {
         </div>
 
         <div>
-          <label className="label">Parcelle concernée</label>
-          <ParcellePicker parcelles={parcelles} value={parcelleId} onChange={setParcelleId} />
+          <label className="label">Parcelle ou commune concernée</label>
+          <ParcellePicker parcelles={parcelles} value={cible} onChange={setCible} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">

@@ -493,6 +493,14 @@ if (schemaVersion < 16) {
   db.pragma('user_version = 16')
 }
 
+if (schemaVersion < 17) {
+  // Tâche pouvant cibler toute une commune (au lieu d'une parcelle unique).
+  // parcelle_id renseigné → 1 parcelle ; commune renseignée → toute la commune ;
+  // les deux NULL → tâche générale.
+  try { db.exec(`ALTER TABLE taches ADD COLUMN commune TEXT`) } catch {}
+  db.pragma('user_version = 17')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5
