@@ -117,8 +117,8 @@ export default function ParcelleDetail() {
       </PageHeader>
 
       {parcelle.photo_url && (
-        <div className="relative cursor-pointer" onClick={() => setPhotoOpen(true)}>
-          <img src={parcelle.photo_url} alt={parcelle.nom} className="w-full h-52 object-cover" />
+        <div className="relative cursor-pointer md:mx-6 md:mt-4 md:rounded-2xl md:overflow-hidden" onClick={() => setPhotoOpen(true)}>
+          <img src={parcelle.photo_url} alt={parcelle.nom} className="w-full h-52 md:h-72 object-cover" />
           <div className="absolute bottom-2 right-2 bg-black/40 text-white rounded-lg p-1.5">
             <Expand size={16} />
           </div>
@@ -126,170 +126,174 @@ export default function ParcelleDetail() {
       )}
       <PhotoModal url={photoOpen ? parcelle.photo_url : null} onClose={() => setPhotoOpen(false)} />
 
-      <div className="px-4 pt-4 space-y-4">
-        <div className="card space-y-3">
-          <InfoRow label="Surface totale"  value={caToDisplay(parcelle.surface_totale_ca)} />
-          <InfoRow label="Surface plantée" value={caToDisplay(parcelle.surface_plantee_ca)} />
-          <InfoRow label="Nombre de routes" value={parcelle.nombre_routes != null ? `${parcelle.nombre_routes} routes` : null} />
-          {parcelle.commune              && <InfoRow label="Commune"           value={parcelle.commune} />}
-          {parcelle.reference_cadastrale && <InfoRow label="Réf. cadastrale"  value={parcelle.reference_cadastrale} />}
-          {Array.isArray(parcelle.cepages) && parcelle.cepages.length > 0 &&
-            <InfoRow label="Cépages" value={parcelle.cepages.join(', ')} />}
-          {parcelle.annee_plantation     && <InfoRow label={parcelle.statut === 'replantee' ? 'Année plantation' : 'Année arrachage'} value={parcelle.annee_plantation} />}
-          {parcelle.notes                && <InfoRow label="Notes"             value={parcelle.notes} />}
-        </div>
-
-        {parcelle.gps_lat && (
+      <div className="md:px-6 md:pt-5 md:pb-8 md:grid md:grid-cols-5 md:gap-6 md:items-start">
+        <div className="px-4 pt-4 space-y-4 md:px-0 md:pt-0 md:col-span-2">
           <div className="card space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <MapPin size={20} className="text-blue-600" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-gray-900">Position GPS</p>
-                <p className="text-xs text-gray-400">
-                  {Number(parcelle.gps_lat).toFixed(6)}, {Number(parcelle.gps_lng).toFixed(6)}
-                </p>
-              </div>
-            </div>
-            <MapPicker lat={parcelle.gps_lat} lng={parcelle.gps_lng} geoFeatures={geoFeatures} readOnly />
-            <div className="grid grid-cols-3 gap-2">
-              <button onClick={navigateToParcel}
-                      className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-medium active:bg-blue-700">
-                <Navigation size={16} />
-                Y aller
-              </button>
-              <button onClick={shareGPS}
-                      className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 active:bg-gray-50">
-                <Share2 size={16} />
-                Partager
-              </button>
-              <button onClick={sendSMS}
-                      className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 active:bg-gray-50">
-                <MessageSquare size={16} />
-                SMS
-              </button>
-            </div>
+            <InfoRow label="Surface totale"  value={caToDisplay(parcelle.surface_totale_ca)} />
+            <InfoRow label="Surface plantée" value={caToDisplay(parcelle.surface_plantee_ca)} />
+            <InfoRow label="Nombre de routes" value={parcelle.nombre_routes != null ? `${parcelle.nombre_routes} routes` : null} />
+            {parcelle.commune              && <InfoRow label="Commune"           value={parcelle.commune} />}
+            {parcelle.reference_cadastrale && <InfoRow label="Réf. cadastrale"  value={parcelle.reference_cadastrale} />}
+            {Array.isArray(parcelle.cepages) && parcelle.cepages.length > 0 &&
+              <InfoRow label="Cépages" value={parcelle.cepages.join(', ')} />}
+            {parcelle.annee_plantation     && <InfoRow label={parcelle.statut === 'replantee' ? 'Année plantation' : 'Année arrachage'} value={parcelle.annee_plantation} />}
+            {parcelle.notes                && <InfoRow label="Notes"             value={parcelle.notes} />}
           </div>
-        )}
 
-        {activite && (
-          <ActiviteSection activite={activite} navigate={navigate} />
-        )}
-
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-bold text-gray-900">Historique vendanges</h2>
-            <Link to="/vendange" className="text-vigne-700 text-sm font-semibold">
-              + Voir
-            </Link>
-          </div>
-          {(parcelle.commune || parcelle.commune_pressoir || (Array.isArray(parcelle.cepages) && parcelle.cepages.length > 0)) && (
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {(parcelle.commune_pressoir || parcelle.commune) && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-vigne-100 text-vigne-800 text-xs font-semibold">
-                  <MapPin size={10} />
-                  {parcelle.commune_pressoir || parcelle.commune}
-                </span>
-              )}
-              {Array.isArray(parcelle.cepages) && parcelle.cepages.map(c => (
-                <span key={c} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-medium">
-                  <Grape size={10} />
-                  {c}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {(!parcelle.vendanges || parcelle.vendanges.length === 0) ? (
-            <div className="card text-center py-6">
-              <Grape size={32} className="mx-auto text-vigne-300 mb-2" />
-              <p className="text-gray-500 text-sm">Aucune vendange enregistrée</p>
-            </div>
-          ) : (
-            <>
-              {parcelle.vendanges.length >= 2 && (
-                <div className="card mb-3 p-3">
-                  <VendangeChart vendanges={parcelle.vendanges} surfaceCa={parcelle.surface_totale_ca} />
-                  <div className="flex items-center gap-4 mt-2 justify-center">
-                    <span className="flex items-center gap-1 text-xs text-gray-500">
-                      <span className="inline-block w-3 h-3 rounded-sm bg-amber-400" /> kg/ha réalisé
-                    </span>
-                    <span className="flex items-center gap-1 text-xs text-gray-500">
-                      <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#9ca3af" strokeWidth="1.5" strokeDasharray="4,2"/></svg>
-                      objectif appellation
-                    </span>
-                  </div>
+          {parcelle.gps_lat && (
+            <div className="card space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <MapPin size={20} className="text-blue-600" />
                 </div>
-              )}
-
-              {comparaison?.pressoir && comparaison.annees?.filter(a => a.kgha_parcelle != null).length >= 1 && (
-                <div className="card mb-3 p-3">
-                  <p className="text-xs font-semibold text-gray-700 mb-1">
-                    Rendement vs moyenne pressoir <span className="text-vigne-700">{comparaison.pressoir}</span>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">Position GPS</p>
+                  <p className="text-xs text-gray-400">
+                    {Number(parcelle.gps_lat).toFixed(6)}, {Number(parcelle.gps_lng).toFixed(6)}
                   </p>
-                  <ComparaisonChart data={comparaison.annees} />
-                  <div className="flex items-center gap-4 mt-2 justify-center">
-                    <span className="flex items-center gap-1 text-xs text-gray-500">
-                      <span className="inline-block w-3 h-3 rounded-sm bg-amber-400" /> Cette parcelle
-                    </span>
-                    <span className="flex items-center gap-1 text-xs text-gray-500">
-                      <span className="inline-block w-3 h-3 rounded-sm bg-vigne-600" /> Moyenne pressoir
-                    </span>
-                  </div>
                 </div>
-              )}
-              <div className="space-y-2">
-                {parcelle.vendanges.map((v, i) => {
-                  const rendement = rendementKgHa(v.poids_total, parcelle.surface_totale_ca)
-                  const prev = parcelle.vendanges[i + 1]
-                  const trendPct = prev && prev.poids_total > 0
-                    ? Math.round(((v.poids_total - prev.poids_total) / prev.poids_total) * 100)
-                    : null
-                  return (
-                    <button key={v.id} onClick={() => navigate(`/vendange/parcelle/${v.id}`)}
-                            className="card w-full text-left flex items-center gap-3 active:scale-[0.99] transition-transform">
-                      <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
-                        <span className="font-bold text-amber-700 text-sm">{v.annee}</span>
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-gray-900">{Number(v.poids_total || 0).toFixed(0)} kg</p>
-                        <p className="text-xs text-gray-500">
-                          {v.nb_caisses_total || 0} caisses
-                          {rendement && <span className="text-vigne-600"> · {rendement.toLocaleString('fr-FR')} kg/ha</span>}
-                          {trendPct !== null && (
-                            <span className={`ml-1 font-medium ${trendPct >= 0 ? 'text-vigne-600' : 'text-orange-500'}`}>
-                              {' '}({trendPct >= 0 ? '+' : ''}{trendPct}% N-1)
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      <ChevronRight size={18} className="text-gray-300" />
-                    </button>
-                  )
-                })}
               </div>
-            </>
+              <MapPicker lat={parcelle.gps_lat} lng={parcelle.gps_lng} geoFeatures={geoFeatures} readOnly />
+              <div className="grid grid-cols-3 gap-2">
+                <button onClick={navigateToParcel}
+                        className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-medium active:bg-blue-700">
+                  <Navigation size={16} />
+                  Y aller
+                </button>
+                <button onClick={shareGPS}
+                        className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 active:bg-gray-50">
+                  <Share2 size={16} />
+                  Partager
+                </button>
+                <button onClick={sendSMS}
+                        className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 active:bg-gray-50">
+                  <MessageSquare size={16} />
+                  SMS
+                </button>
+              </div>
+            </div>
           )}
+
+          {canDelete && (!confirmDelete ? (
+            <button onClick={() => setConfirmDelete(true)}
+                    className="w-full flex items-center justify-center gap-2 text-red-500 py-3 text-sm font-medium">
+              <Trash2 size={16} />
+              Supprimer cette parcelle
+            </button>
+          ) : (
+            <div className="card border-red-200 bg-red-50 space-y-3">
+              <p className="text-red-700 font-medium text-sm text-center">
+                Supprimer définitivement {parcelle.nom} ?
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => setConfirmDelete(false)} className="btn-secondary py-2 text-sm">Annuler</button>
+                <button onClick={deleteParcelle} className="btn-danger py-2 text-sm">Supprimer</button>
+              </div>
+            </div>
+          ))}
         </div>
 
-        {canDelete && (!confirmDelete ? (
-          <button onClick={() => setConfirmDelete(true)}
-                  className="w-full flex items-center justify-center gap-2 text-red-500 py-3 text-sm font-medium">
-            <Trash2 size={16} />
-            Supprimer cette parcelle
-          </button>
-        ) : (
-          <div className="card border-red-200 bg-red-50 space-y-3">
-            <p className="text-red-700 font-medium text-sm text-center">
-              Supprimer définitivement {parcelle.nom} ?
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setConfirmDelete(false)} className="btn-secondary py-2 text-sm">Annuler</button>
-              <button onClick={deleteParcelle} className="btn-danger py-2 text-sm">Supprimer</button>
+        <div className="px-4 pt-4 space-y-4 md:px-0 md:pt-0 md:col-span-3">
+          {activite && (
+            <ActiviteSection activite={activite} navigate={navigate} />
+          )}
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-bold text-gray-900">Historique vendanges</h2>
+              <Link to="/vendange" className="text-vigne-700 text-sm font-semibold">
+                + Voir
+              </Link>
             </div>
+            {(parcelle.commune || parcelle.commune_pressoir || (Array.isArray(parcelle.cepages) && parcelle.cepages.length > 0)) && (
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {(parcelle.commune_pressoir || parcelle.commune) && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-vigne-100 text-vigne-800 text-xs font-semibold">
+                    <MapPin size={10} />
+                    {parcelle.commune_pressoir || parcelle.commune}
+                  </span>
+                )}
+                {Array.isArray(parcelle.cepages) && parcelle.cepages.map(c => (
+                  <span key={c} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-medium">
+                    <Grape size={10} />
+                    {c}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {(!parcelle.vendanges || parcelle.vendanges.length === 0) ? (
+              <div className="card text-center py-6">
+                <Grape size={32} className="mx-auto text-vigne-300 mb-2" />
+                <p className="text-gray-500 text-sm">Aucune vendange enregistrée</p>
+              </div>
+            ) : (
+              <>
+                {parcelle.vendanges.length >= 2 && (
+                  <div className="card mb-3 p-3">
+                    <VendangeChart vendanges={parcelle.vendanges} surfaceCa={parcelle.surface_totale_ca} />
+                    <div className="flex items-center gap-4 mt-2 justify-center">
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <span className="inline-block w-3 h-3 rounded-sm bg-amber-400" /> kg/ha réalisé
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#9ca3af" strokeWidth="1.5" strokeDasharray="4,2"/></svg>
+                        objectif appellation
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {comparaison?.pressoir && comparaison.annees?.filter(a => a.kgha_parcelle != null).length >= 1 && (
+                  <div className="card mb-3 p-3">
+                    <p className="text-xs font-semibold text-gray-700 mb-1">
+                      Rendement vs moyenne pressoir <span className="text-vigne-700">{comparaison.pressoir}</span>
+                    </p>
+                    <ComparaisonChart data={comparaison.annees} />
+                    <div className="flex items-center gap-4 mt-2 justify-center">
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <span className="inline-block w-3 h-3 rounded-sm bg-amber-400" /> Cette parcelle
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <span className="inline-block w-3 h-3 rounded-sm bg-vigne-600" /> Moyenne pressoir
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {parcelle.vendanges.map((v, i) => {
+                    const rendement = rendementKgHa(v.poids_total, parcelle.surface_totale_ca)
+                    const prev = parcelle.vendanges[i + 1]
+                    const trendPct = prev && prev.poids_total > 0
+                      ? Math.round(((v.poids_total - prev.poids_total) / prev.poids_total) * 100)
+                      : null
+                    return (
+                      <button key={v.id} onClick={() => navigate(`/vendange/parcelle/${v.id}`)}
+                              className="card w-full text-left flex items-center gap-3 active:scale-[0.99] transition-transform">
+                        <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                          <span className="font-bold text-amber-700 text-sm">{v.annee}</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900">{Number(v.poids_total || 0).toFixed(0)} kg</p>
+                          <p className="text-xs text-gray-500">
+                            {v.nb_caisses_total || 0} caisses
+                            {rendement && <span className="text-vigne-600"> · {rendement.toLocaleString('fr-FR')} kg/ha</span>}
+                            {trendPct !== null && (
+                              <span className={`ml-1 font-medium ${trendPct >= 0 ? 'text-vigne-600' : 'text-orange-500'}`}>
+                                {' '}({trendPct >= 0 ? '+' : ''}{trendPct}% N-1)
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <ChevronRight size={18} className="text-gray-300" />
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            )}
           </div>
-        ))}
+        </div>
       </div>
     </div>
   )
