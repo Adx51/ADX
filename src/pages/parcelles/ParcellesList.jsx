@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Map, LogOut, ChevronRight, ChevronDown, Search, X } from 'lucide-react'
+import { Plus, Map, ChevronRight, ChevronDown, Search, X } from 'lucide-react'
 import { api } from '../../lib/api'
-import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, caToDisplayHa } from '../../lib/surface'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 
@@ -38,7 +37,6 @@ function filterParcelles(parcelles, search) {
 }
 
 export default function ParcellesList() {
-  const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [parcelles, setParcelles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -67,16 +65,8 @@ export default function ParcellesList() {
 
   return (
     <div>
-      <div className="page-header flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">🍇 LF-Boyer</h1>
-          <p className="text-vigne-200 text-xs mt-0.5">
-            {user?.prenom ? `${user.prenom} ${user.nom}` : user?.email}
-          </p>
-        </div>
-        <button onClick={signOut} className="p-2 rounded-full active:bg-vigne-600" title="Déconnexion">
-          <LogOut size={20} />
-        </button>
+      <div className="page-header">
+        <h1 className="text-xl font-bold">Mes parcelles</h1>
       </div>
 
       {/* Search bar */}
@@ -105,8 +95,12 @@ export default function ParcellesList() {
           <div className="text-center py-16">
             <Map size={48} className="mx-auto text-vigne-300 mb-4" />
             {parcelles.length === 0
-              ? <><p className="text-gray-500 font-medium">Aucune parcelle pour l'instant</p>
-                  <p className="text-gray-400 text-sm mt-1">Ajoutez votre première parcelle</p></>
+              ? <>
+                  <p className="text-gray-500 font-medium">Aucune parcelle pour l'instant</p>
+                  <button onClick={() => navigate('/parcelles/new')} className="mt-4 text-vigne-600 font-medium text-sm">
+                    + Ajouter une parcelle
+                  </button>
+                </>
               : <p className="text-gray-500 font-medium">Aucun résultat pour « {search} »</p>
             }
           </div>

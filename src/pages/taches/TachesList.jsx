@@ -14,6 +14,12 @@ const STATUTS = {
   termine:  { label: 'Terminée', color: 'bg-vigne-100 text-vigne-700 dark:bg-vigne-900/30 dark:text-vigne-400', icon: Check },
 }
 
+const PRIORITE_DOT = {
+  haute:   'bg-red-500',
+  normale: null,
+  basse:   'bg-gray-300 dark:bg-gray-600',
+}
+
 function TacheCard({ t, onToggle, onPhoto, navigate }) {
   const statut = STATUTS[t.statut]
   const Icon = statut.icon
@@ -28,9 +34,14 @@ function TacheCard({ t, onToggle, onPhoto, navigate }) {
         <Icon size={18} />
       </button>
       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/taches/${t.id}/edit`)}>
-        <p className={`font-semibold leading-tight ${t.statut === 'termine' ? 'line-through text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
-          {t.titre}
-        </p>
+        <div className="flex items-center gap-1.5">
+          {PRIORITE_DOT[t.priorite] && (
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITE_DOT[t.priorite]}`} />
+          )}
+          <p className={`font-semibold leading-tight ${t.statut === 'termine' ? 'line-through text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
+            {t.titre}
+          </p>
+        </div>
         {t.parcelles && <p className="text-xs text-vigne-600 dark:text-vigne-400 mt-0.5">{t.parcelles.nom}</p>}
         {t.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{t.description}</p>}
         {t.date_echeance && (
@@ -250,6 +261,11 @@ export default function TachesList() {
             <div className="text-center py-16">
               <CheckSquare size={48} className="mx-auto text-vigne-300 mb-4" />
               <p className="text-gray-500 font-medium">Aucune tâche</p>
+              {filtre === 'a_faire' && saison === getSaisonCourante() && (
+                <button onClick={() => navigate('/taches/new')} className="mt-4 text-vigne-600 font-medium text-sm">
+                  + Créer une tâche
+                </button>
+              )}
             </div>
           ) : (
             filtered.map(t => (
