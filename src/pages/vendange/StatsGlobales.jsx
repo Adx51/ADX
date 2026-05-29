@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Award, Lock, BarChart2 } from 'lucide-react'
+import { ChevronRight, Award, Lock, BarChart2, Ruler, Package, TrendingUp, Trophy } from 'lucide-react'
 import { api } from '../../lib/api'
 import { caToDisplayHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
@@ -146,9 +146,11 @@ function ProductionChart({ data }) {
   const maxY    = Math.max(...vals) * 1.2
   const bestVal = Math.max(...vals)
   const n       = active.length
-  const xStep   = CW / n
-  const barW    = Math.min(xStep * 0.6, 56)
-  const xCenter = i => PAD.left + i * xStep + xStep / 2
+  // Largeur de créneau plafonnée → barres regroupées et centrées quand peu d'années
+  const slot    = Math.min(CW / n, 120)
+  const barW    = Math.min(slot * 0.62, 64)
+  const startX  = PAD.left + (CW - slot * n) / 2
+  const xCenter = i => startX + i * slot + slot / 2
   const yPos    = v => PAD.top + CH - (v / maxY) * CH
 
   return (
@@ -258,12 +260,19 @@ function KpiCard({ value, label, accent, sub }) {
 }
 
 // ── Desktop KPI card (light theme) ───────────────────────────────────────────
-function KpiCardDesktop({ value, label, accent, sub }) {
+function KpiCardDesktop({ value, label, accent, sub, icon: Icon }) {
   return (
-    <div className={`rounded-2xl px-5 py-4 ${accent ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50 border border-gray-100'}`}>
-      <p className={`text-2xl font-bold leading-snug ${accent ? 'text-amber-600' : 'text-gray-900'}`}>{value}</p>
-      <p className={`text-xs mt-0.5 font-medium ${accent ? 'text-amber-500' : 'text-gray-500'}`}>{label}</p>
-      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+    <div className={`rounded-2xl px-5 py-4 flex items-start gap-3 ${accent ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50 border border-gray-100'}`}>
+      {Icon && (
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${accent ? 'bg-amber-200/60 text-amber-600' : 'bg-vigne-100 text-vigne-600'}`}>
+          <Icon size={18} />
+        </div>
+      )}
+      <div className="min-w-0">
+        <p className={`text-2xl font-bold leading-snug ${accent ? 'text-amber-600' : 'text-gray-900'}`}>{value}</p>
+        <p className={`text-xs mt-0.5 font-medium ${accent ? 'text-amber-500' : 'text-gray-500'}`}>{label}</p>
+        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+      </div>
     </div>
   )
 }
@@ -353,12 +362,13 @@ export default function StatsGlobales() {
       </div>
 
       {/* ── Hero desktop (light, 4-col KPIs) ── */}
-      <div className="hidden md:block bg-white border-b border-gray-100 px-6 py-5">
+      <div className="hidden md:block bg-gradient-to-r from-vigne-50/60 to-white border-b border-gray-100 px-6 py-5">
         <div className="grid grid-cols-4 gap-4">
-          <KpiCardDesktop value={caToDisplayHa(surface_totale_ca)} label="Surface totale" sub={`${stats.nb_parcelles} parcelle${stats.nb_parcelles > 1 ? 's' : ''}`} />
-          <KpiCardDesktop value={`${fmtK(totalKg)} kg`} label={`Production cumulée`} sub={`${campagnes.length} campagne${campagnes.length > 1 ? 's' : ''}`} />
-          <KpiCardDesktop value={avgKgHa ? `${avgKgHa.toLocaleString('fr-FR')} kg/ha` : '—'} label="Rendement moyen" />
+          <KpiCardDesktop icon={Ruler} value={caToDisplayHa(surface_totale_ca)} label="Surface totale" sub={`${stats.nb_parcelles} parcelle${stats.nb_parcelles > 1 ? 's' : ''}`} />
+          <KpiCardDesktop icon={Package} value={`${fmtK(totalKg)} kg`} label={`Production cumulée`} sub={`${campagnes.length} campagne${campagnes.length > 1 ? 's' : ''}`} />
+          <KpiCardDesktop icon={TrendingUp} value={avgKgHa ? `${avgKgHa.toLocaleString('fr-FR')} kg/ha` : '—'} label="Rendement moyen" />
           <KpiCardDesktop
+            icon={Trophy}
             value={bestC ? `${bestC.rendement_kgha.toLocaleString('fr-FR')} kg/ha` : '—'}
             label={bestC ? `Record — ${bestC.annee}` : 'Meilleur rendement'}
             accent
@@ -520,6 +530,7 @@ function CampagnesTable({ campagnesDesc, bestC, navigate, desktop }) {
       {campagnesDesc.map(c => {
         const isBest   = bestC && c.annee === bestC.annee
         const isClosed = c.statut === 'cloturee'
+        const noData   = !c.poids_total && !c.nb_vendanges
         const vsObjectif = c.rendement_attendu_kgha && c.rendement_kgha
           ? Math.round((c.rendement_kgha - c.rendement_attendu_kgha) / c.rendement_attendu_kgha * 100)
           : null
@@ -529,6 +540,7 @@ function CampagnesTable({ campagnesDesc, bestC, navigate, desktop }) {
             key={c.annee}
             onClick={() => navigate(`/vendange/${c.annee}`)}
             className={`w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-50 last:border-0 text-left active:bg-gray-50 transition-colors
+              ${noData ? 'opacity-45' : ''}
               ${desktop ? 'md:grid md:grid-cols-[3rem_1fr_1fr_1fr_auto_1.5rem] md:gap-4 md:py-3' : ''}`}
           >
             {/* Icon */}
