@@ -145,213 +145,214 @@ export default function CampagneDetail() {
         )}
       </PageHeader>
 
-      <div className="px-4 pt-4 space-y-4 pb-8">
-        {isClosed && (
-          <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-2 flex items-center gap-2 text-sm text-gray-600">
-            <Lock size={14} />
-            <span>Clôturée le {campagne.date_cloture ? format(parseISO(campagne.date_cloture), 'd MMMM yyyy', { locale: fr }) : ''}</span>
-          </div>
-        )}
+      <div className="md:px-6 md:pt-5 md:pb-8 md:grid md:grid-cols-5 md:gap-6 md:items-start">
+        <div className="px-4 pt-4 space-y-4 md:px-0 md:pt-0 md:col-span-2">
+          {isClosed && (
+            <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-2 flex items-center gap-2 text-sm text-gray-600">
+              <Lock size={14} />
+              <span>Clôturée le {campagne.date_cloture ? format(parseISO(campagne.date_cloture), 'd MMMM yyyy', { locale: fr }) : ''}</span>
+            </div>
+          )}
 
-        {/* Infos campagne */}
-        {(campagne.date_debut || attendu) && (
-          <div className="card space-y-2.5">
-            {campagne.date_debut && (
-              <div className="flex items-center gap-3 text-sm">
-                <Calendar size={15} className="text-gray-400 flex-shrink-0" />
-                <span className="text-gray-500">Début</span>
-                <span className="font-medium text-gray-900 ml-auto capitalize">
-                  {format(parseISO(campagne.date_debut), 'd MMM yyyy', { locale: fr })}
-                </span>
+          {/* Infos campagne */}
+          {(campagne.date_debut || attendu) && (
+            <div className="card space-y-2.5">
+              {campagne.date_debut && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Calendar size={15} className="text-gray-400 flex-shrink-0" />
+                  <span className="text-gray-500">Début</span>
+                  <span className="font-medium text-gray-900 ml-auto capitalize">
+                    {format(parseISO(campagne.date_debut), 'd MMM yyyy', { locale: fr })}
+                  </span>
+                </div>
+              )}
+              {attendu && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Target size={15} className="text-gray-400 flex-shrink-0" />
+                  <span className="text-gray-500">Objectif</span>
+                  <span className="font-medium text-gray-900 ml-auto">
+                    {Number(attendu).toLocaleString('fr-FR')} kg/ha
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Stats globales */}
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-2xl font-bold text-amber-800">{Number(totalPoids).toFixed(0)}</p>
+                <p className="text-xs text-amber-600 mt-0.5">kg récolté</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-amber-800">{totalCaisses}</p>
+                <p className="text-xs text-amber-600 mt-0.5">caisses</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-vigne-700">
+                  {rendementMoyen ? rendementMoyen.toLocaleString('fr-FR') : '—'}
+                </p>
+                <p className="text-xs text-vigne-600 mt-0.5">kg/ha moyen</p>
+              </div>
+            </div>
+
+            {/* Barre total récolté / attendu */}
+            {kgAttenduTotal != null && (
+              <div>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="font-semibold text-amber-800">
+                    {Number(totalPoids).toLocaleString('fr-FR')} kg récoltés
+                    {isClosed && <span className="text-gray-400 font-normal ml-1">(figé)</span>}
+                  </span>
+                  <span className="text-amber-600">
+                    {kgAttenduTotal.toLocaleString('fr-FR')} kg attendus
+                  </span>
+                </div>
+                <div className="h-2.5 bg-amber-200 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all ${pctTotal > 100 ? 'bg-vigne-600' : 'bg-amber-600'}`}
+                       style={{ width: `${Math.min(pctTotal, 100)}%` }} />
+                </div>
+                <p className={`text-xs text-center font-semibold mt-1 ${pctTotal > 100 ? 'text-vigne-700' : 'text-amber-700'}`}>
+                  {pctTotal}% de l'objectif campagne
+                </p>
               </div>
             )}
-            {attendu && (
-              <div className="flex items-center gap-3 text-sm">
-                <Target size={15} className="text-gray-400 flex-shrink-0" />
-                <span className="text-gray-500">Objectif</span>
-                <span className="font-medium text-gray-900 ml-auto">
-                  {Number(attendu).toLocaleString('fr-FR')} kg/ha
-                </span>
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* Stats globales */}
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div>
-              <p className="text-2xl font-bold text-amber-800">{Number(totalPoids).toFixed(0)}</p>
-              <p className="text-xs text-amber-600 mt-0.5">kg récolté</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-amber-800">{totalCaisses}</p>
-              <p className="text-xs text-amber-600 mt-0.5">caisses</p>
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-vigne-700">
-                {rendementMoyen ? rendementMoyen.toLocaleString('fr-FR') : '—'}
+            {attendu && rendementMoyen != null && (
+              <RendementComparison reel={rendementMoyen} attendu={attendu} />
+            )}
+            {!isClosed && nbEnCours > 0 && (
+              <p className="text-xs text-center text-amber-600">
+                {nbEnCours} / {parcelles.length} parcelle{parcelles.length > 1 ? 's' : ''} commencée{nbEnCours > 1 ? 's' : ''}
               </p>
-              <p className="text-xs text-vigne-600 mt-0.5">kg/ha moyen</p>
-            </div>
-          </div>
-
-          {/* Barre total récolté / attendu */}
-          {kgAttenduTotal != null && (
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="font-semibold text-amber-800">
-                  {Number(totalPoids).toLocaleString('fr-FR')} kg récoltés
-                  {isClosed && <span className="text-gray-400 font-normal ml-1">(figé)</span>}
-                </span>
-                <span className="text-amber-600">
-                  {kgAttenduTotal.toLocaleString('fr-FR')} kg attendus
-                </span>
-              </div>
-              <div className="h-2.5 bg-amber-200 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all ${pctTotal > 100 ? 'bg-vigne-600' : 'bg-amber-600'}`}
-                     style={{ width: `${Math.min(pctTotal, 100)}%` }} />
-              </div>
-              <p className={`text-xs text-center font-semibold mt-1 ${pctTotal > 100 ? 'text-vigne-700' : 'text-amber-700'}`}>
-                {pctTotal}% de l'objectif campagne
-              </p>
-            </div>
-          )}
-
-          {attendu && rendementMoyen != null && (
-            <RendementComparison reel={rendementMoyen} attendu={attendu} />
-          )}
-          {!isClosed && nbEnCours > 0 && (
-            <p className="text-xs text-center text-amber-600">
-              {nbEnCours} / {parcelles.length} parcelle{parcelles.length > 1 ? 's' : ''} commencée{nbEnCours > 1 ? 's' : ''}
-            </p>
-          )}
-        </div>
-
-        {/* Liste des parcelles */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-bold text-gray-900">Parcelles</h2>
-            {!isClosed && (
-              <p className="text-xs text-gray-400">+ = nouveau chargement</p>
             )}
           </div>
-          {parcelles.length === 0 ? (
-            <div className="card text-center py-6">
-              <Grape size={32} className="mx-auto text-vigne-300 mb-2" />
-              <p className="text-gray-500 text-sm">Aucune parcelle enregistrée</p>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {/* Vendanges actives en haut */}
-              {actives.length > 0 && (
-                <div className="space-y-2">
-                  <SectionLabel label="En cours" count={actives.length} />
-                  <ParcelleSection parcelles={actives} attendu={attendu} campagneClosed={isClosed}
-                    onOpen={p => openParcelle(p.id, p.vendange_id)}
-                    onAdd={p => quickChargement(p.id, p.vendange_id)} />
-                </div>
-              )}
 
-              {/* Non commencées */}
-              {nonLancees.length > 0 && (
-                <div className="space-y-2">
-                  <SectionLabel label="À vendanger" count={nonLancees.length} className={actives.length > 0 ? 'mt-3' : ''} />
-                  <ParcelleSection parcelles={nonLancees} attendu={attendu} campagneClosed={isClosed}
-                    onOpen={p => openParcelle(p.id, p.vendange_id)}
-                    onAdd={p => quickChargement(p.id, p.vendange_id)} />
-                </div>
-              )}
-
-              {/* Clôturées en bas */}
-              {clotsurees.length > 0 && (
-                <div className="space-y-2">
-                  <SectionLabel label="Clôturées" icon={<Lock size={14} className="text-gray-400" />} count={clotsurees.length} className="mt-3" />
-                  <ParcelleSection parcelles={clotsurees} attendu={attendu} campagneClosed={isClosed}
-                    closed
-                    onOpen={p => openParcelle(p.id, p.vendange_id)}
-                    onAdd={null} />
-                </div>
+          {/* Note de bilan */}
+          {(isClosed || campagne.note_bilan) && (
+            <div className="card space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-gray-900 text-sm">Note de bilan</p>
+                {!bilanEdit && (
+                  <button onClick={() => setBilanEdit(true)} className="text-vigne-700 text-sm font-medium">
+                    Modifier
+                  </button>
+                )}
+              </div>
+              {bilanEdit ? (
+                <>
+                  <textarea value={bilanValue} onChange={e => setBilanValue(e.target.value)}
+                            className="input min-h-[80px]" placeholder="Observations, bilan, anomalies..." />
+                  <div className="flex gap-2">
+                    <button onClick={() => { setBilanEdit(false); setBilanValue(campagne.note_bilan || '') }}
+                            className="flex-1 btn-secondary py-2 text-sm">Annuler</button>
+                    <button onClick={saveBilan} className="flex-1 btn-primary py-2 text-sm">Enregistrer</button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {campagne.note_bilan || <span className="text-gray-400 italic">Aucun bilan saisi.</span>}
+                </p>
               )}
             </div>
           )}
-        </div>
 
-        {/* Note de bilan */}
-        {(isClosed || campagne.note_bilan) && (
-          <div className="card space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="font-semibold text-gray-900 text-sm">Note de bilan</p>
-              {!bilanEdit && (
-                <button onClick={() => setBilanEdit(true)} className="text-vigne-700 text-sm font-medium">
-                  Modifier
-                </button>
-              )}
-            </div>
-            {bilanEdit ? (
-              <>
-                <textarea value={bilanValue} onChange={e => setBilanValue(e.target.value)}
-                          className="input min-h-[80px]" placeholder="Observations, bilan, anomalies..." />
-                <div className="flex gap-2">
-                  <button onClick={() => { setBilanEdit(false); setBilanValue(campagne.note_bilan || '') }}
-                          className="flex-1 btn-secondary py-2 text-sm">Annuler</button>
-                  <button onClick={saveBilan} className="flex-1 btn-primary py-2 text-sm">Enregistrer</button>
+          {/* Boutons clôture / réouverture */}
+          {!isClosed ? (
+            confirmCloture ? (
+              <div className="card border-amber-200 bg-amber-50 space-y-3">
+                <p className="text-amber-800 font-medium text-sm text-center">
+                  Clôturer la campagne {campagne.annee} ?
+                </p>
+                <p className="text-xs text-amber-700 text-center">Les saisies seront verrouillées (réouverture possible).</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setConfirmCloture(false)} className="btn-secondary py-2 text-sm">Annuler</button>
+                  <button onClick={cloturer} className="py-2 rounded-xl bg-amber-600 text-white text-sm font-medium">Clôturer</button>
                 </div>
-              </>
+              </div>
             ) : (
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                {campagne.note_bilan || <span className="text-gray-400 italic">Aucun bilan saisi.</span>}
-              </p>
-            )}
-          </div>
-        )}
+              <button onClick={() => setConfirmCloture(true)}
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-600 text-white text-sm font-semibold active:bg-amber-700">
+                <Lock size={16} />
+                Clôturer la campagne
+              </button>
+            )
+          ) : (
+            <button onClick={rouvrir}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm font-medium active:bg-gray-50">
+              <Unlock size={16} />
+              Rouvrir la campagne
+            </button>
+          )}
 
-        {/* Boutons clôture / réouverture */}
-        {!isClosed ? (
-          confirmCloture ? (
-            <div className="card border-amber-200 bg-amber-50 space-y-3">
-              <p className="text-amber-800 font-medium text-sm text-center">
-                Clôturer la campagne {campagne.annee} ?
+          {!confirmDelete ? (
+            <button onClick={() => setConfirmDelete(true)}
+                    className="w-full flex items-center justify-center gap-2 text-red-500 py-3 text-sm font-medium">
+              <Trash2 size={16} />
+              Supprimer la campagne
+            </button>
+          ) : (
+            <div className="card border-red-200 bg-red-50 space-y-3">
+              <p className="text-red-700 font-medium text-sm text-center">
+                Supprimer définitivement la campagne {campagne.annee} ?
               </p>
-              <p className="text-xs text-amber-700 text-center">Les saisies seront verrouillées (réouverture possible).</p>
+              <p className="text-xs text-red-600 text-center">Les vendanges et chargements ne sont pas supprimés.</p>
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setConfirmCloture(false)} className="btn-secondary py-2 text-sm">Annuler</button>
-                <button onClick={cloturer} className="py-2 rounded-xl bg-amber-600 text-white text-sm font-medium">Clôturer</button>
+                <button onClick={() => setConfirmDelete(false)} className="btn-secondary py-2 text-sm">Annuler</button>
+                <button onClick={deleteCampagne} className="btn-danger py-2 text-sm">Supprimer</button>
               </div>
             </div>
-          ) : (
-            <button onClick={() => setConfirmCloture(true)}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-600 text-white text-sm font-semibold active:bg-amber-700">
-              <Lock size={16} />
-              Clôturer la campagne
-            </button>
-          )
-        ) : (
-          <button onClick={rouvrir}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm font-medium active:bg-gray-50">
-            <Unlock size={16} />
-            Rouvrir la campagne
-          </button>
-        )}
+          )}
+        </div>
 
-        {!confirmDelete ? (
-          <button onClick={() => setConfirmDelete(true)}
-                  className="w-full flex items-center justify-center gap-2 text-red-500 py-3 text-sm font-medium">
-            <Trash2 size={16} />
-            Supprimer la campagne
-          </button>
-        ) : (
-          <div className="card border-red-200 bg-red-50 space-y-3">
-            <p className="text-red-700 font-medium text-sm text-center">
-              Supprimer définitivement la campagne {campagne.annee} ?
-            </p>
-            <p className="text-xs text-red-600 text-center">Les vendanges et chargements ne sont pas supprimés.</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setConfirmDelete(false)} className="btn-secondary py-2 text-sm">Annuler</button>
-              <button onClick={deleteCampagne} className="btn-danger py-2 text-sm">Supprimer</button>
+        <div className="px-4 pt-4 space-y-4 pb-8 md:px-0 md:pt-0 md:pb-0 md:col-span-3">
+          {/* Liste des parcelles */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-bold text-gray-900">Parcelles</h2>
+              {!isClosed && (
+                <p className="text-xs text-gray-400">+ = nouveau chargement</p>
+              )}
             </div>
+            {parcelles.length === 0 ? (
+              <div className="card text-center py-6">
+                <Grape size={32} className="mx-auto text-vigne-300 mb-2" />
+                <p className="text-gray-500 text-sm">Aucune parcelle enregistrée</p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {actives.length > 0 && (
+                  <div className="space-y-2">
+                    <SectionLabel label="En cours" count={actives.length} />
+                    <ParcelleSection parcelles={actives} attendu={attendu} campagneClosed={isClosed}
+                      onOpen={p => openParcelle(p.id, p.vendange_id)}
+                      onAdd={p => quickChargement(p.id, p.vendange_id)} />
+                  </div>
+                )}
+
+                {nonLancees.length > 0 && (
+                  <div className="space-y-2">
+                    <SectionLabel label="À vendanger" count={nonLancees.length} className={actives.length > 0 ? 'mt-3' : ''} />
+                    <ParcelleSection parcelles={nonLancees} attendu={attendu} campagneClosed={isClosed}
+                      onOpen={p => openParcelle(p.id, p.vendange_id)}
+                      onAdd={p => quickChargement(p.id, p.vendange_id)} />
+                  </div>
+                )}
+
+                {clotsurees.length > 0 && (
+                  <div className="space-y-2">
+                    <SectionLabel label="Clôturées" icon={<Lock size={14} className="text-gray-400" />} count={clotsurees.length} className="mt-3" />
+                    <ParcelleSection parcelles={clotsurees} attendu={attendu} campagneClosed={isClosed}
+                      closed
+                      onOpen={p => openParcelle(p.id, p.vendange_id)}
+                      onAdd={null} />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   )

@@ -112,8 +112,8 @@ function RendementChart({ data }) {
       </defs>
       {[midVal, Math.max(...vals)].map(v => (
         <g key={v}>
-          <line x1={PAD.left} y1={yPos(v)} x2={W-PAD.right} y2={yPos(v)} stroke="#f3f4f6" strokeWidth="1" />
-          <text x={PAD.left+2} y={yPos(v)-4} fontSize="9" fill="#e5e7eb">{fmtK(v)}</text>
+          <line x1={PAD.left} y1={yPos(v)} x2={W-PAD.right} y2={yPos(v)} stroke="#e5e7eb" strokeWidth="1" />
+          <text x={PAD.left+2} y={yPos(v)-4} fontSize="9" fill="#9ca3af">{fmtK(v)}</text>
         </g>
       ))}
       <path d={areaPath} fill="url(#rdt-grad)" />
@@ -207,8 +207,8 @@ function BreakdownChart({ items, yearColors, multiYear }) {
         const y = yPos(maxPoids * f)
         return (
           <g key={f}>
-            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#f3f4f6" strokeWidth="1" />
-            <text x={PAD.left + 1} y={y - 3} fontSize="8" fill="#d1d5db">{fmtK(maxPoids * f)}</text>
+            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#e5e7eb" strokeWidth="1" />
+            <text x={PAD.left + 1} y={y - 3} fontSize="8" fill="#9ca3af">{fmtK(maxPoids * f)}</text>
           </g>
         )
       })}
