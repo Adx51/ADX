@@ -4,6 +4,7 @@ import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navi
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
+import { getSaison, getSaisonCourante } from '../../lib/saison'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 import { locateFromCadastre } from '../../lib/cadastre'
 import PageHeader from '../../components/PageHeader'
@@ -317,13 +318,16 @@ function ActiviteSection({ activite, navigate }) {
   const [open, setOpen] = useState(true)
   const { taches, traitements } = activite
 
-  const hasTaches = taches.length > 0
-  const hasTraitements = traitements.length > 0
+  const saisonCourante = getSaisonCourante()
+
+  // Filter by current viticultural season
+  const tachesSaison = taches.filter(t => getSaison(t.date_echeance || t.created_at) === saisonCourante)
+  const traitementsSaison = traitements.filter(t => getSaison(t.date) === saisonCourante)
+
+  const hasTaches = tachesSaison.length > 0
+  const hasTraitements = traitementsSaison.length > 0
 
   if (!hasTaches && !hasTraitements) return null
-
-  const activeTaches = taches.filter(t => t.statut !== 'termine')
-  const doneTaches = taches.filter(t => t.statut === 'termine')
 
   return (
     <div>
@@ -331,7 +335,10 @@ function ActiviteSection({ activite, navigate }) {
         onClick={() => setOpen(v => !v)}
         className="flex items-center justify-between w-full mb-2"
       >
-        <h2 className="font-bold text-gray-900">Activité de la saison</h2>
+        <h2 className="font-bold text-gray-900">
+          Activité
+          <span className="ml-2 text-sm font-normal text-vigne-600">Saison {saisonCourante}</span>
+        </h2>
         <ChevronDown size={16} className={`text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
@@ -342,7 +349,7 @@ function ActiviteSection({ activite, navigate }) {
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
                 <CheckSquare size={12} /> Tâches
               </p>
-              {taches.map(t => {
+              {tachesSaison.map(t => {
                 const s = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
                 const { Icon } = s
                 const done = t.statut === 'termine'
@@ -367,9 +374,9 @@ function ActiviteSection({ activite, navigate }) {
           {hasTraitements && (
             <div className="card space-y-2">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-                <Sprout size={12} /> Traitements récents
+                <Sprout size={12} /> Traitements
               </p>
-              {traitements.slice(0, 8).map(t => {
+              {traitementsSaison.slice(0, 8).map(t => {
                 const typ = TYPE_TRAITEMENT[t.type] || TYPE_TRAITEMENT.autre
                 return (
                   <div key={t.id} className="flex items-center gap-2.5">

@@ -6,6 +6,7 @@ import { format, parseISO, isPast, isToday } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import PhotoModal from '../../components/PhotoModal'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
+import { getSaisonCourante, tacheSaison } from '../../lib/saison'
 
 const STATUTS = {
   a_faire:  { label: 'À faire',  color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',   icon: Clock },
@@ -138,6 +139,7 @@ export default function TachesList() {
   const [filtre, setFiltre] = useState('a_faire')
   const [vue, setVue] = useState('liste') // 'liste' | 'parcelle'
   const [photoUrl, setPhotoUrl] = useState(null)
+  const [saison, setSaison] = useState(() => getSaisonCourante())
   const refreshTick = useRefreshTrigger()
 
   useEffect(() => { load() }, [refreshTick])
@@ -155,7 +157,13 @@ export default function TachesList() {
     setTaches(prev => prev.map(t => t.id === tache.id ? { ...t, statut: next } : t))
   }
 
-  const filtered = filtre === 'all' ? taches : taches.filter(t => t.statut === filtre)
+  // Available seasons from loaded taches, most recent first
+  const saisons = [...new Set(taches.map(tacheSaison).filter(Boolean))].sort((a, b) => b - a)
+
+  // Taches filtered by selected season (null = all)
+  const tachesSaison = saison !== null ? taches.filter(t => tacheSaison(t) === saison) : taches
+
+  const filtered = filtre === 'all' ? tachesSaison : tachesSaison.filter(t => t.statut === filtre)
 
   return (
     <div>
@@ -163,8 +171,33 @@ export default function TachesList() {
         <h1 className="text-xl font-bold">Tâches</h1>
       </div>
 
+      {/* Sélecteur de saison */}
+      {!loading && saisons.length > 0 && (
+        <div className="flex gap-2 px-4 pt-3 pb-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {saisons.map(s => (
+            <button
+              key={s}
+              onClick={() => setSaison(s)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                saison === s ? 'bg-vigne-700 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
+              }`}
+            >
+              Saison {s}
+            </button>
+          ))}
+          <button
+            onClick={() => setSaison(null)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              saison === null ? 'bg-vigne-700 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700'
+            }`}
+          >
+            Toutes
+          </button>
+        </div>
+      )}
+
       {/* Onglets vue */}
-      <div className="flex border-b border-gray-100 dark:border-gray-800 px-4 pt-3 gap-1">
+      <div className="flex border-b border-gray-100 dark:border-gray-800 px-4 pt-2 gap-1">
         <button
           onClick={() => setVue('liste')}
           className={`flex-1 py-2 rounded-t-xl text-sm font-medium transition-colors ${
@@ -185,7 +218,7 @@ export default function TachesList() {
 
       {/* Filtres statut (vue liste seulement) */}
       {vue === 'liste' && (
-        <div className="flex gap-2 px-4 pt-3 pb-2 overflow-x-auto">
+        <div className="flex gap-2 px-4 pt-3 pb-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
           {[
             { key: 'a_faire',  label: 'À faire'   },
             { key: 'en_cours', label: 'En cours'  },
@@ -210,7 +243,7 @@ export default function TachesList() {
           {Array.from({ length: 3 }).map((_, i) => <div key={i} className="card skeleton h-20" />)}
         </div>
       ) : vue === 'parcelle' ? (
-        <VueParParcelle taches={taches} toggleStatut={toggleStatut} setPhotoUrl={setPhotoUrl} navigate={navigate} />
+        <VueParParcelle taches={tachesSaison} toggleStatut={toggleStatut} setPhotoUrl={setPhotoUrl} navigate={navigate} />
       ) : (
         <div className="px-4 space-y-3 pt-2">
           {filtered.length === 0 ? (
