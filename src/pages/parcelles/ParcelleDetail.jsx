@@ -133,7 +133,7 @@ export default function ParcelleDetail() {
             <InfoRow label="Surface plantée" value={caToDisplay(parcelle.surface_plantee_ca)} />
             <InfoRow label="Nombre de routes" value={parcelle.nombre_routes != null ? `${parcelle.nombre_routes} routes` : null} />
             {parcelle.commune              && <InfoRow label="Commune"           value={parcelle.commune} />}
-            {parcelle.reference_cadastrale && <InfoRow label="Réf. cadastrale"  value={parcelle.reference_cadastrale} />}
+            {parcelle.reference_cadastrale && <InfoRow label="Réf. cadastrale"  value={parcelle.reference_cadastrale.replace(/,/g, ', ')} />}
             {Array.isArray(parcelle.cepages) && parcelle.cepages.length > 0 &&
               <InfoRow label="Cépages" value={parcelle.cepages.join(', ')} />}
             {parcelle.annee_plantation     && <InfoRow label={parcelle.statut === 'replantee' ? 'Année plantation' : 'Année arrachage'} value={parcelle.annee_plantation} />}
@@ -585,7 +585,7 @@ function InfoRow({ label, value }) {
   return (
     <div className="flex justify-between items-start gap-4">
       <span className="text-sm text-gray-500 flex-shrink-0">{label}</span>
-      <span className="text-sm font-medium text-gray-900 text-right">{value || '—'}</span>
+      <span className="text-sm font-medium text-gray-900 text-right min-w-0 break-words">{value || '—'}</span>
     </div>
   )
 }
