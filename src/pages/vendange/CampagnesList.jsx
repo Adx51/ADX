@@ -78,8 +78,10 @@ export default function CampagnesList() {
       <div className="page-header flex items-center justify-between">
         <h1 className="text-xl font-bold">🍾 Vendanges</h1>
         <button onClick={() => navigate('/vendange/stats')}
-                className="p-2 rounded-full active:bg-vigne-600" title="Statistiques">
-          <BarChart2 size={20} />
+                className="flex items-center gap-1.5 bg-white/15 active:bg-white/25 rounded-full pl-3 pr-3.5 py-1.5 text-sm font-semibold transition-colors"
+                title="Statistiques">
+          <BarChart2 size={16} />
+          Stats
         </button>
       </div>
 
