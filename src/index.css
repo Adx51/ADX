@@ -254,6 +254,63 @@
   color: #d1d5db !important;
 }
 
+/* ── Dark mode : couleurs sémantiques complètes ──────────────────────────
+   L'ancien dark mode ne traitait que white/gray → tous les accents colorés
+   (badges, cartes ambre, textes vigne…) restaient en couleur claire et
+   devenaient illisibles. Ce bloc couvre TOUTES les familles utilisées :
+   surfaces teintées assombries, textes éclaircis, bordures translucides. */
+
+/* Surfaces teintées claires → versions sombres translucides de même teinte */
+.dark .bg-amber-50      { background-color: rgba(217,119,6,0.13) !important; }
+.dark .bg-amber-100     { background-color: rgba(217,119,6,0.20) !important; }
+.dark .bg-amber-200     { background-color: rgba(217,119,6,0.28) !important; }
+.dark .bg-amber-200\/60 { background-color: rgba(217,119,6,0.28) !important; }
+.dark .bg-amber-500\/20 { background-color: rgba(245,158,11,0.22) !important; }
+.dark .bg-blue-50       { background-color: rgba(59,130,246,0.13) !important; }
+.dark .bg-blue-100      { background-color: rgba(59,130,246,0.20) !important; }
+.dark .bg-red-50        { background-color: rgba(239,68,68,0.13) !important; }
+.dark .bg-red-100       { background-color: rgba(239,68,68,0.20) !important; }
+.dark .bg-orange-50     { background-color: rgba(249,115,22,0.13) !important; }
+.dark .bg-orange-100    { background-color: rgba(249,115,22,0.20) !important; }
+.dark .bg-purple-100    { background-color: rgba(168,85,247,0.20) !important; }
+.dark .bg-yellow-100    { background-color: rgba(234,179,8,0.20) !important; }
+.dark .bg-emerald-100   { background-color: rgba(16,185,129,0.20) !important; }
+.dark .bg-vigne-50      { background-color: rgba(34,197,94,0.10) !important; }
+.dark .bg-vigne-50\/50  { background-color: rgba(34,197,94,0.08) !important; }
+.dark .bg-vigne-100     { background-color: rgba(34,197,94,0.16) !important; }
+
+/* Textes "foncés sur clair" → éclaircis pour le contraste sur fond sombre */
+.dark .text-amber-600   { color: #fbbf24 !important; }
+.dark .text-amber-700   { color: #fcd34d !important; }
+.dark .text-amber-800   { color: #fde68a !important; }
+.dark .text-blue-600,
+.dark .text-blue-700    { color: #93c5fd !important; }
+.dark .text-red-600,
+.dark .text-red-700     { color: #fca5a5 !important; }
+.dark .text-orange-600,
+.dark .text-orange-700  { color: #fdba74 !important; }
+.dark .text-purple-700  { color: #d8b4fe !important; }
+.dark .text-yellow-700  { color: #fde047 !important; }
+.dark .text-green-700   { color: #86efac !important; }
+.dark .text-emerald-700 { color: #6ee7b7 !important; }
+.dark .text-vigne-500,
+.dark .text-vigne-600,
+.dark .text-vigne-700   { color: #4ade80 !important; }
+.dark .text-vigne-800   { color: #86efac !important; }
+
+/* Bordures colorées claires → translucides de même teinte */
+.dark .border-amber-200 { border-color: rgba(217,119,6,0.35) !important; }
+.dark .border-amber-300 { border-color: rgba(217,119,6,0.42) !important; }
+.dark .border-amber-400 { border-color: rgba(217,119,6,0.50) !important; }
+.dark .border-red-200   { border-color: rgba(239,68,68,0.35) !important; }
+.dark .border-vigne-200 { border-color: rgba(34,197,94,0.28) !important; }
+.dark .border-vigne-300 { border-color: rgba(34,197,94,0.35) !important; }
+.dark .border-vigne-400 { border-color: rgba(34,197,94,0.45) !important; }
+
+/* Dégradés : remplacer les arrêts clairs (sinon bandes blanches sur fond sombre) */
+.dark .to-white          { --tw-gradient-to: #1f2937 !important; }
+.dark .from-vigne-50\/60 { --tw-gradient-from: rgba(34,197,94,0.10) !important; }
+
 /* ── Weather card: keep sky gradient readable in dark ── */
 .dark .from-sky-50  { --tw-gradient-from: #0c1a2e !important; }
 .dark .to-blue-100  { --tw-gradient-to: #0f2a47 !important; }
