@@ -141,7 +141,6 @@ router.get('/:id/activite', (req, res) => {
     FROM traitements
     WHERE parcelle_id = ?
     ORDER BY date DESC
-    LIMIT 30
   `).all(req.params.id)
 
   res.json({ taches, traitements })

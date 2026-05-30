@@ -315,39 +315,78 @@ const TYPE_TRAITEMENT = {
 }
 
 function ActiviteSection({ activite, navigate }) {
-  const [open, setOpen] = useState(true)
   const { taches, traitements } = activite
 
-  const saisonCourante = getSaisonCourante()
+  const seasons = [...new Set([
+    ...taches.map(t => getSaison(t.date_echeance || t.created_at)),
+    ...traitements.map(t => getSaison(t.date))
+  ].filter(Boolean))].sort((a, b) => b - a)
 
-  // Filter by current viticultural season
-  const tachesSaison = taches.filter(t => getSaison(t.date_echeance || t.created_at) === saisonCourante)
-  const traitementsSaison = traitements.filter(t => getSaison(t.date) === saisonCourante)
+  if (seasons.length === 0) return null
+
+  const saisonCourante = getSaisonCourante()
+  const defaultSaison = seasons.includes(saisonCourante) ? saisonCourante : seasons[0]
+  const [selectedSaison, setSelectedSaison] = useState(defaultSaison)
+  const [open, setOpen] = useState(true)
+
+  const tachesSaison = taches.filter(t => getSaison(t.date_echeance || t.created_at) === selectedSaison)
+  const traitementsSaison = [...traitements.filter(t => getSaison(t.date) === selectedSaison)]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+
+  const byType = {}
+  for (const t of traitementsSaison) {
+    const key = t.type || 'autre'
+    ;(byType[key] ||= []).push(t)
+  }
+
+  const dernierTraitement = traitementsSaison[0]
+
+  function daysAgo(dateStr) {
+    const d = new Date(dateStr)
+    const diff = Math.floor((new Date() - d) / 86400000)
+    if (diff === 0) return "aujourd'hui"
+    if (diff === 1) return 'hier'
+    return `il y a ${diff} j`
+  }
 
   const hasTaches = tachesSaison.length > 0
   const hasTraitements = traitementsSaison.length > 0
 
-  if (!hasTaches && !hasTraitements) return null
-
   return (
     <div>
-      <button
-        onClick={() => setOpen(v => !v)}
-        className="flex items-center justify-between w-full mb-2"
-      >
-        <h2 className="font-bold text-gray-900">
-          Activité
-          <span className="ml-2 text-sm font-normal text-vigne-600">Saison {saisonCourante}</span>
-        </h2>
+      <button onClick={() => setOpen(v => !v)} className="flex items-center justify-between w-full mb-2">
+        <h2 className="font-bold text-gray-900">Activité</h2>
         <ChevronDown size={16} className={`text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
         <div className="space-y-2">
+          {seasons.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 scrollbar-hide">
+              {seasons.map(s => (
+                <button key={s} onClick={() => setSelectedSaison(s)}
+                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                    selectedSaison === s
+                      ? 'bg-vigne-700 text-white border-vigne-700'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 active:bg-gray-50'
+                  }`}>
+                  Saison {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {!hasTaches && !hasTraitements && (
+            <div className="card text-center py-5">
+              <p className="text-sm text-gray-400">Aucune activité pour la saison {selectedSaison}</p>
+            </div>
+          )}
+
           {hasTaches && (
             <div className="card space-y-2">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
                 <CheckSquare size={12} /> Tâches
+                <span className="ml-auto normal-case font-normal text-gray-400">{tachesSaison.length}</span>
               </p>
               {tachesSaison.map(t => {
                 const s = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
@@ -372,24 +411,51 @@ function ActiviteSection({ activite, navigate }) {
           )}
 
           {hasTraitements && (
-            <div className="card space-y-2">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-                <Sprout size={12} /> Traitements
-              </p>
-              {traitementsSaison.slice(0, 8).map(t => {
-                const typ = TYPE_TRAITEMENT[t.type] || TYPE_TRAITEMENT.autre
-                return (
-                  <div key={t.id} className="flex items-center gap-2.5">
-                    <span className={`px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 ${typ.bg} ${typ.color}`}>
-                      {typ.label}
-                    </span>
-                    <span className="flex-1 text-sm text-gray-800 truncate">{t.produit}</span>
-                    <span className="text-xs text-gray-400 flex-shrink-0">
-                      {new Date(t.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                    </span>
-                  </div>
-                )
-              })}
+            <div className="card">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                  <Sprout size={12} /> Traitements
+                  <span className="ml-1 normal-case font-normal text-gray-400">{traitementsSaison.length}</span>
+                </p>
+                {dernierTraitement && (
+                  <span className="text-xs bg-vigne-50 text-vigne-700 border border-vigne-200 px-2 py-0.5 rounded-full font-medium">
+                    Dernier {daysAgo(dernierTraitement.date)}
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                {Object.entries(byType).map(([type, items]) => {
+                  const typ = TYPE_TRAITEMENT[type] || TYPE_TRAITEMENT.autre
+                  return (
+                    <div key={type}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${typ.bg} ${typ.color}`}>
+                          {typ.label}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {items.length} {items.length > 1 ? 'applications' : 'application'}
+                        </span>
+                      </div>
+                      <div className="space-y-2 pl-1">
+                        {items.map(t => (
+                          <div key={t.id} className="flex items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-gray-800 leading-tight">{t.produit}</p>
+                              {t.dose && (
+                                <p className="text-xs text-gray-400 mt-0.5">{t.dose}</p>
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-400 flex-shrink-0 mt-0.5">
+                              {new Date(t.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
