@@ -20,6 +20,15 @@ const PRIORITE_DOT = {
   basse:   'bg-gray-300 dark:bg-gray-600',
 }
 
+// Étiquette de cible d'une tâche (parcelle unique / commune / plusieurs parcelles)
+function cibleLabel(t) {
+  const ps = t.parcelles || []
+  if (t.commune) return `📍 ${t.commune} · toute la commune`
+  if (ps.length === 1) return ps[0].nom
+  if (ps.length > 1) return `📍 ${ps.length} parcelles`
+  return null
+}
+
 function TacheCard({ t, onToggle, onPhoto, navigate }) {
   const statut = STATUTS[t.statut]
   const Icon = statut.icon
@@ -42,8 +51,7 @@ function TacheCard({ t, onToggle, onPhoto, navigate }) {
             {t.titre}
           </p>
         </div>
-        {t.parcelles && <p className="text-xs text-vigne-600 dark:text-vigne-400 mt-0.5">{t.parcelles.nom}</p>}
-        {!t.parcelles && t.commune && <p className="text-xs text-vigne-600 dark:text-vigne-400 mt-0.5">📍 {t.commune} · toute la commune</p>}
+        {cibleLabel(t) && <p className="text-xs text-vigne-600 dark:text-vigne-400 mt-0.5">{cibleLabel(t)}</p>}
         {t.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{t.description}</p>}
         {t.date_echeance && (
           <p className={`text-xs mt-1 ${overdue ? 'text-red-500 font-medium' : dueToday ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
@@ -70,14 +78,16 @@ function VueParParcelle({ taches, toggleStatut, setPhotoUrl, navigate }) {
   const actives = taches.filter(t => t.statut !== 'termine')
   const terminees = taches.filter(t => t.statut === 'termine')
 
-  // Groupe par parcelle
+  // Groupe par parcelle — une tâche multi-parcelles apparaît sous chacune
   function grouper(liste) {
     const groups = {}
     for (const t of liste) {
-      const key = t.parcelles?.nom
-        || (t.commune ? `Commune : ${t.commune}` : '— Sans parcelle —')
-      if (!groups[key]) groups[key] = []
-      groups[key].push(t)
+      const ps = t.parcelles || []
+      if (ps.length === 0) {
+        (groups['— Sans parcelle —'] ||= []).push(t)
+      } else {
+        for (const p of ps) (groups[p.nom] ||= []).push(t)
+      }
     }
     // Trier les tâches de chaque groupe par date_echeance (nulls en dernier)
     for (const key of Object.keys(groups)) {

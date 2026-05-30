@@ -6,62 +6,104 @@ import { requireAuth, requireDeletePermission } from '../middleware/auth.js'
 const router = Router()
 router.use(requireAuth)
 
+// Parcelles liées à une tâche (depuis la table de liaison)
+function parcellesOf(tacheId) {
+  return db.prepare(`
+    SELECT p.id, p.nom, p.commune
+    FROM tache_parcelles tp JOIN parcelles p ON p.id = tp.parcelle_id
+    WHERE tp.tache_id = ?
+    ORDER BY p.nom
+  `).all(tacheId)
+}
+
+// Filtre une liste d'ids reçus pour ne garder que des parcelles existantes
+function validParcelleIds(ids) {
+  if (!Array.isArray(ids)) return []
+  const uniq = [...new Set(ids.filter(Boolean))]
+  if (uniq.length === 0) return []
+  const placeholders = uniq.map(() => '?').join(',')
+  const found = db.prepare(`SELECT id FROM parcelles WHERE id IN (${placeholders})`).all(...uniq)
+  const set = new Set(found.map(r => r.id))
+  return uniq.filter(id => set.has(id))
+}
+
+// Écrit les liens tâche ↔ parcelles (remplace l'existant)
+function setLinks(tacheId, ids) {
+  db.prepare('DELETE FROM tache_parcelles WHERE tache_id = ?').run(tacheId)
+  const ins = db.prepare('INSERT OR IGNORE INTO tache_parcelles (tache_id, parcelle_id) VALUES (?, ?)')
+  for (const pid of ids) ins.run(tacheId, pid)
+}
+
 router.get('/', (req, res) => {
   const rows = db.prepare(`
-    SELECT t.*, p.nom as parcelle_nom
-    FROM taches t
-    LEFT JOIN parcelles p ON p.id = t.parcelle_id
-    ORDER BY t.date_echeance ASC NULLS LAST, t.created_at DESC
+    SELECT * FROM taches
+    ORDER BY date_echeance ASC NULLS LAST, created_at DESC
   `).all()
 
-  res.json(rows.map(r => ({
-    ...r,
-    parcelles: r.parcelle_nom ? { nom: r.parcelle_nom } : null,
-    parcelle_nom: undefined
-  })))
+  // Tous les liens en une requête, regroupés par tâche
+  const links = db.prepare(`
+    SELECT tp.tache_id, p.id, p.nom, p.commune
+    FROM tache_parcelles tp JOIN parcelles p ON p.id = tp.parcelle_id
+    ORDER BY p.nom
+  `).all()
+  const byTache = {}
+  for (const l of links) {
+    (byTache[l.tache_id] ||= []).push({ id: l.id, nom: l.nom, commune: l.commune })
+  }
+
+  res.json(rows.map(r => ({ ...r, parcelles: byTache[r.id] || [] })))
 })
 
 router.post('/', (req, res) => {
-  const { titre, description, parcelle_id, commune, statut, priorite, date_echeance, photo_url } = req.body
+  const { titre, description, parcelle_ids, commune, statut, priorite, date_echeance, photo_url } = req.body
   if (!titre) return res.status(400).json({ error: 'Le titre est requis' })
 
-  // Une tâche cible soit une parcelle, soit une commune entière, soit rien (générale)
-  const pid = parcelle_id || null
-  const com = pid ? null : (commune || null)
-
+  const ids = validParcelleIds(parcelle_ids)
   const id = uuidv4()
-  db.prepare(`
-    INSERT INTO taches
-      (id, user_id, parcelle_id, commune, titre, description, statut, priorite, date_echeance, photo_url)
-    VALUES (?,?,?,?,?,?,?,?,?,?)
-  `).run(id, req.userId, pid, com, titre, description || null,
-         statut || 'a_faire', priorite || 'normale', date_echeance || null, photo_url || null)
 
-  res.json(db.prepare('SELECT * FROM taches WHERE id = ?').get(id))
+  const tx = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO taches
+        (id, user_id, parcelle_id, commune, titre, description, statut, priorite, date_echeance, photo_url)
+      VALUES (?,?,?,?,?,?,?,?,?,?)
+    `).run(id, req.userId, null, commune || null, titre, description || null,
+           statut || 'a_faire', priorite || 'normale', date_echeance || null, photo_url || null)
+    setLinks(id, ids)
+  })
+  tx()
+
+  const t = db.prepare('SELECT * FROM taches WHERE id = ?').get(id)
+  res.json({ ...t, parcelles: parcellesOf(id) })
 })
 
 router.get('/:id', (req, res) => {
   const t = db.prepare('SELECT * FROM taches WHERE id = ?').get(req.params.id)
   if (!t) return res.status(404).json({ error: 'Tâche introuvable' })
-  res.json(t)
+  const parcelles = parcellesOf(t.id)
+  res.json({ ...t, parcelles, parcelle_ids: parcelles.map(p => p.id) })
 })
 
 router.put('/:id', (req, res) => {
   const t = db.prepare('SELECT id FROM taches WHERE id = ?').get(req.params.id)
   if (!t) return res.status(404).json({ error: 'Tâche introuvable' })
 
-  const { titre, description, parcelle_id, commune, statut, priorite, date_echeance, photo_url } = req.body
-  const pid = parcelle_id || null
-  const com = pid ? null : (commune || null)
-  db.prepare(`
-    UPDATE taches SET
-      titre = ?, description = ?, parcelle_id = ?, commune = ?, statut = ?,
-      priorite = ?, date_echeance = ?, photo_url = ?, updated_at = datetime('now')
-    WHERE id = ?
-  `).run(titre, description || null, pid, com, statut,
-         priorite, date_echeance || null, photo_url || null, req.params.id)
+  const { titre, description, parcelle_ids, commune, statut, priorite, date_echeance, photo_url } = req.body
+  const ids = validParcelleIds(parcelle_ids)
 
-  res.json(db.prepare('SELECT * FROM taches WHERE id = ?').get(req.params.id))
+  const tx = db.transaction(() => {
+    db.prepare(`
+      UPDATE taches SET
+        titre = ?, description = ?, parcelle_id = ?, commune = ?, statut = ?,
+        priorite = ?, date_echeance = ?, photo_url = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(titre, description || null, null, commune || null, statut,
+           priorite, date_echeance || null, photo_url || null, req.params.id)
+    setLinks(req.params.id, ids)
+  })
+  tx()
+
+  const updated = db.prepare('SELECT * FROM taches WHERE id = ?').get(req.params.id)
+  res.json({ ...updated, parcelles: parcellesOf(req.params.id) })
 })
 
 router.delete('/:id', requireDeletePermission('taches'), (req, res) => {

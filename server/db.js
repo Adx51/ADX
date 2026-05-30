@@ -501,6 +501,33 @@ if (schemaVersion < 17) {
   db.pragma('user_version = 17')
 }
 
+if (schemaVersion < 18) {
+  // Une tâche peut désormais cibler PLUSIEURS parcelles → table de liaison.
+  // La colonne taches.commune ne sert plus que d'étiquette d'affichage (set
+  // quand l'utilisateur a choisi « toute la commune X »). taches.parcelle_id
+  // devient obsolète (conservée mais plus lue).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tache_parcelles (
+      tache_id    TEXT NOT NULL REFERENCES taches(id) ON DELETE CASCADE,
+      parcelle_id TEXT NOT NULL REFERENCES parcelles(id) ON DELETE CASCADE,
+      PRIMARY KEY (tache_id, parcelle_id)
+    )
+  `)
+  // Reprise : parcelle_id unique → ligne de liaison
+  try {
+    db.exec(`INSERT OR IGNORE INTO tache_parcelles (tache_id, parcelle_id)
+             SELECT id, parcelle_id FROM taches WHERE parcelle_id IS NOT NULL`)
+  } catch {}
+  // Reprise : commune → toutes les parcelles de cette commune
+  try {
+    db.exec(`INSERT OR IGNORE INTO tache_parcelles (tache_id, parcelle_id)
+             SELECT t.id, p.id FROM taches t
+             JOIN parcelles p ON p.commune = t.commune
+             WHERE t.commune IS NOT NULL AND t.commune <> ''`)
+  } catch {}
+  db.pragma('user_version = 18')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5

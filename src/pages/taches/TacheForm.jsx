@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Trash2, ChevronDown, Search, LayoutTemplate } from 'lucide-react'
+import { Trash2, ChevronDown, Search, LayoutTemplate, Check } from 'lucide-react'
 import { api } from '../../lib/api'
 import { uploadPhoto } from '../../lib/uploadPhoto'
 import PageHeader from '../../components/PageHeader'
@@ -21,12 +21,33 @@ function groupParcellesByCommune(parcelles) {
   return [...known, ...other].map(commune => ({ commune, parcelles: groups[commune] }))
 }
 
-// value = { parcelle_id, commune } — cible une parcelle, une commune entière, ou rien
+// Si les ids correspondent exactement à toutes les parcelles d'UNE seule
+// commune, renvoie son nom (étiquette « toute la commune »), sinon null.
+function communeComplete(parcelles, ids) {
+  const selected = parcelles.filter(p => ids.includes(p.id))
+  if (selected.length === 0) return null
+  const communes = [...new Set(selected.map(p => p.commune || ''))]
+  if (communes.length !== 1 || !communes[0]) return null
+  const total = parcelles.filter(p => (p.commune || '') === communes[0]).length
+  return selected.length === total ? communes[0] : null
+}
+
+// Résumé lisible de la cible (pour la box du picker)
+function cibleSummary(ids, parcelles) {
+  if (!ids.length) return null
+  if (ids.length === parcelles.length) return 'Toutes les parcelles'
+  const com = communeComplete(parcelles, ids)
+  if (com) return `Toute la commune ${com}`
+  if (ids.length === 1) return parcelles.find(p => p.id === ids[0])?.nom || '1 parcelle'
+  return `${ids.length} parcelles`
+}
+
+// value = tableau d'ids de parcelles ; sélection multiple
 function ParcellePicker({ parcelles, value, onChange }) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const inputRef = useRef(null)
-  const selectedParcelle = parcelles.find(p => p.id === value.parcelle_id)
+  const sel = new Set(value)
 
   const filtered = search.trim()
     ? parcelles.filter(p =>
@@ -36,15 +57,20 @@ function ParcellePicker({ parcelles, value, onChange }) {
 
   const groups = groupParcellesByCommune(filtered)
 
-  function select(next) {
-    onChange(next)
-    setOpen(false)
-    setSearch('')
+  function toggle(id) {
+    const next = new Set(sel)
+    next.has(id) ? next.delete(id) : next.add(id)
+    onChange([...next])
+  }
+  function toggleCommune(list) {
+    const ids = list.map(p => p.id)
+    const allIn = ids.every(id => sel.has(id))
+    const next = new Set(sel)
+    ids.forEach(id => allIn ? next.delete(id) : next.add(id))
+    onChange([...next])
   }
 
-  const label = value.commune
-    ? `Toute la commune ${value.commune}`
-    : selectedParcelle ? selectedParcelle.nom : '— Toutes les parcelles —'
+  const label = cibleSummary(value, parcelles)
 
   return (
     <div className="relative">
@@ -52,8 +78,8 @@ function ParcellePicker({ parcelles, value, onChange }) {
         className="input flex items-center justify-between cursor-pointer select-none"
         onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50) }}
       >
-        <span className={(value.commune || selectedParcelle) ? 'text-gray-900' : 'text-gray-400'}>
-          {label}
+        <span className={label ? 'text-gray-900' : 'text-gray-400'}>
+          {label || '— Aucune (tâche générale) —'}
         </span>
         <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
       </div>
@@ -75,44 +101,61 @@ function ParcellePicker({ parcelles, value, onChange }) {
               </div>
             </div>
 
-            <div className="max-h-60 overflow-y-auto">
-              <button
-                type="button"
-                onClick={() => select({ parcelle_id: '', commune: '' })}
-                className={`w-full px-4 py-2.5 text-left text-sm italic text-gray-400 hover:bg-gray-50 active:bg-gray-100 ${(!value.parcelle_id && !value.commune) ? 'bg-vigne-50' : ''}`}
-              >
-                — Toutes les parcelles —
-              </button>
+            <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 text-xs">
+              <button type="button" onClick={() => onChange(parcelles.map(p => p.id))}
+                      className="font-medium text-vigne-700">Tout sélectionner</button>
+              <button type="button" onClick={() => onChange([])}
+                      className="font-medium text-gray-400">Tout effacer</button>
+            </div>
 
+            <div className="max-h-60 overflow-y-auto">
               {groups.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-gray-400 italic text-center">Aucun résultat</p>
-              ) : groups.map(({ commune, parcelles: list }) => (
-                <div key={commune}>
-                  {/* En-tête de commune cliquable → cible toute la commune */}
-                  {commune !== 'Sans commune' && (
-                    <button
-                      type="button"
-                      onClick={() => select({ parcelle_id: '', commune })}
-                      className={`w-full flex items-center justify-between gap-2 px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide border-t border-gray-100 ${
-                        value.commune === commune ? 'bg-vigne-100 text-vigne-700' : 'bg-gray-50 text-vigne-700 hover:bg-vigne-50'
-                      }`}
-                    >
-                      <span>{commune}</span>
-                      <span className="normal-case font-medium text-[10px] text-gray-400">Toute la commune →</span>
-                    </button>
-                  )}
-                  {list.map(p => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => select({ parcelle_id: p.id, commune: '' })}
-                      className={`w-full px-4 py-2.5 text-left text-sm hover:bg-vigne-50 active:bg-vigne-100 ${value.parcelle_id === p.id ? 'bg-vigne-50 font-semibold text-vigne-700' : 'text-gray-900'}`}
-                    >
-                      {p.nom}
-                    </button>
-                  ))}
-                </div>
-              ))}
+              ) : groups.map(({ commune, parcelles: list }) => {
+                const allIn = list.every(p => sel.has(p.id))
+                return (
+                  <div key={commune}>
+                    {commune !== 'Sans commune' && (
+                      <button
+                        type="button"
+                        onClick={() => toggleCommune(list)}
+                        className="w-full flex items-center justify-between gap-2 px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide border-t border-gray-100 bg-gray-50 text-vigne-700 hover:bg-vigne-50"
+                      >
+                        <span>{commune}</span>
+                        <span className="normal-case font-medium text-[10px] text-gray-400">
+                          {allIn ? 'Tout décocher' : 'Toute la commune'}
+                        </span>
+                      </button>
+                    )}
+                    {list.map(p => {
+                      const checked = sel.has(p.id)
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => toggle(p.id)}
+                          className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-vigne-50 active:bg-vigne-100 ${checked ? 'text-vigne-700 font-medium' : 'text-gray-900'}`}
+                        >
+                          <span className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${checked ? 'bg-vigne-600 border-vigne-600' : 'border-gray-300'}`}>
+                            {checked && <Check size={12} className="text-white" />}
+                          </span>
+                          {p.nom}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="p-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => { setOpen(false); setSearch('') }}
+                className="w-full py-2 rounded-lg bg-vigne-700 text-white text-sm font-medium"
+              >
+                OK{value.length ? ` · ${value.length} sélectionnée${value.length > 1 ? 's' : ''}` : ''}
+              </button>
             </div>
           </div>
         </>
@@ -195,7 +238,7 @@ export default function TacheForm() {
   const [existingPhotoUrl, setExistingPhotoUrl] = useState(null)
   const [parcelles, setParcelles] = useState([])
   const [modeles, setModeles] = useState([])
-  const [cible, setCible] = useState({ parcelle_id: '', commune: '' })
+  const [parcelleIds, setParcelleIds] = useState([])
   const [modeleChoisi, setModeleChoisi] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -215,7 +258,7 @@ export default function TacheForm() {
           setValue('statut',        t.statut)
           setValue('priorite',      t.priorite)
           setValue('date_echeance', t.date_echeance || '')
-          setCible({ parcelle_id: t.parcelle_id || '', commune: t.commune || '' })
+          setParcelleIds(t.parcelle_ids || (t.parcelles || []).map(p => p.id))
           setExistingPhotoUrl(t.photo_url)
         }
       })
@@ -232,8 +275,9 @@ export default function TacheForm() {
       const payload = {
         titre:         data.titre,
         description:   data.description || null,
-        parcelle_id:   cible.parcelle_id || null,
-        commune:       cible.commune || null,
+        parcelle_ids:  parcelleIds,
+        // Étiquette « toute la commune X » si la sélection couvre exactement une commune
+        commune:       communeComplete(parcelles, parcelleIds),
         statut:        data.statut || 'a_faire',
         priorite:      data.priorite || 'normale',
         date_echeance: data.date_echeance || null,
@@ -289,8 +333,8 @@ export default function TacheForm() {
         </div>
 
         <div>
-          <label className="label">Parcelle ou commune concernée</label>
-          <ParcellePicker parcelles={parcelles} value={cible} onChange={setCible} />
+          <label className="label">Parcelle(s) ou commune concernée(s)</label>
+          <ParcellePicker parcelles={parcelles} value={parcelleIds} onChange={setParcelleIds} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
