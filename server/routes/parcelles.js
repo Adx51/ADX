@@ -163,8 +163,22 @@ router.get('/:id/activite', (req, res) => {
     JOIN rapports_phyto_parcelles rpar ON rpar.rapport_id = r.id
     JOIN rapports_phyto_produits  rprod ON rprod.rapport_id = r.id
     WHERE rpar.parcelle_id = ?
-    ORDER BY r.date DESC
-  `).all(req.params.id)
+    UNION
+    SELECT
+      rprod.id,
+      r.date,
+      COALESCE(rprod.type, 'autre') as type,
+      rprod.nom                     as produit,
+      rprod.dose                    as dose_text,
+      rprod.dose_ha,
+      rprod.unite
+    FROM rapports_phyto r
+    JOIN rapports_phyto_parcelles rpar ON rpar.rapport_id = r.id
+    JOIN rapports_phyto_produits  rprod ON rprod.rapport_id = r.id
+    JOIN phyto_parcelle_mapping   m    ON m.nom_source = rpar.parcelle_nom_source
+    WHERE rpar.parcelle_id IS NULL AND m.parcelle_id = ?
+    ORDER BY date DESC
+  `).all(req.params.id, req.params.id)
 
   const phytoTraitements = phytoRows.map(r => ({
     id:      r.id,

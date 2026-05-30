@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation, Expand, Sprout, CheckSquare, Clock, AlertCircle, Check, ChevronDown } from 'lucide-react'
+import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation, Expand, Sprout, CheckSquare, Clock, AlertCircle, Check } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
@@ -24,6 +24,7 @@ export default function ParcelleDetail() {
   const [photoOpen, setPhotoOpen] = useState(false)
   const [comparaison, setComparaison] = useState(null)
   const [activite, setActivite] = useState(null)
+  const [activeTab, setActiveTab] = useState('infos')
   const refreshTick = useRefreshTrigger()
 
   useEffect(() => {
@@ -39,7 +40,6 @@ export default function ParcelleDetail() {
       .catch(() => setActivite(null))
   }, [id, refreshTick])
 
-  // Récupère le polygone cadastral pour l'afficher en vert sur la carte
   useEffect(() => {
     if (!parcelle?.reference_cadastrale || !parcelle?.commune) return
     let cancelled = false
@@ -92,6 +92,8 @@ export default function ParcelleDetail() {
     navigate('/parcelles')
   }
 
+  const pendingTaches = activite?.taches?.filter(t => t.statut !== 'termine').length ?? 0
+
   if (loading) return (
     <div>
       <PageHeader title="Chargement..." back="/parcelles" />
@@ -118,8 +120,8 @@ export default function ParcelleDetail() {
       </PageHeader>
 
       {parcelle.photo_url && (
-        <div className="relative cursor-pointer md:mx-6 md:mt-4 md:rounded-2xl md:overflow-hidden" onClick={() => setPhotoOpen(true)}>
-          <img src={parcelle.photo_url} alt={parcelle.nom} className="w-full h-52 md:h-72 object-cover" />
+        <div className="relative cursor-pointer" onClick={() => setPhotoOpen(true)}>
+          <img src={parcelle.photo_url} alt={parcelle.nom} className="w-full h-44 object-cover" />
           <div className="absolute bottom-2 right-2 bg-black/40 text-white rounded-lg p-1.5">
             <Expand size={16} />
           </div>
@@ -127,87 +129,98 @@ export default function ParcelleDetail() {
       )}
       <PhotoModal url={photoOpen ? parcelle.photo_url : null} onClose={() => setPhotoOpen(false)} />
 
-      <div className="md:px-6 md:pt-5 md:pb-8 md:grid md:grid-cols-5 md:gap-6 md:items-start">
-        <div className="px-4 pt-4 space-y-4 md:px-0 md:pt-0 md:col-span-2">
-          <div className="card space-y-3">
-            <InfoRow label="Surface totale"  value={caToDisplay(parcelle.surface_totale_ca)} />
-            <InfoRow label="Surface plantée" value={caToDisplay(parcelle.surface_plantee_ca)} />
-            <InfoRow label="Nombre de routes" value={parcelle.nombre_routes != null ? `${parcelle.nombre_routes} routes` : null} />
-            {parcelle.commune              && <InfoRow label="Commune"           value={parcelle.commune} />}
-            {parcelle.reference_cadastrale && <InfoRow label="Réf. cadastrale"  value={parcelle.reference_cadastrale.replace(/,/g, ', ')} />}
-            {Array.isArray(parcelle.cepages) && parcelle.cepages.length > 0 &&
-              <InfoRow label="Cépages" value={parcelle.cepages.join(', ')} />}
-            {parcelle.annee_plantation     && <InfoRow label={parcelle.statut === 'replantee' ? 'Année plantation' : 'Année arrachage'} value={parcelle.annee_plantation} />}
-            {parcelle.notes                && <InfoRow label="Notes"             value={parcelle.notes} />}
-          </div>
+      {/* Onglets */}
+      <div className="flex bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-10">
+        <TabBtn id="infos"     label="Infos"     active={activeTab} onClick={setActiveTab} />
+        <TabBtn id="activite"  label="Activité"  active={activeTab} onClick={setActiveTab} badge={pendingTaches} />
+        <TabBtn id="vendanges" label="Vendanges" active={activeTab} onClick={setActiveTab} />
+      </div>
 
-          {parcelle.gps_lat && (
+      <div className="px-4 pt-4 pb-24 space-y-4 max-w-xl mx-auto">
+
+        {/* ── Onglet Infos ── */}
+        {activeTab === 'infos' && (
+          <>
             <div className="card space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <MapPin size={20} className="text-blue-600" />
+              <InfoRow label="Surface totale"  value={caToDisplay(parcelle.surface_totale_ca)} />
+              <InfoRow label="Surface plantée" value={caToDisplay(parcelle.surface_plantee_ca)} />
+              <InfoRow label="Nombre de routes" value={parcelle.nombre_routes != null ? `${parcelle.nombre_routes} routes` : null} />
+              {parcelle.commune              && <InfoRow label="Commune"          value={parcelle.commune} />}
+              {parcelle.reference_cadastrale && <InfoRow label="Réf. cadastrale" value={parcelle.reference_cadastrale.replace(/,/g, ', ')} />}
+              {Array.isArray(parcelle.cepages) && parcelle.cepages.length > 0 &&
+                <InfoRow label="Cépages" value={parcelle.cepages.join(', ')} />}
+              {parcelle.annee_plantation && (
+                <InfoRow label={parcelle.statut === 'replantee' ? 'Année plantation' : 'Année arrachage'} value={parcelle.annee_plantation} />
+              )}
+              {parcelle.notes && <InfoRow label="Notes" value={parcelle.notes} />}
+            </div>
+
+            {parcelle.gps_lat && (
+              <div className="card space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <MapPin size={20} className="text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">Position GPS</p>
+                    <p className="text-xs text-gray-400">
+                      {Number(parcelle.gps_lat).toFixed(6)}, {Number(parcelle.gps_lng).toFixed(6)}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">Position GPS</p>
-                  <p className="text-xs text-gray-400">
-                    {Number(parcelle.gps_lat).toFixed(6)}, {Number(parcelle.gps_lng).toFixed(6)}
-                  </p>
+                <MapPicker lat={parcelle.gps_lat} lng={parcelle.gps_lng} geoFeatures={geoFeatures} readOnly />
+                <div className="grid grid-cols-3 gap-2">
+                  <button onClick={navigateToParcel}
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-medium active:bg-blue-700">
+                    <Navigation size={16} />
+                    Y aller
+                  </button>
+                  <button onClick={shareGPS}
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 active:bg-gray-50">
+                    <Share2 size={16} />
+                    Partager
+                  </button>
+                  <button onClick={sendSMS}
+                          className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 active:bg-gray-50">
+                    <MessageSquare size={16} />
+                    SMS
+                  </button>
                 </div>
               </div>
-              <MapPicker lat={parcelle.gps_lat} lng={parcelle.gps_lng} geoFeatures={geoFeatures} readOnly />
-              <div className="grid grid-cols-3 gap-2">
-                <button onClick={navigateToParcel}
-                        className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-medium active:bg-blue-700">
-                  <Navigation size={16} />
-                  Y aller
-                </button>
-                <button onClick={shareGPS}
-                        className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 active:bg-gray-50">
-                  <Share2 size={16} />
-                  Partager
-                </button>
-                <button onClick={sendSMS}
-                        className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-700 active:bg-gray-50">
-                  <MessageSquare size={16} />
-                  SMS
-                </button>
+            )}
+
+            {canDelete && (!confirmDelete ? (
+              <button onClick={() => setConfirmDelete(true)}
+                      className="w-full flex items-center justify-center gap-2 text-red-500 py-3 text-sm font-medium">
+                <Trash2 size={16} />
+                Supprimer cette parcelle
+              </button>
+            ) : (
+              <div className="card border-red-200 bg-red-50 space-y-3">
+                <p className="text-red-700 font-medium text-sm text-center">
+                  Supprimer définitivement {parcelle.nom} ?
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={() => setConfirmDelete(false)} className="btn-secondary py-2 text-sm">Annuler</button>
+                  <button onClick={deleteParcelle} className="btn-danger py-2 text-sm">Supprimer</button>
+                </div>
               </div>
-            </div>
-          )}
+            ))}
+          </>
+        )}
 
-          {canDelete && (!confirmDelete ? (
-            <button onClick={() => setConfirmDelete(true)}
-                    className="w-full flex items-center justify-center gap-2 text-red-500 py-3 text-sm font-medium">
-              <Trash2 size={16} />
-              Supprimer cette parcelle
-            </button>
-          ) : (
-            <div className="card border-red-200 bg-red-50 space-y-3">
-              <p className="text-red-700 font-medium text-sm text-center">
-                Supprimer définitivement {parcelle.nom} ?
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setConfirmDelete(false)} className="btn-secondary py-2 text-sm">Annuler</button>
-                <button onClick={deleteParcelle} className="btn-danger py-2 text-sm">Supprimer</button>
-              </div>
-            </div>
-          ))}
-        </div>
+        {/* ── Onglet Activité ── */}
+        {activeTab === 'activite' && (
+          activite
+            ? <ActiviteSection activite={activite} navigate={navigate} />
+            : <div className="card skeleton h-32" />
+        )}
 
-        <div className="px-4 pt-4 space-y-4 md:px-0 md:pt-0 md:col-span-3">
-          {activite && (
-            <ActiviteSection activite={activite} navigate={navigate} />
-          )}
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-bold text-gray-900">Historique vendanges</h2>
-              <Link to="/vendange" className="text-vigne-700 text-sm font-semibold">
-                + Voir
-              </Link>
-            </div>
+        {/* ── Onglet Vendanges ── */}
+        {activeTab === 'vendanges' && (
+          <>
             {(parcelle.commune || parcelle.commune_pressoir || (Array.isArray(parcelle.cepages) && parcelle.cepages.length > 0)) && (
-              <div className="flex flex-wrap gap-1.5 mb-3">
+              <div className="flex flex-wrap gap-1.5">
                 {(parcelle.commune_pressoir || parcelle.commune) && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-vigne-100 text-vigne-800 text-xs font-semibold">
                     <MapPin size={10} />
@@ -227,11 +240,14 @@ export default function ParcelleDetail() {
               <div className="card text-center py-6">
                 <Grape size={32} className="mx-auto text-vigne-300 mb-2" />
                 <p className="text-gray-500 text-sm">Aucune vendange enregistrée</p>
+                <Link to="/vendange" className="mt-3 inline-block text-vigne-700 text-sm font-semibold">
+                  + Saisir une vendange
+                </Link>
               </div>
             ) : (
               <>
                 {parcelle.vendanges.length >= 2 && (
-                  <div className="card mb-3 p-3">
+                  <div className="card p-3">
                     <VendangeChart vendanges={parcelle.vendanges} surfaceCa={parcelle.surface_totale_ca} />
                     <div className="flex items-center gap-4 mt-2 justify-center">
                       <span className="flex items-center gap-1 text-xs text-gray-500">
@@ -246,7 +262,7 @@ export default function ParcelleDetail() {
                 )}
 
                 {comparaison?.pressoir && comparaison.annees?.filter(a => a.kgha_parcelle != null).length >= 1 && (
-                  <div className="card mb-3 p-3">
+                  <div className="card p-3">
                     <p className="text-xs font-semibold text-gray-700 mb-1">
                       Rendement vs moyenne pressoir <span className="text-vigne-700">{comparaison.pressoir}</span>
                     </p>
@@ -267,6 +283,7 @@ export default function ParcelleDetail() {
                     </div>
                   </div>
                 )}
+
                 <div className="space-y-2">
                   {parcelle.vendanges.map((v, i) => {
                     const rendement = rendementKgHa(v.poids_total, parcelle.surface_totale_ca)
@@ -299,10 +316,29 @@ export default function ParcelleDetail() {
                 </div>
               </>
             )}
-          </div>
-        </div>
+          </>
+        )}
       </div>
     </div>
+  )
+}
+
+function TabBtn({ id, label, active, onClick, badge }) {
+  const isActive = active === id
+  return (
+    <button onClick={() => onClick(id)}
+      className={`relative flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+        isActive
+          ? 'border-vigne-600 text-vigne-700'
+          : 'border-transparent text-gray-500 active:text-gray-700'
+      }`}>
+      {label}
+      {badge > 0 && (
+        <span className="absolute top-2.5 ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold">
+          {badge}
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -328,16 +364,19 @@ function ActiviteSection({ activite, navigate }) {
     ...traitements.map(t => getSaison(t.date))
   ].filter(Boolean))].sort((a, b) => b - a)
 
-  if (seasons.length === 0) return null
-
   const saisonCourante = getSaisonCourante()
-  const defaultSaison = seasons.includes(saisonCourante) ? saisonCourante : seasons[0]
+  const defaultSaison = seasons.includes(saisonCourante) ? saisonCourante : (seasons[0] ?? saisonCourante)
   const [selectedSaison, setSelectedSaison] = useState(defaultSaison)
-  const [open, setOpen] = useState(true)
+
+  if (seasons.length === 0) return (
+    <div className="card text-center py-8">
+      <p className="text-gray-400 text-sm">Aucune activité enregistrée</p>
+    </div>
+  )
 
   const tachesSaison = taches.filter(t => getSaison(t.date_echeance || t.created_at) === selectedSaison)
   const traitementsSaison = [...traitements.filter(t => getSaison(t.date) === selectedSaison)]
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
 
   const byType = {}
   for (const t of traitementsSaison) {
@@ -348,8 +387,7 @@ function ActiviteSection({ activite, navigate }) {
   const dernierTraitement = traitementsSaison[0]
 
   function daysAgo(dateStr) {
-    const d = new Date(dateStr)
-    const diff = Math.floor((new Date() - d) / 86400000)
+    const diff = Math.floor((new Date() - new Date(dateStr)) / 86400000)
     if (diff === 0) return "aujourd'hui"
     if (diff === 1) return 'hier'
     return `il y a ${diff} j`
@@ -359,111 +397,101 @@ function ActiviteSection({ activite, navigate }) {
   const hasTraitements = traitementsSaison.length > 0
 
   return (
-    <div>
-      <button onClick={() => setOpen(v => !v)} className="flex items-center justify-between w-full mb-2">
-        <h2 className="font-bold text-gray-900">Activité</h2>
-        <ChevronDown size={16} className={`text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+    <div className="space-y-3">
+      {/* Sélecteur saison */}
+      {seasons.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {seasons.map(s => (
+            <button key={s} onClick={() => setSelectedSaison(s)}
+              className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                selectedSaison === s
+                  ? 'bg-vigne-700 text-white border-vigne-700'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'
+              }`}>
+              Saison {s}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {open && (
-        <div className="space-y-2">
-          {seasons.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              {seasons.map(s => (
-                <button key={s} onClick={() => setSelectedSaison(s)}
-                  className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                    selectedSaison === s
-                      ? 'bg-vigne-700 text-white border-vigne-700'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 active:bg-gray-50'
-                  }`}>
-                  Saison {s}
-                </button>
-              ))}
-            </div>
-          )}
+      {!hasTaches && !hasTraitements && (
+        <div className="card text-center py-6">
+          <p className="text-sm text-gray-400">Aucune activité pour la saison {selectedSaison}</p>
+        </div>
+      )}
 
-          {!hasTaches && !hasTraitements && (
-            <div className="card text-center py-5">
-              <p className="text-sm text-gray-400">Aucune activité pour la saison {selectedSaison}</p>
-            </div>
-          )}
-
-          {hasTaches && (
-            <div className="card space-y-2">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-                <CheckSquare size={12} /> Tâches
-                <span className="ml-auto normal-case font-normal text-gray-400">{tachesSaison.length}</span>
-              </p>
-              {tachesSaison.map(t => {
-                const s = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
-                const { Icon } = s
-                const done = t.statut === 'termine'
-                return (
-                  <button key={t.id} onClick={() => navigate(`/taches/${t.id}/edit`)}
-                    className={`w-full flex items-center gap-2.5 text-left active:opacity-70 ${done ? 'opacity-50' : ''}`}>
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${s.bg}`}>
-                      <Icon size={12} className={s.color} />
-                    </span>
-                    <span className={`flex-1 text-sm ${done ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.titre}</span>
-                    {t.date_echeance && (
-                      <span className="text-xs text-gray-400 flex-shrink-0">
-                        {new Date(t.date_echeance).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {hasTraitements && (
-            <div className="card">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-                  <Sprout size={12} /> Traitements
-                  <span className="ml-1 normal-case font-normal text-gray-400">{traitementsSaison.length}</span>
-                </p>
-                {dernierTraitement && (
-                  <span className="text-xs bg-vigne-50 text-vigne-700 border border-vigne-200 px-2 py-0.5 rounded-full font-medium">
-                    Dernier {daysAgo(dernierTraitement.date)}
+      {hasTaches && (
+        <div className="card space-y-2">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+            <CheckSquare size={12} /> Tâches
+            <span className="ml-auto normal-case font-normal text-gray-400">{tachesSaison.length}</span>
+          </p>
+          {tachesSaison.map(t => {
+            const s = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
+            const { Icon } = s
+            const done = t.statut === 'termine'
+            return (
+              <button key={t.id} onClick={() => navigate(`/taches/${t.id}/edit`)}
+                className={`w-full flex items-center gap-2.5 text-left active:opacity-70 ${done ? 'opacity-50' : ''}`}>
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${s.bg}`}>
+                  <Icon size={12} className={s.color} />
+                </span>
+                <span className={`flex-1 text-sm ${done ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.titre}</span>
+                {t.date_echeance && (
+                  <span className="text-xs text-gray-400 flex-shrink-0">
+                    {new Date(t.date_echeance).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                   </span>
                 )}
-              </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
-              <div className="space-y-3">
-                {Object.entries(byType).map(([type, items]) => {
-                  const typ = TYPE_TRAITEMENT[type] || TYPE_TRAITEMENT.autre
-                  return (
-                    <div key={type}>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${typ.bg} ${typ.color}`}>
-                          {typ.label}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {items.length} {items.length > 1 ? 'applications' : 'application'}
+      {hasTraitements && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+              <Sprout size={12} /> Traitements
+              <span className="ml-1 normal-case font-normal text-gray-400">{traitementsSaison.length}</span>
+            </p>
+            {dernierTraitement && (
+              <span className="text-xs bg-vigne-50 text-vigne-700 border border-vigne-200 px-2 py-0.5 rounded-full font-medium">
+                Dernier {daysAgo(dernierTraitement.date)}
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            {Object.entries(byType).map(([type, items]) => {
+              const typ = TYPE_TRAITEMENT[type] || TYPE_TRAITEMENT.autre
+              return (
+                <div key={type}>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${typ.bg} ${typ.color}`}>
+                      {typ.label}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {items.length} {items.length > 1 ? 'applications' : 'application'}
+                    </span>
+                  </div>
+                  <div className="space-y-2 pl-1">
+                    {items.map(t => (
+                      <div key={t.id} className="flex items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-800 leading-tight">{t.produit}</p>
+                          {t.dose && <p className="text-xs text-gray-400 mt-0.5">{t.dose}</p>}
+                        </div>
+                        <span className="text-xs text-gray-400 flex-shrink-0 mt-0.5">
+                          {new Date(t.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                         </span>
                       </div>
-                      <div className="space-y-2 pl-1">
-                        {items.map(t => (
-                          <div key={t.id} className="flex items-start gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-gray-800 leading-tight">{t.produit}</p>
-                              {t.dose && (
-                                <p className="text-xs text-gray-400 mt-0.5">{t.dose}</p>
-                              )}
-                            </div>
-                            <span className="text-xs text-gray-400 flex-shrink-0 mt-0.5">
-                              {new Date(t.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -471,7 +499,6 @@ function ActiviteSection({ activite, navigate }) {
 }
 
 function VendangeChart({ vendanges, surfaceCa }) {
-  // Affiche max 6 ans, ordre chronologique (ASC)
   const data = [...vendanges].reverse().slice(-6)
   if (data.length < 2) return null
 
@@ -489,16 +516,12 @@ function VendangeChart({ vendanges, surfaceCa }) {
   const xStep = CW / data.length
   const xPos  = i => PAD.left + i * xStep + xStep / 2
   const yPos  = v => PAD.top + CH - (v / maxY) * CH
-
   const barW  = xStep * 0.55
 
-  // Polyline points for kg/ha réalisé
   const linePoints = data
     .map((_, i) => kgHaValues[i] > 0 ? `${xPos(i)},${yPos(kgHaValues[i])}` : null)
-    .filter(Boolean)
-    .join(' ')
+    .filter(Boolean).join(' ')
 
-  // Polyline points for rendement attendu (only where defined)
   const attenduSegs = []
   let seg = []
   data.forEach((d, i) => {
@@ -511,18 +534,15 @@ function VendangeChart({ vendanges, surfaceCa }) {
   })
   if (seg.length) attenduSegs.push(seg.join(' '))
 
-  // Y axis labels (2 guides)
   const yGuides = [0.5, 1].map(f => ({ pct: f, val: Math.round(maxY * f) }))
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ display: 'block' }}>
-      {/* Grid lines + left labels */}
       {yGuides.map(({ pct, val }) => {
         const y = yPos(maxY * pct)
         return (
           <g key={pct}>
-            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y}
-                  stroke="#f3f4f6" strokeWidth="1" />
+            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#f3f4f6" strokeWidth="1" />
             <text x={PAD.left + 2} y={y - 2} fontSize="8" fill="#d1d5db" textAnchor="start">
               {val >= 1000 ? `${Math.round(val / 1000)}k` : val}
             </text>
@@ -530,25 +550,19 @@ function VendangeChart({ vendanges, surfaceCa }) {
         )
       })}
 
-      {/* Bars (kg/ha réalisé) */}
       {data.map((d, i) => {
         const kgha = kgHaValues[i]
         if (!kgha) return null
         const bh = (kgha / maxY) * CH
         return (
-          <rect key={d.annee}
-            x={xPos(i) - barW / 2} y={yPos(kgha)}
-            width={barW} height={bh}
-            rx="3" fill="#fbbf24" opacity="0.75"
-          />
+          <rect key={d.annee} x={xPos(i) - barW / 2} y={yPos(kgha)}
+            width={barW} height={bh} rx="3" fill="#fbbf24" opacity="0.75" />
         )
       })}
 
-      {/* Ligne kg/ha réalisé */}
       {linePoints && (
         <polyline points={linePoints} fill="none"
-          stroke="#d97706" strokeWidth="1.8"
-          strokeLinecap="round" strokeLinejoin="round" />
+          stroke="#d97706" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       )}
       {data.map((d, i) => {
         const kgha = kgHaValues[i]
@@ -556,7 +570,6 @@ function VendangeChart({ vendanges, surfaceCa }) {
         return <circle key={d.annee} cx={xPos(i)} cy={yPos(kgha)} r="3" fill="#d97706" />
       })}
 
-      {/* Valeur kg/ha au-dessus de chaque barre */}
       {data.map((d, i) => {
         const kgha = kgHaValues[i]
         if (!kgha) return null
@@ -568,13 +581,11 @@ function VendangeChart({ vendanges, surfaceCa }) {
         )
       })}
 
-      {/* Ligne objectif (pointillée) */}
       {attenduSegs.map((pts, si) => (
         <polyline key={si} points={pts} fill="none"
           stroke="#9ca3af" strokeWidth="1.5" strokeDasharray="4,3" />
       ))}
 
-      {/* X axis (années) */}
       {data.map((d, i) => (
         <text key={d.annee} x={xPos(i)} y={H - 6}
               textAnchor="middle" fontSize="10" fill="#6b7280">
@@ -586,12 +597,11 @@ function VendangeChart({ vendanges, surfaceCa }) {
 }
 
 function ComparaisonChart({ data }) {
-  // Max 6 années, en chronologique
   const rows = [...data].slice(-6)
   if (rows.length === 0) return null
 
-  const W = 320, H = 160
-  const PAD = { top: 22, right: 10, bottom: 26, left: 10 }
+  const W = 320, H = 170
+  const PAD = { top: 28, right: 10, bottom: 26, left: 10 }
   const CW = W - PAD.left - PAD.right
   const CH = H - PAD.top - PAD.bottom
 
@@ -605,7 +615,6 @@ function ComparaisonChart({ data }) {
 
   const yGuides = [0.5, 1].map(f => ({ pct: f, val: Math.round(maxY * f) }))
 
-  // Ligne appellation (segments continus là où défini)
   const appellationSegs = []
   let seg = []
   rows.forEach((r, i) => {
@@ -617,6 +626,8 @@ function ComparaisonChart({ data }) {
     }
   })
   if (seg.length) appellationSegs.push(seg.join(' '))
+
+  function fmt(v) { return v >= 1000 ? `${Math.round(v / 100) / 10}k` : v }
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ display: 'block' }}>
@@ -643,9 +654,7 @@ function ComparaisonChart({ data }) {
                 <rect x={cx - barW - 1} y={yPos(vp)} width={barW} height={CH - (yPos(vp) - PAD.top)}
                       rx="2" fill="#fbbf24" />
                 <text x={cx - barW / 2 - 1} y={yPos(vp) - 3} textAnchor="middle"
-                      fontSize="8" fill="#92400e" fontWeight="600">
-                  {vp >= 1000 ? `${Math.round(vp / 100) / 10}k` : vp}
-                </text>
+                      fontSize="8" fill="#92400e" fontWeight="600">{fmt(vp)}</text>
               </>
             )}
             {vg > 0 && (
@@ -653,16 +662,12 @@ function ComparaisonChart({ data }) {
                 <rect x={cx + 1} y={yPos(vg)} width={barW} height={CH - (yPos(vg) - PAD.top)}
                       rx="2" fill="#15803d" />
                 <text x={cx + barW / 2 + 1} y={yPos(vg) - 3} textAnchor="middle"
-                      fontSize="8" fill="#14532d" fontWeight="600">
-                  {vg >= 1000 ? `${Math.round(vg / 100) / 10}k` : vg}
-                </text>
+                      fontSize="8" fill="#14532d" fontWeight="600">{fmt(vg)}</text>
               </>
             )}
-            <text x={cx} y={H - 8} textAnchor="middle" fontSize="10" fill="#6b7280">
-              {r.annee}
-            </text>
+            <text x={cx} y={H - 8} textAnchor="middle" fontSize="10" fill="#6b7280">{r.annee}</text>
             {r.n_parcelles > 1 && (
-              <text x={cx} y={H - 0} textAnchor="middle" fontSize="7" fill="#9ca3af">
+              <text x={cx} y={H} textAnchor="middle" fontSize="7" fill="#9ca3af">
                 {r.n_parcelles} parc.
               </text>
             )}
@@ -670,14 +675,20 @@ function ComparaisonChart({ data }) {
         )
       })}
 
-      {/* Ligne objectif appellation */}
+      {/* Ligne + valeur objectif appellation */}
       {appellationSegs.map((pts, si) => (
         <polyline key={si} points={pts} fill="none"
           stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4,3" />
       ))}
-      {rows.map((r, i) => r.rendement_attendu_kgha ? (
-        <circle key={r.annee} cx={xPos(i)} cy={yPos(r.rendement_attendu_kgha)} r="2.5" fill="#94a3b8" />
-      ) : null)}
+      {rows.map((r, i) => !r.rendement_attendu_kgha ? null : (
+        <g key={r.annee}>
+          <circle cx={xPos(i)} cy={yPos(r.rendement_attendu_kgha)} r="2.5" fill="#94a3b8" />
+          <text x={xPos(i)} y={yPos(r.rendement_attendu_kgha) - 5}
+                textAnchor="middle" fontSize="7.5" fill="#64748b" fontWeight="600">
+            {fmt(r.rendement_attendu_kgha)}
+          </text>
+        </g>
+      ))}
     </svg>
   )
 }
