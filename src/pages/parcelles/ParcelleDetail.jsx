@@ -251,13 +251,19 @@ export default function ParcelleDetail() {
                       Rendement vs moyenne pressoir <span className="text-vigne-700">{comparaison.pressoir}</span>
                     </p>
                     <ComparaisonChart data={comparaison.annees} />
-                    <div className="flex items-center gap-4 mt-2 justify-center">
+                    <div className="flex items-center gap-3 mt-2 justify-center flex-wrap">
                       <span className="flex items-center gap-1 text-xs text-gray-500">
                         <span className="inline-block w-3 h-3 rounded-sm bg-amber-400" /> Cette parcelle
                       </span>
                       <span className="flex items-center gap-1 text-xs text-gray-500">
                         <span className="inline-block w-3 h-3 rounded-sm bg-vigne-600" /> Moyenne pressoir
                       </span>
+                      {comparaison.annees.some(a => a.rendement_attendu_kgha) && (
+                        <span className="flex items-center gap-1 text-xs text-gray-500">
+                          <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4,2"/></svg>
+                          Appellation
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
@@ -362,10 +368,10 @@ function ActiviteSection({ activite, navigate }) {
       {open && (
         <div className="space-y-2">
           {seasons.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-0.5 -mx-0.5 px-0.5 scrollbar-hide">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
               {seasons.map(s => (
                 <button key={s} onClick={() => setSelectedSaison(s)}
-                  className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                  className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                     selectedSaison === s
                       ? 'bg-vigne-700 text-white border-vigne-700'
                       : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 active:bg-gray-50'
@@ -584,12 +590,12 @@ function ComparaisonChart({ data }) {
   const rows = [...data].slice(-6)
   if (rows.length === 0) return null
 
-  const W = 320, H = 150
+  const W = 320, H = 160
   const PAD = { top: 22, right: 10, bottom: 26, left: 10 }
   const CW = W - PAD.left - PAD.right
   const CH = H - PAD.top - PAD.bottom
 
-  const allValues = rows.flatMap(r => [r.kgha_parcelle || 0, r.kgha_pressoir || 0])
+  const allValues = rows.flatMap(r => [r.kgha_parcelle || 0, r.kgha_pressoir || 0, r.rendement_attendu_kgha || 0])
   const maxY = Math.max(...allValues, 1) * 1.2
 
   const xStep = CW / rows.length
@@ -598,6 +604,19 @@ function ComparaisonChart({ data }) {
   const barW = xStep * 0.32
 
   const yGuides = [0.5, 1].map(f => ({ pct: f, val: Math.round(maxY * f) }))
+
+  // Ligne appellation (segments continus là où défini)
+  const appellationSegs = []
+  let seg = []
+  rows.forEach((r, i) => {
+    if (r.rendement_attendu_kgha) {
+      seg.push(`${xPos(i)},${yPos(r.rendement_attendu_kgha)}`)
+    } else if (seg.length) {
+      appellationSegs.push(seg.join(' '))
+      seg = []
+    }
+  })
+  if (seg.length) appellationSegs.push(seg.join(' '))
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ display: 'block' }}>
@@ -650,6 +669,15 @@ function ComparaisonChart({ data }) {
           </g>
         )
       })}
+
+      {/* Ligne objectif appellation */}
+      {appellationSegs.map((pts, si) => (
+        <polyline key={si} points={pts} fill="none"
+          stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4,3" />
+      ))}
+      {rows.map((r, i) => r.rendement_attendu_kgha ? (
+        <circle key={r.annee} cx={xPos(i)} cy={yPos(r.rendement_attendu_kgha)} r="2.5" fill="#94a3b8" />
+      ) : null)}
     </svg>
   )
 }

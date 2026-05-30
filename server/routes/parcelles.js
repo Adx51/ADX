@@ -110,13 +110,19 @@ router.get('/:id/comparaison-pressoir', (req, res) => {
     }
   }
 
+  const campagnesMap = new Map(
+    db.prepare(`SELECT annee, rendement_attendu_kgha FROM campagnes`).all()
+      .map(c => [c.annee, c.rendement_attendu_kgha])
+  )
+
   const annees = [...byYear.entries()]
     .filter(([, y]) => y.kgha_parcelle !== null) // n'afficher que les années où cette parcelle a des données
     .map(([annee, y]) => ({
       annee,
       kgha_parcelle: y.kgha_parcelle,
       kgha_pressoir: y.haGroup > 0 ? Math.round(y.poidsGroup / y.haGroup) : null,
-      n_parcelles:   y.parcelleSet.size
+      n_parcelles:   y.parcelleSet.size,
+      rendement_attendu_kgha: campagnesMap.get(annee) ?? null
     }))
     .sort((a, b) => a.annee - b.annee)
 
