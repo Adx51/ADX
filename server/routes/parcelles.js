@@ -149,7 +149,40 @@ router.get('/:id/activite', (req, res) => {
     ORDER BY date DESC
   `).all(req.params.id)
 
-  res.json({ taches, traitements })
+  // Traitements issus des rapports phyto
+  const phytoRows = db.prepare(`
+    SELECT
+      rprod.id,
+      r.date,
+      COALESCE(rprod.type, 'autre') as type,
+      rprod.nom                     as produit,
+      rprod.dose                    as dose_text,
+      rprod.dose_ha,
+      rprod.unite
+    FROM rapports_phyto r
+    JOIN rapports_phyto_parcelles rpar ON rpar.rapport_id = r.id
+    JOIN rapports_phyto_produits  rprod ON rprod.rapport_id = r.id
+    WHERE rpar.parcelle_id = ?
+    ORDER BY r.date DESC
+  `).all(req.params.id)
+
+  const phytoTraitements = phytoRows.map(r => ({
+    id:      r.id,
+    date:    r.date,
+    type:    r.type,
+    produit: r.produit,
+    dose:    (r.dose_text && r.dose_text.trim())
+               ? r.dose_text
+               : r.dose_ha != null
+                 ? `${Math.round(r.dose_ha * 100) / 100}${r.unite ? ' ' + r.unite : ''}`
+                 : null
+  }))
+
+  // Fusion des deux sources, triée par date DESC
+  const allTraitements = [...traitements, ...phytoTraitements]
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+
+  res.json({ taches, traitements: allTraitements })
 })
 
 router.put('/:id', (req, res) => {
