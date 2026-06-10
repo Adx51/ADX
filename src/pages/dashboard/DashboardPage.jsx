@@ -157,6 +157,14 @@ function fmtJour(d) {
   return format(parseISO(d), 'd MMM', { locale: fr })
 }
 
+// "Les Côtelles" · "Les Côtelles, La Carelle" · "8 parcelles"
+function parcellesLabel(parcelles) {
+  const ps = parcelles || []
+  if (ps.length === 0) return ''
+  if (ps.length <= 2) return ps.map(p => p.nom).join(', ')
+  return `${ps.length} parcelles`
+}
+
 function SemaineBlock({ refreshTick }) {
   const navigate = useNavigate()
   const [data, setData] = useState(null)
@@ -276,9 +284,9 @@ function SemaineBlock({ refreshTick }) {
               <button key={t.id} onClick={() => navigate(`/taches/${t.id}/edit`)}
                 className="w-full flex items-center gap-2 text-left active:opacity-70">
                 <CheckCircle2 size={15} className="text-vigne-600 flex-shrink-0" />
-                <span className="text-sm text-gray-600 dark:text-gray-300 truncate flex-1">{t.titre}</span>
-                <span className="text-xs text-gray-400 flex-shrink-0">
-                  {(t.parcelles || []).map(p => p.nom).join(', ') || ''}
+                <span className="text-sm text-gray-600 dark:text-gray-300 truncate">{t.titre}</span>
+                <span className="text-xs text-gray-400 truncate ml-auto pl-2 max-w-[45%] text-right">
+                  {parcellesLabel(t.parcelles)}
                 </span>
               </button>
             ))}
@@ -286,22 +294,22 @@ function SemaineBlock({ refreshTick }) {
               <button key={t.id} onClick={() => navigate('/phyto')}
                 className="w-full flex items-center gap-2 text-left active:opacity-70">
                 <Sprout size={15} className="text-emerald-600 flex-shrink-0" />
-                <span className="text-sm text-gray-600 dark:text-gray-300 truncate flex-1">
+                <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
                   {t.produits.slice(0, 2).join(' + ')}{t.produits.length > 2 ? '…' : ''}
                   {t.nb_parcelles > 0 && <span className="text-gray-400"> · {t.nb_parcelles} parcelle{t.nb_parcelles > 1 ? 's' : ''}</span>}
                 </span>
-                <span className="text-xs text-gray-400 flex-shrink-0">{fmtJour(t.date)}</span>
+                <span className="text-xs text-gray-400 flex-shrink-0 ml-auto pl-2">{fmtJour(t.date)}</span>
               </button>
             ))}
             {recap.chargements.map(c => (
               <button key={c.id} onClick={() => navigate(`/vendange/parcelle/${c.vendange_id}`)}
                 className="w-full flex items-center gap-2 text-left active:opacity-70">
                 <Grape size={15} className="text-amber-600 flex-shrink-0" />
-                <span className="text-sm text-gray-600 dark:text-gray-300 truncate flex-1">
+                <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
                   {Number(c.poids_kg).toLocaleString('fr-FR')} kg
                   {c.parcelle_nom && <span className="text-gray-400"> · {c.parcelle_nom}</span>}
                 </span>
-                <span className="text-xs text-gray-400 flex-shrink-0">{fmtJour(c.date_chargement)}</span>
+                <span className="text-xs text-gray-400 flex-shrink-0 ml-auto pl-2">{fmtJour(c.date_chargement)}</span>
               </button>
             ))}
           </div>
