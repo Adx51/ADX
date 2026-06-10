@@ -15,6 +15,18 @@
     background-color: #f4f7f3;
     -webkit-font-smoothing: antialiased;
   }
+  /* iOS Safari rend les inputs date comme une pastille centrée et rétrécie —
+     forcer la pleine largeur et l'alignement à gauche pour matcher .input */
+  input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-height: 3rem;
+    text-align: left;
+  }
+  input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+    margin: 0;
+  }
 }
 
 @layer components {

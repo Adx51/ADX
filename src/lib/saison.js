@@ -36,6 +36,25 @@ export function getISOWeek(dateStr) {
   return 1 + Math.round(((d - jan4) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7)
 }
 
+// Infos complètes de la semaine ISO d'une date : numéro, clé triable, plage lun-dim
+export function getWeekInfo(dateStr) {
+  const week = getISOWeek(dateStr)
+  if (week == null) return null
+  const parts = dateStr.split('T')[0].split('-')
+  const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+  const thu = new Date(d); thu.setDate(thu.getDate() + 3 - (thu.getDay() + 6) % 7)
+  const year = thu.getFullYear()
+  const dow = (d.getDay() + 6) % 7
+  const mon = new Date(d); mon.setDate(d.getDate() - dow)
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6)
+  const fmt = dd => dd.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  return {
+    key:   `${year}-W${String(week).padStart(2, '0')}`,
+    year, week,
+    range: `${fmt(mon)} – ${fmt(sun)}`,
+  }
+}
+
 // Today as YYYY-MM-DD (local time, no UTC shift)
 export function todayISO() {
   const d = new Date()

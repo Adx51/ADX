@@ -1,49 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, CheckSquare, Clock, AlertCircle, Check, CalendarDays } from 'lucide-react'
+import { Plus, CheckSquare, CalendarDays } from 'lucide-react'
 import { api } from '../../lib/api'
 import { format, parseISO, isPast, isToday } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import PhotoModal from '../../components/PhotoModal'
+import TachesSemaines from '../../components/TachesSemaines'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
-import { getSaisonCourante, tacheSaison } from '../../lib/saison'
-
-const STATUTS = {
-  a_faire:  { label: 'À faire',  color: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',   icon: Clock },
-  en_cours: { label: 'En cours', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300', icon: AlertCircle },
-  termine:  { label: 'Terminée', color: 'bg-vigne-100 text-vigne-700 dark:bg-vigne-900/30 dark:text-vigne-400', icon: Check },
-}
-
-const PRIORITE_DOT = {
-  haute:   'bg-red-500',
-  normale: null,
-  basse:   'bg-gray-300 dark:bg-gray-600',
-}
-
-// Calcule le numéro de semaine ISO et les infos de la semaine
-function getWeekInfo(dateStr) {
-  if (!dateStr) return null
-  const d = new Date(typeof dateStr === 'string' ? dateStr.split('T')[0] : dateStr)
-  if (isNaN(d)) return null
-  const tmp = new Date(d.valueOf())
-  tmp.setDate(tmp.getDate() + 3 - (tmp.getDay() + 6) % 7)
-  const jan4 = new Date(tmp.getFullYear(), 0, 4)
-  const week = 1 + Math.round(((tmp - jan4) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7)
-  const year = tmp.getFullYear()
-  const dow = (d.getDay() + 6) % 7
-  const mon = new Date(d); mon.setDate(d.getDate() - dow)
-  const sun = new Date(mon); sun.setDate(mon.getDate() + 6)
-  const fmt = dd => dd.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-  return {
-    key:   `${year}-W${String(week).padStart(2, '0')}`,
-    year, week,
-    range: `${fmt(mon)} – ${fmt(sun)}`,
-  }
-}
-
-function taskWeekDate(t) {
-  return t.date_debut || t.date_echeance || t.created_at
-}
+import { getSaisonCourante, tacheSaison, getISOWeek } from '../../lib/saison'
+import { STATUT_TACHE, PRIORITE_DOT } from '../../lib/taches'
 
 // Pastilles parcelles inline dans une tâche
 function ParcellePills({ t }) {
@@ -69,19 +34,19 @@ function ParcellePills({ t }) {
 }
 
 function TacheCard({ t, onToggle, onPhoto, navigate }) {
-  const statut = STATUTS[t.statut]
-  const Icon = statut.icon
+  const statut = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
+  const Icon = statut.Icon
   const refDate = t.date_debut || t.date_echeance
   const overdue = t.statut !== 'termine' && t.date_echeance && isPast(parseISO(t.date_echeance)) && !isToday(parseISO(t.date_echeance))
   const dueToday = t.statut !== 'termine' && t.date_echeance && isToday(parseISO(t.date_echeance))
-  const week = getWeekInfo(refDate)?.week
+  const week = getISOWeek(refDate)
   const hasRange = t.date_debut && t.date_fin && t.date_debut !== t.date_fin
 
   return (
     <div className="card flex gap-3">
       <button
         onClick={() => onToggle(t)}
-        className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${statut.color}`}
+        className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${statut.badge}`}
       >
         <Icon size={18} />
       </button>
@@ -96,7 +61,7 @@ function TacheCard({ t, onToggle, onPhoto, navigate }) {
             </p>
           </div>
           {week && (
-            <span className="text-[10px] font-bold text-vigne-600 dark:text-vigne-400 bg-vigne-50 dark:bg-vigne-900/20 px-1.5 py-0.5 rounded-full flex-shrink-0 mt-0.5">
+            <span className="text-xs font-bold text-vigne-600 dark:text-vigne-400 bg-vigne-50 dark:bg-vigne-900/20 px-1.5 py-0.5 rounded-full flex-shrink-0 mt-0.5">
               S.{week}
             </span>
           )}
@@ -121,135 +86,6 @@ function TacheCard({ t, onToggle, onPhoto, navigate }) {
           className="w-14 h-14 rounded-xl object-cover flex-shrink-0 cursor-pointer active:opacity-80"
           onClick={e => { e.stopPropagation(); onPhoto(t.photo_url) }}
         />
-      )}
-    </div>
-  )
-}
-
-// Vue par semaine — chaque semaine est un rectangle, tâches groupées par parcelle à l'intérieur
-function VueParSemaine({ taches, toggleStatut, navigate }) {
-  const currentWeekKey = getWeekInfo(new Date().toISOString())?.key
-
-  // Trier toutes les tâches par semaine (date_debut > date_echeance > created_at)
-  const byWeek = {}
-  const noDate = []
-  for (const t of taches) {
-    const info = getWeekInfo(taskWeekDate(t))
-    if (!info) { noDate.push(t); continue }
-    if (!byWeek[info.key]) byWeek[info.key] = { info, tasks: [] }
-    byWeek[info.key].tasks.push(t)
-  }
-
-  // Semaines du plus récent au plus ancien
-  const weeks = Object.values(byWeek).sort((a, b) => b.info.key.localeCompare(a.info.key))
-
-  function groupByParcelle(tasks) {
-    const groups = {}
-    for (const t of tasks) {
-      const ps = t.parcelles || []
-      if (ps.length === 0) {
-        (groups['Général'] ||= []).push(t)
-      } else {
-        for (const p of ps) (groups[p.nom] ||= []).push(t)
-      }
-    }
-    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
-  }
-
-  if (weeks.length === 0 && noDate.length === 0) {
-    return (
-      <div className="text-center py-16 px-4">
-        <CheckSquare size={48} className="mx-auto text-vigne-300 mb-4" />
-        <p className="text-gray-500 font-medium">Aucune tâche</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="px-4 pt-2 pb-8 space-y-3">
-      {weeks.map(({ info, tasks }) => {
-        const isCurrent = info.key === currentWeekKey
-        const groupes = groupByParcelle(tasks)
-        return (
-          <div key={info.key} className={`card ${isCurrent ? 'border-vigne-300 dark:border-vigne-700' : ''}`}>
-            {/* En-tête semaine */}
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100 dark:border-gray-700">
-              <span className={`text-sm font-bold ${isCurrent ? 'text-vigne-700 dark:text-vigne-400' : 'text-gray-700 dark:text-gray-200'}`}>
-                Semaine {info.week}
-              </span>
-              {isCurrent && (
-                <span className="text-[10px] bg-vigne-100 dark:bg-vigne-900/30 text-vigne-700 dark:text-vigne-400 px-2 py-0.5 rounded-full font-semibold">
-                  Cette semaine
-                </span>
-              )}
-              <span className="text-xs text-gray-400 ml-auto">{info.range}</span>
-            </div>
-
-            {/* Tâches groupées par parcelle */}
-            <div className="space-y-3">
-              {groupes.map(([nomParcelle, liste]) => (
-                <div key={nomParcelle}>
-                  <p className="text-[11px] font-semibold text-vigne-600 dark:text-vigne-400 uppercase tracking-wide mb-1.5">
-                    📍 {nomParcelle}
-                  </p>
-                  <div className="space-y-1.5 pl-1">
-                    {liste.map(t => {
-                      const s = STATUTS[t.statut] || STATUTS.a_faire
-                      const Icon = s.icon
-                      const done = t.statut === 'termine'
-                      return (
-                        <div key={t.id} className="flex items-center gap-2">
-                          <button onClick={() => toggleStatut(t)}
-                            className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${s.color}`}>
-                            <Icon size={13} />
-                          </button>
-                          <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/taches/${t.id}/edit`)}>
-                            <span className={`text-sm ${done ? 'line-through text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
-                              {PRIORITE_DOT[t.priorite] && (
-                                <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${PRIORITE_DOT[t.priorite]}`} />
-                              )}
-                              {t.titre}
-                            </span>
-                          </div>
-                          {(t.date_debut || t.date_fin) && (
-                            <span className="text-[10px] text-gray-400 flex-shrink-0">
-                              {t.date_debut && format(parseISO(t.date_debut), 'd MMM', { locale: fr })}
-                              {t.date_fin && t.date_debut !== t.date_fin && ` → ${format(parseISO(t.date_fin), 'd MMM', { locale: fr })}`}
-                            </span>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )
-      })}
-
-      {noDate.length > 0 && (
-        <div className="card opacity-70">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Sans date</p>
-          <div className="space-y-1.5">
-            {noDate.map(t => {
-              const s = STATUTS[t.statut] || STATUTS.a_faire
-              const Icon = s.icon
-              return (
-                <div key={t.id} className="flex items-center gap-2">
-                  <button onClick={() => toggleStatut(t)}
-                    className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${s.color}`}>
-                    <Icon size={13} />
-                  </button>
-                  <span className="flex-1 text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
-                        onClick={() => navigate(`/taches/${t.id}/edit`)}>
-                    {t.titre}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
       )}
     </div>
   )
@@ -357,7 +193,13 @@ export default function TachesList() {
           {Array.from({ length: 3 }).map((_, i) => <div key={i} className="card skeleton h-20" />)}
         </div>
       ) : vue === 'semaine' ? (
-        <VueParSemaine taches={tachesSaison} toggleStatut={toggleStatut} navigate={navigate} />
+        <div className="px-4 pt-2 pb-8">
+          <TachesSemaines
+            taches={tachesSaison}
+            onToggle={toggleStatut}
+            onOpen={t => navigate(`/taches/${t.id}/edit`)}
+          />
+        </div>
       ) : (
         <div className="px-4 space-y-3 pt-2">
           {filtered.length === 0 ? (

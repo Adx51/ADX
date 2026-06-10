@@ -283,6 +283,13 @@ export default function TacheForm() {
     if (!isEdit && watchDateFin) setValue('date_echeance', watchDateFin)
   }, [watchDateFin])
 
+  // Si la date de début dépasse la fin, avancer la fin (jamais fin < début)
+  useEffect(() => {
+    if (watchDateDebut && watchDateFin && watchDateDebut > watchDateFin) {
+      setValue('date_fin', watchDateDebut)
+    }
+  }, [watchDateDebut])
+
   async function onSubmit(data) {
     if (parcelleIds.length === 0) {
       setParcelleError(true)
@@ -383,21 +390,23 @@ export default function TacheForm() {
             )}
           </div>
 
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <p className="text-[11px] text-gray-400 mb-1 font-medium">Début</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 font-medium">Début</p>
               <input type="date" className="input text-sm" {...register('date_debut')} />
             </div>
-            <span className="text-gray-300 text-xl pb-2.5 flex-shrink-0">→</span>
-            <div className="flex-1">
-              <p className="text-[11px] text-gray-400 mb-1 font-medium">Fin</p>
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 font-medium">Fin</p>
               <input type="date" className="input text-sm" {...register('date_fin')} />
             </div>
           </div>
 
           <div>
-            <p className="text-[11px] text-gray-400 mb-1 font-medium">Échéance limite</p>
-            <input type="date" className="input" {...register('date_echeance')} />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 font-medium">Échéance limite</p>
+            <input type="date" className="input text-sm" {...register('date_echeance')} />
+            {!isEdit && (
+              <p className="text-xs text-gray-400 mt-1 pl-1">Suit automatiquement la date de fin</p>
+            )}
           </div>
         </div>
 

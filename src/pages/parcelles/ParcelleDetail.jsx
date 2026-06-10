@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation, Expand, Sprout, CheckSquare, Clock, AlertCircle, Check, CalendarDays } from 'lucide-react'
+import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation, Expand, Sprout, CheckSquare, CalendarDays, List } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
-import { getSaison, getSaisonCourante, getISOWeek } from '../../lib/saison'
+import { getSaison, getSaisonCourante, getISOWeek, tacheSaison } from '../../lib/saison'
+import { STATUT_TACHE, TYPE_TRAITEMENT } from '../../lib/taches'
+import TachesSemaines from '../../components/TachesSemaines'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 import { locateFromCadastre } from '../../lib/cadastre'
 import PageHeader from '../../components/PageHeader'
@@ -360,31 +362,18 @@ function TabBtn({ id, label, active, onClick, badge }) {
   )
 }
 
-const STATUT_TACHE = {
-  a_faire:  { label: 'À faire',  color: 'text-gray-500', bg: 'bg-gray-100', Icon: Clock },
-  en_cours: { label: 'En cours', color: 'text-blue-600',  bg: 'bg-blue-100', Icon: AlertCircle },
-  termine:  { label: 'Terminée', color: 'text-vigne-600', bg: 'bg-vigne-100', Icon: Check },
-}
-
-const TYPE_TRAITEMENT = {
-  fongicide:   { label: 'Fongicide',    color: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
-  insecticide: { label: 'Insecticide',  color: 'text-orange-700 dark:text-orange-300',   bg: 'bg-orange-100 dark:bg-orange-900/30' },
-  herbicide:   { label: 'Herbicide',    color: 'text-yellow-700 dark:text-yellow-300',   bg: 'bg-yellow-100 dark:bg-yellow-900/30' },
-  biocontrole: { label: 'Biocontrôle',  color: 'text-teal-700 dark:text-teal-300',       bg: 'bg-teal-100 dark:bg-teal-900/30' },
-  autre:       { label: 'Autre',        color: 'text-gray-600 dark:text-gray-300',       bg: 'bg-gray-100 dark:bg-gray-700' },
-}
-
 function ActiviteSection({ activite, navigate }) {
   const { taches, traitements } = activite
 
   const seasons = [...new Set([
-    ...taches.map(t => getSaison(t.date_echeance || t.created_at)),
+    ...taches.map(tacheSaison),
     ...traitements.map(t => getSaison(t.date))
   ].filter(Boolean))].sort((a, b) => b - a)
 
   const saisonCourante = getSaisonCourante()
   const defaultSaison = seasons.includes(saisonCourante) ? saisonCourante : (seasons[0] ?? saisonCourante)
   const [selectedSaison, setSelectedSaison] = useState(defaultSaison)
+  const [vueTaches, setVueTaches] = useState('semaine') // 'semaine' | 'liste'
 
   if (seasons.length === 0) return (
     <div className="card text-center py-8">
@@ -392,7 +381,7 @@ function ActiviteSection({ activite, navigate }) {
     </div>
   )
 
-  const tachesSaison = taches.filter(t => getSaison(t.date_echeance || t.created_at) === selectedSaison)
+  const tachesSaison = taches.filter(t => tacheSaison(t) === selectedSaison)
   const traitementsSaison = [...traitements.filter(t => getSaison(t.date) === selectedSaison)]
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
 
@@ -421,10 +410,10 @@ function ActiviteSection({ activite, navigate }) {
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {seasons.map(s => (
             <button key={s} onClick={() => setSelectedSaison(s)}
-              className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap border transition-colors ${
                 selectedSaison === s
                   ? 'bg-vigne-700 text-white border-vigne-700'
-                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'
+                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'
               }`}>
               Saison {s}
             </button>
@@ -439,43 +428,70 @@ function ActiviteSection({ activite, navigate }) {
       )}
 
       {hasTaches && (
-        <div className="card space-y-2">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-            <CheckSquare size={12} /> Tâches
-            <span className="ml-auto normal-case font-normal text-gray-400">{tachesSaison.length}</span>
-          </p>
-          {tachesSaison.map(t => {
-            const s = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
-            const { Icon } = s
-            const done = t.statut === 'termine'
-            const refDate = t.date_debut || t.date_echeance
-            const hasRange = t.date_debut && t.date_fin && t.date_debut !== t.date_fin
-            const week = getISOWeek(refDate)
-            const fmtD = d => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-            return (
-              <button key={t.id} onClick={() => navigate(`/taches/${t.id}/edit`)}
-                className={`w-full flex items-start gap-2.5 text-left active:opacity-70 ${done ? 'opacity-50' : ''}`}>
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${s.bg}`}>
-                  <Icon size={12} className={s.color} />
-                </span>
-                <div className="flex-1 min-w-0">
-                  <span className={`text-sm leading-tight ${done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{t.titre}</span>
-                  {refDate && (
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-xs text-gray-400">
-                        {hasRange ? `${fmtD(t.date_debut)} → ${fmtD(t.date_fin)}` : fmtD(refDate)}
-                      </span>
-                      {week && (
-                        <span className="text-[10px] font-semibold text-vigne-600 bg-vigne-50 px-1.5 py-0.5 rounded-full">
-                          S.{week}
-                        </span>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+              <CheckSquare size={12} /> Tâches
+              <span className="normal-case font-normal text-gray-400">{tachesSaison.length}</span>
+            </p>
+            <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+              <button onClick={() => setVueTaches('semaine')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium ${
+                  vueTaches === 'semaine' ? 'bg-vigne-700 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                }`}>
+                <CalendarDays size={12} /> Semaine
+              </button>
+              <button onClick={() => setVueTaches('liste')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium ${
+                  vueTaches === 'liste' ? 'bg-vigne-700 text-white' : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                }`}>
+                <List size={12} /> Liste
+              </button>
+            </div>
+          </div>
+
+          {vueTaches === 'semaine' ? (
+            <TachesSemaines
+              taches={tachesSaison}
+              groupParcelles={false}
+              onOpen={t => navigate(`/taches/${t.id}/edit`)}
+            />
+          ) : (
+            <div className="card space-y-2">
+              {tachesSaison.map(t => {
+                const s = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
+                const { Icon } = s
+                const done = t.statut === 'termine'
+                const refDate = t.date_debut || t.date_echeance
+                const hasRange = t.date_debut && t.date_fin && t.date_debut !== t.date_fin
+                const week = getISOWeek(refDate)
+                const fmtD = d => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+                return (
+                  <button key={t.id} onClick={() => navigate(`/taches/${t.id}/edit`)}
+                    className={`w-full flex items-start gap-2.5 text-left active:opacity-70 ${done ? 'opacity-50' : ''}`}>
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${s.badge}`}>
+                      <Icon size={12} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-sm leading-tight ${done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{t.titre}</span>
+                      {refDate && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-xs text-gray-400">
+                            {hasRange ? `${fmtD(t.date_debut)} → ${fmtD(t.date_fin)}` : fmtD(refDate)}
+                          </span>
+                          {week && (
+                            <span className="text-xs font-semibold text-vigne-600 bg-vigne-50 px-1.5 py-0.5 rounded-full">
+                              S.{week}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              </button>
-            )
-          })}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -499,7 +515,7 @@ function ActiviteSection({ activite, navigate }) {
               return (
                 <div key={type}>
                   <div className="flex items-center gap-2 mb-1.5">
-                    <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${typ.bg} ${typ.color}`}>
+                    <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${typ.badge}`}>
                       {typ.label}
                     </span>
                     <span className="text-xs text-gray-400">

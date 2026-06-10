@@ -5,14 +5,7 @@ import { api } from '../../lib/api'
 import PageHeader from '../../components/PageHeader'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
-
-const TYPE_COLOR = {
-  fongicide:   'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300',
-  insecticide: 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300',
-  herbicide:   'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300',
-  biocontrole: 'bg-vigne-50 dark:bg-vigne-900/20 text-vigne-700 dark:text-vigne-400',
-  autre:       'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300',
-}
+import { typeBadge } from '../../lib/taches'
 
 export default function PhytoCarnetImportPage() {
   const navigate = useNavigate()
@@ -226,7 +219,7 @@ export default function PhytoCarnetImportPage() {
                               <tr key={j} className="border-t border-gray-100 dark:border-gray-700/50">
                                 <td className="py-0.5 pr-1 text-gray-700 dark:text-gray-300 max-w-[100px] truncate">{p.nom}</td>
                                 <td className="py-0.5 pr-1">
-                                  <span className={`px-1 py-0.5 rounded-full text-[9px] ${TYPE_COLOR[p.type] || TYPE_COLOR.autre}`}>
+                                  <span className={`px-1.5 py-0.5 rounded-full text-xs ${typeBadge(p.type)}`}>
                                     {p.type}
                                   </span>
                                 </td>

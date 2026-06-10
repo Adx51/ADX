@@ -6,14 +6,7 @@ import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import PageHeader from '../../components/PageHeader'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
-
-const TYPE_COLOR = {
-  fongicide:   'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
-  insecticide: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
-  herbicide:   'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
-  biocontrole: 'bg-vigne-100 text-vigne-700 dark:bg-vigne-900/30 dark:text-vigne-400',
-  autre:       'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
-}
+import { typeBadge } from '../../lib/taches'
 
 function fmtDate(iso) {
   if (!iso) return '—'
@@ -124,7 +117,7 @@ function VueOTCard({ ot, rapports, confirmDelete, setConfirmDelete, onDelete }) 
                   <td className="py-1 px-1">
                     <div className="flex items-center gap-1.5">
                       {p.type && (
-                        <span className={`text-[9px] px-1 py-0.5 rounded-full flex-shrink-0 ${TYPE_COLOR[p.type] || TYPE_COLOR.autre}`}>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${typeBadge(p.type)}`}>
                           {p.type.slice(0, 4)}
                         </span>
                       )}
@@ -223,7 +216,7 @@ function VueProduitTable({ rapports, prestataireFilter, setPrestataireFilter, pr
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-semibold text-gray-800 dark:text-gray-200">{row.prod.nom}</span>
                     {row.prod.type && (
-                      <span className={`text-[9px] px-1 py-0.5 rounded-full whitespace-nowrap ${TYPE_COLOR[row.prod.type] || TYPE_COLOR.autre}`}>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full whitespace-nowrap ${typeBadge(row.prod.type)}`}>
                         {row.prod.type.slice(0, 4)}
                       </span>
                     )}
@@ -295,13 +288,13 @@ function VueParcelleGroup({ nom, entries, allRapports, confirmDelete, setConfirm
                     {surface && <span className="text-[10px] text-gray-500 dark:text-gray-400">{surface}</span>}
                   </div>
                   {confirmDelete === deleteKey ? (
-                    <div className="flex gap-1 flex-shrink-0">
-                      <button onClick={() => onDelete(r.id)} className="px-2 py-0.5 text-[10px] bg-red-600 text-white rounded">Suppr.</button>
-                      <button onClick={() => setConfirmDelete(null)} className="px-2 py-0.5 text-[10px] border border-gray-200 dark:border-gray-600 rounded text-gray-600 dark:text-gray-400">Annuler</button>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      <button onClick={() => onDelete(r.id)} className="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-lg">Suppr.</button>
+                      <button onClick={() => setConfirmDelete(null)} className="px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400">Annuler</button>
                     </div>
                   ) : (
-                    <button onClick={() => setConfirmDelete(deleteKey)} className="p-1 text-gray-400 hover:text-red-500 flex-shrink-0">
-                      <Trash2 size={13} />
+                    <button onClick={() => setConfirmDelete(deleteKey)} className="p-2 -m-1 text-gray-400 hover:text-red-500 flex-shrink-0">
+                      <Trash2 size={15} />
                     </button>
                   )}
                 </div>
@@ -325,7 +318,7 @@ function VueParcelleGroup({ nom, entries, allRapports, confirmDelete, setConfirm
                             <td className="py-1 px-2">
                               <div className="flex items-center gap-1.5">
                                 {prod.type && (
-                                  <span className={`text-[9px] px-1 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap ${TYPE_COLOR[prod.type] || TYPE_COLOR.autre}`}>
+                                  <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 whitespace-nowrap ${typeBadge(prod.type)}`}>
                                     {prod.type === 'fongicide' ? 'Fong' : prod.type === 'insecticide' ? 'Insect' : prod.type === 'herbicide' ? 'Herb' : prod.type === 'biocontrole' ? 'Bio' : prod.type}
                                   </span>
                                 )}
