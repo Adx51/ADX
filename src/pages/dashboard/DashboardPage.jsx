@@ -101,19 +101,21 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <div className="px-4 pt-3 pb-6 lg:px-6 lg:pt-4 space-y-5">
-        {/* Ma semaine : à faire + fait récemment */}
-        <SemaineBlock refreshTick={refreshTick} />
+      <div className="px-4 pt-3 pb-6 lg:px-6 lg:pt-4">
+        <div className="max-w-6xl mx-auto lg:grid lg:grid-cols-5 lg:gap-6 lg:items-start space-y-5 lg:space-y-0">
 
-        <div className="lg:grid lg:grid-cols-5 lg:gap-6 lg:items-start space-y-5 lg:space-y-0">
+          {/* Ma semaine : à faire + fait récemment (colonne principale) */}
+          <div className="lg:col-span-3">
+            <SemaineBlock refreshTick={refreshTick} />
+          </div>
 
-          {/* Left: Météo (2/5) */}
+          {/* Météo (colonne droite) */}
           <div className="lg:col-span-2">
             <WeatherCard weather={weather} error={wErr} />
           </div>
 
-          {/* Right: Actualités (3/5) */}
-          <div className="lg:col-span-3">
+          {/* Actualités, sous Ma semaine */}
+          <div className="lg:col-span-3 lg:col-start-1">
             <div className="flex items-center gap-2 mb-3">
               <Newspaper size={16} className="text-vigne-600" />
               <h2 className="font-bold text-gray-900">Actualités viticoles</h2>
