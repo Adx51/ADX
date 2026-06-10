@@ -20,6 +20,7 @@ export default function ParcelleDetail() {
   const [parcelle, setParcelle] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteInfo, setDeleteInfo] = useState(null)
   const [geoFeatures, setGeoFeatures] = useState(null)
   const [photoOpen, setPhotoOpen] = useState(false)
   const [comparaison, setComparaison] = useState(null)
@@ -85,6 +86,13 @@ export default function ParcelleDetail() {
     if (!parcelle?.gps_lat || !parcelle?.gps_lng) return
     const text = `📍 Parcelle ${parcelle.nom} : ${mapsUrl()}`
     window.open(`sms:?body=${encodeURIComponent(text)}`, '_blank')
+  }
+
+  async function startDelete() {
+    setConfirmDelete(true)
+    setDeleteInfo(null)
+    const info = await api.get(`/parcelles/${id}/dependants`).catch(() => null)
+    setDeleteInfo(info ?? { vendanges: 0, taches: 0 })
   }
 
   async function deleteParcelle() {
@@ -190,19 +198,29 @@ export default function ParcelleDetail() {
             )}
 
             {canDelete && (!confirmDelete ? (
-              <button onClick={() => setConfirmDelete(true)}
+              <button onClick={startDelete}
                       className="w-full flex items-center justify-center gap-2 text-red-500 py-3 text-sm font-medium">
                 <Trash2 size={16} />
                 Supprimer cette parcelle
               </button>
             ) : (
-              <div className="card border-red-200 bg-red-50 space-y-3">
-                <p className="text-red-700 font-medium text-sm text-center">
+              <div className="card border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 space-y-3">
+                <p className="text-red-700 dark:text-red-400 font-medium text-sm text-center">
                   Supprimer définitivement {parcelle.nom} ?
                 </p>
+                {deleteInfo === null ? (
+                  <p className="text-xs text-center text-gray-400">Vérification en cours…</p>
+                ) : (deleteInfo.vendanges > 0 || deleteInfo.taches > 0) ? (
+                  <p className="text-xs text-orange-700 dark:text-orange-300 text-center bg-orange-50 dark:bg-orange-900/20 rounded-lg py-2 px-3">
+                    {[
+                      deleteInfo.vendanges > 0 && `${deleteInfo.vendanges} vendange${deleteInfo.vendanges > 1 ? 's conservées' : ' conservée'}`,
+                      deleteInfo.taches > 0 && `${deleteInfo.taches} tâche${deleteInfo.taches > 1 ? 's déliées' : ' déliée'}`
+                    ].filter(Boolean).join(' · ')}
+                  </p>
+                ) : null}
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => setConfirmDelete(false)} className="btn-secondary py-2 text-sm">Annuler</button>
-                  <button onClick={deleteParcelle} className="btn-danger py-2 text-sm">Supprimer</button>
+                  <button onClick={() => { setConfirmDelete(false); setDeleteInfo(null) }} className="btn-secondary py-2 text-sm">Annuler</button>
+                  <button onClick={deleteParcelle} disabled={deleteInfo === null} className="btn-danger py-2 text-sm disabled:opacity-50">Supprimer</button>
                 </div>
               </div>
             ))}
@@ -349,11 +367,11 @@ const STATUT_TACHE = {
 }
 
 const TYPE_TRAITEMENT = {
-  fongicide:   { label: 'Fongicide',    color: 'text-emerald-700', bg: 'bg-emerald-100' },
-  insecticide: { label: 'Insecticide',  color: 'text-orange-700',  bg: 'bg-orange-100' },
-  herbicide:   { label: 'Herbicide',    color: 'text-yellow-700',  bg: 'bg-yellow-100' },
-  biocontrole: { label: 'Biocontrôle',  color: 'text-teal-700',    bg: 'bg-teal-100' },
-  autre:       { label: 'Autre',        color: 'text-gray-600',    bg: 'bg-gray-100' },
+  fongicide:   { label: 'Fongicide',    color: 'text-emerald-700 dark:text-emerald-300', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  insecticide: { label: 'Insecticide',  color: 'text-orange-700 dark:text-orange-300',   bg: 'bg-orange-100 dark:bg-orange-900/30' },
+  herbicide:   { label: 'Herbicide',    color: 'text-yellow-700 dark:text-yellow-300',   bg: 'bg-yellow-100 dark:bg-yellow-900/30' },
+  biocontrole: { label: 'Biocontrôle',  color: 'text-teal-700 dark:text-teal-300',       bg: 'bg-teal-100 dark:bg-teal-900/30' },
+  autre:       { label: 'Autre',        color: 'text-gray-600 dark:text-gray-300',       bg: 'bg-gray-100 dark:bg-gray-700' },
 }
 
 function ActiviteSection({ activite, navigate }) {
@@ -441,7 +459,7 @@ function ActiviteSection({ activite, navigate }) {
                   <Icon size={12} className={s.color} />
                 </span>
                 <div className="flex-1 min-w-0">
-                  <span className={`text-sm leading-tight ${done ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.titre}</span>
+                  <span className={`text-sm leading-tight ${done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{t.titre}</span>
                   {refDate && (
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="text-xs text-gray-400">
@@ -469,7 +487,7 @@ function ActiviteSection({ activite, navigate }) {
               <span className="ml-1 normal-case font-normal text-gray-400">{traitementsSaison.length}</span>
             </p>
             {dernierTraitement && (
-              <span className="text-xs bg-vigne-50 text-vigne-700 border border-vigne-200 px-2 py-0.5 rounded-full font-medium">
+              <span className="text-xs bg-vigne-50 dark:bg-vigne-900/20 text-vigne-700 dark:text-vigne-400 border border-vigne-200 dark:border-vigne-800 px-2 py-0.5 rounded-full font-medium">
                 Dernier {daysAgo(dernierTraitement.date)}
               </span>
             )}
@@ -492,7 +510,7 @@ function ActiviteSection({ activite, navigate }) {
                     {items.map(t => (
                       <div key={t.id} className="flex items-start gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-800 leading-tight">{t.produit}</p>
+                          <p className="text-sm text-gray-800 dark:text-gray-200 leading-tight">{t.produit}</p>
                           {t.dose && <p className="text-xs text-gray-400 mt-0.5">{t.dose}</p>}
                         </div>
                         <span className="text-xs text-gray-400 flex-shrink-0 mt-0.5">

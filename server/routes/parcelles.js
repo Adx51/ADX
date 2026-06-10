@@ -135,7 +135,7 @@ router.get('/:id/activite', (req, res) => {
 
   // Tâches liées à cette parcelle (lien direct ou via une tâche multi-parcelles/commune)
   const taches = db.prepare(`
-    SELECT t.id, t.titre, t.statut, t.priorite, t.date_echeance, t.created_at, t.commune
+    SELECT t.id, t.titre, t.statut, t.priorite, t.date_echeance, t.date_debut, t.date_fin, t.created_at, t.commune
     FROM taches t
     JOIN tache_parcelles tp ON tp.tache_id = t.id
     WHERE tp.parcelle_id = ?
@@ -197,6 +197,16 @@ router.get('/:id/activite', (req, res) => {
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
 
   res.json({ taches, traitements: allTraitements })
+})
+
+router.get('/:id/dependants', (req, res) => {
+  const p = db.prepare('SELECT id FROM parcelles WHERE id = ?').get(req.params.id)
+  if (!p) return res.status(404).json({ error: 'Parcelle introuvable' })
+
+  const vendanges = db.prepare('SELECT COUNT(*) as n FROM vendanges WHERE parcelle_id = ?').get(req.params.id).n
+  const taches = db.prepare('SELECT COUNT(DISTINCT tache_id) as n FROM tache_parcelles WHERE parcelle_id = ?').get(req.params.id).n
+
+  res.json({ vendanges, taches })
 })
 
 router.put('/:id', (req, res) => {

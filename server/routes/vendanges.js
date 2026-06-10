@@ -8,10 +8,10 @@ router.use(requireAuth)
 
 router.get('/', (req, res) => {
   const rows = db.prepare(`
-    SELECT v.*, p.nom as parcelle_nom, p.surface_plantee_ca
+    SELECT v.*, COALESCE(p.nom, v.parcelle_nom) as parcelle_nom, p.surface_plantee_ca
     FROM vendanges v
-    JOIN parcelles p ON p.id = v.parcelle_id
-    ORDER BY v.annee DESC, p.nom ASC
+    LEFT JOIN parcelles p ON p.id = v.parcelle_id
+    ORDER BY v.annee DESC, COALESCE(p.nom, v.parcelle_nom) ASC NULLS LAST
   `).all()
 
   res.json(rows.map(r => ({
@@ -54,12 +54,12 @@ router.post('/', (req, res) => {
 
 router.get('/:id', (req, res) => {
   const v = db.prepare(`
-    SELECT v.*, p.nom as parcelle_nom, p.surface_plantee_ca,
-           p.surface_totale_ca, p.cepage, p.nombre_routes, p.gps_lat, p.gps_lng,
+    SELECT v.*, COALESCE(p.nom, v.parcelle_nom) as parcelle_nom,
+           p.surface_plantee_ca, p.surface_totale_ca, p.cepage, p.nombre_routes, p.gps_lat, p.gps_lng,
            c.rendement_attendu_kgha AS campagne_rendement_attendu,
            c.statut AS campagne_statut
     FROM vendanges v
-    JOIN parcelles p ON p.id = v.parcelle_id
+    LEFT JOIN parcelles p ON p.id = v.parcelle_id
     LEFT JOIN campagnes c ON c.annee = v.annee
     WHERE v.id = ?
   `).get(req.params.id)

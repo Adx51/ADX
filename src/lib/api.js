@@ -91,21 +91,24 @@ function invalidate(path) {
   }
 }
 
-function invalidateAll() {
+export function invalidateAll() {
   _cache.clear()
   window.dispatchEvent(new Event('adx:data-changed'))
 }
 
-function afterMutation(d) {
-  invalidateAll()
+function afterMutation(d, path) {
+  // Targeted invalidation: only clear cache for the affected route
+  invalidate(path)
+  window.dispatchEvent(new Event('adx:data-changed'))
   return d
 }
 
 export const api = {
   get:    (path)       => cachedGet(path),
-  post:   (path, body) => request('POST',   path, body).then(afterMutation),
-  put:    (path, body) => request('PUT',    path, body).then(afterMutation),
-  delete: (path)       => request('DELETE', path).then(afterMutation),
-  upload: (path, formData) => request('POST', path, formData, true).then(afterMutation),
+  post:   (path, body) => request('POST',   path, body).then(d => afterMutation(d, path)),
+  put:    (path, body) => request('PUT',    path, body).then(d => afterMutation(d, path)),
+  delete: (path)       => request('DELETE', path).then(d => afterMutation(d, path)),
+  upload: (path, formData) => request('POST', path, formData, true).then(d => afterMutation(d, path)),
   invalidate,
+  invalidateAll,
 }
