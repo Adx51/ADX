@@ -22,5 +22,22 @@ export function getSaisonCourante() {
 }
 
 export function tacheSaison(tache) {
-  return getSaison(tache.date_echeance || tache.created_at)
+  return getSaison(tache.date_debut || tache.date_echeance || tache.created_at)
+}
+
+// ISO week number (1-53)
+export function getISOWeek(dateStr) {
+  if (!dateStr) return null
+  const parts = dateStr.split('T')[0].split('-')
+  if (parts.length < 3) return null
+  const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]))
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
+  const jan4 = new Date(d.getFullYear(), 0, 4)
+  return 1 + Math.round(((d - jan4) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7)
+}
+
+// Today as YYYY-MM-DD (local time, no UTC shift)
+export function todayISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }

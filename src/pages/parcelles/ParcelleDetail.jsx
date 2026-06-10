@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation, Expand, Sprout, CheckSquare, Clock, AlertCircle, Check } from 'lucide-react'
+import { Edit2, Trash2, Share2, MapPin, Grape, ChevronRight, MessageSquare, Navigation, Expand, Sprout, CheckSquare, Clock, AlertCircle, Check, CalendarDays } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
-import { getSaison, getSaisonCourante } from '../../lib/saison'
+import { getSaison, getSaisonCourante, getISOWeek } from '../../lib/saison'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 import { locateFromCadastre } from '../../lib/cadastre'
 import PageHeader from '../../components/PageHeader'
@@ -430,18 +430,31 @@ function ActiviteSection({ activite, navigate }) {
             const s = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
             const { Icon } = s
             const done = t.statut === 'termine'
+            const refDate = t.date_debut || t.date_echeance
+            const hasRange = t.date_debut && t.date_fin && t.date_debut !== t.date_fin
+            const week = getISOWeek(refDate)
+            const fmtD = d => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
             return (
               <button key={t.id} onClick={() => navigate(`/taches/${t.id}/edit`)}
-                className={`w-full flex items-center gap-2.5 text-left active:opacity-70 ${done ? 'opacity-50' : ''}`}>
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${s.bg}`}>
+                className={`w-full flex items-start gap-2.5 text-left active:opacity-70 ${done ? 'opacity-50' : ''}`}>
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${s.bg}`}>
                   <Icon size={12} className={s.color} />
                 </span>
-                <span className={`flex-1 text-sm ${done ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.titre}</span>
-                {t.date_echeance && (
-                  <span className="text-xs text-gray-400 flex-shrink-0">
-                    {new Date(t.date_echeance).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                  </span>
-                )}
+                <div className="flex-1 min-w-0">
+                  <span className={`text-sm leading-tight ${done ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.titre}</span>
+                  {refDate && (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-xs text-gray-400">
+                        {hasRange ? `${fmtD(t.date_debut)} → ${fmtD(t.date_fin)}` : fmtD(refDate)}
+                      </span>
+                      {week && (
+                        <span className="text-[10px] font-semibold text-vigne-600 bg-vigne-50 px-1.5 py-0.5 rounded-full">
+                          S.{week}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </button>
             )
           })}

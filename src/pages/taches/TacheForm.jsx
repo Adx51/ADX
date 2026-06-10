@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { Trash2, ChevronDown, Search, LayoutTemplate, Check, Calendar } from 'lucide-react'
 import { api } from '../../lib/api'
 import { uploadPhoto } from '../../lib/uploadPhoto'
+import { getISOWeek, todayISO } from '../../lib/saison'
 import PageHeader from '../../components/PageHeader'
 import PhotoInput from '../../components/PhotoInput'
 
@@ -39,17 +40,7 @@ function cibleSummary(ids, parcelles) {
   return `${ids.length} parcelles`
 }
 
-function isoWeek(dateStr) {
-  if (!dateStr) return null
-  const d = new Date(dateStr)
-  if (isNaN(d)) return null
-  const tmp = new Date(d.valueOf())
-  tmp.setDate(tmp.getDate() + 3 - (tmp.getDay() + 6) % 7)
-  const jan4 = new Date(tmp.getFullYear(), 0, 4)
-  return 1 + Math.round(((tmp - jan4) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7)
-}
-
-function ParcellePicker({ parcelles, value, onChange }) {
+function ParcellePicker({ parcelles, value, onChange, error }) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
   const inputRef = useRef(null)
@@ -81,11 +72,11 @@ function ParcellePicker({ parcelles, value, onChange }) {
   return (
     <div className="relative">
       <div
-        className="input flex items-center justify-between cursor-pointer select-none"
+        className={`input flex items-center justify-between cursor-pointer select-none ${error ? 'border-red-400 bg-red-50' : ''}`}
         onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50) }}
       >
-        <span className={label ? 'text-gray-900' : 'text-gray-400'}>
-          {label || '— Aucune (tâche générale) —'}
+        <span className={label ? 'text-gray-900' : error ? 'text-red-400' : 'text-gray-400'}>
+          {label || (error ? '⚠ Sélection obligatoire' : '— Choisir les parcelles —')}
         </span>
         <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />
       </div>
@@ -244,14 +235,27 @@ export default function TacheForm() {
   const [parcelles, setParcelles] = useState([])
   const [modeles, setModeles] = useState([])
   const [parcelleIds, setParcelleIds] = useState([])
+  const [parcelleError, setParcelleError] = useState(false)
   const [modeleChoisi, setModeleChoisi] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  const { register, handleSubmit, setValue, watch } = useForm()
-  const dateDebut = watch('date_debut')
-  const semaine = isoWeek(dateDebut)
+  const today = todayISO()
+
+  const { register, handleSubmit, setValue, watch } = useForm({
+    defaultValues: {
+      statut:        'a_faire',
+      priorite:      'normale',
+      date_debut:    today,
+      date_fin:      today,
+      date_echeance: today,
+    }
+  })
+
+  const watchDateDebut = watch('date_debut')
+  const watchDateFin   = watch('date_fin')
+  const weekNum = getISOWeek(watchDateDebut || watchDateFin || today)
 
   useEffect(() => {
     api.get('/parcelles').then(p => setParcelles(p || []))
@@ -264,9 +268,9 @@ export default function TacheForm() {
           setValue('description',   t.description || '')
           setValue('statut',        t.statut)
           setValue('priorite',      t.priorite)
-          setValue('date_echeance', t.date_echeance || '')
-          setValue('date_debut',    t.date_debut || '')
-          setValue('date_fin',      t.date_fin || '')
+          setValue('date_debut',    t.date_debut    || today)
+          setValue('date_fin',      t.date_fin      || today)
+          setValue('date_echeance', t.date_echeance || today)
           setParcelleIds(t.parcelle_ids || (t.parcelles || []).map(p => p.id))
           setExistingPhotoUrl(t.photo_url)
         }
@@ -274,7 +278,17 @@ export default function TacheForm() {
     }
   }, [id, isEdit, setValue])
 
+  // Synchronise date_echeance sur date_fin pour les nouvelles tâches
+  useEffect(() => {
+    if (!isEdit && watchDateFin) setValue('date_echeance', watchDateFin)
+  }, [watchDateFin])
+
   async function onSubmit(data) {
+    if (parcelleIds.length === 0) {
+      setParcelleError(true)
+      return
+    }
+    setParcelleError(false)
     setSaving(true)
     setError('')
     try {
@@ -288,9 +302,9 @@ export default function TacheForm() {
         commune:       communeComplete(parcelles, parcelleIds),
         statut:        data.statut || 'a_faire',
         priorite:      data.priorite || 'normale',
+        date_debut:    data.date_debut    || null,
+        date_fin:      data.date_fin      || null,
         date_echeance: data.date_echeance || null,
-        date_debut:    data.date_debut || null,
-        date_fin:      data.date_fin || null,
         photo_url,
       }
 
@@ -343,29 +357,47 @@ export default function TacheForm() {
         </div>
 
         <div>
-          <label className="label">Parcelle(s) ou commune concernée(s)</label>
-          <ParcellePicker parcelles={parcelles} value={parcelleIds} onChange={setParcelleIds} />
+          <label className="label">Parcelle(s) concernée(s) *</label>
+          <ParcellePicker
+            parcelles={parcelles}
+            value={parcelleIds}
+            onChange={ids => { setParcelleIds(ids); if (ids.length > 0) setParcelleError(false) }}
+            error={parcelleError}
+          />
+          {parcelleError && (
+            <p className="text-xs text-red-500 mt-1 pl-1">Sélectionne au moins une parcelle</p>
+          )}
         </div>
 
-        <div>
-          <label className="label flex items-center gap-1.5">
-            <Calendar size={13} className="text-vigne-600" />
-            Période
-            {semaine && (
-              <span className="ml-auto text-xs font-semibold bg-vigne-100 text-vigne-700 px-2 py-0.5 rounded-full">
-                Semaine {semaine}
+        {/* ── Planification ── */}
+        <div className="rounded-2xl bg-gray-50 border border-gray-200 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <Calendar size={12} />
+              Planification
+            </span>
+            {weekNum && (
+              <span className="text-xs font-bold text-vigne-700 bg-vigne-100 px-2.5 py-1 rounded-full">
+                Sem. {weekNum}
               </span>
             )}
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Début</p>
-              <input type="date" className="input" {...register('date_debut')} />
+          </div>
+
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <p className="text-[11px] text-gray-400 mb-1 font-medium">Début</p>
+              <input type="date" className="input text-sm" {...register('date_debut')} />
             </div>
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Fin</p>
-              <input type="date" className="input" {...register('date_fin')} />
+            <span className="text-gray-300 text-xl pb-2.5 flex-shrink-0">→</span>
+            <div className="flex-1">
+              <p className="text-[11px] text-gray-400 mb-1 font-medium">Fin</p>
+              <input type="date" className="input text-sm" {...register('date_fin')} />
             </div>
+          </div>
+
+          <div>
+            <p className="text-[11px] text-gray-400 mb-1 font-medium">Échéance limite</p>
+            <input type="date" className="input" {...register('date_echeance')} />
           </div>
         </div>
 
@@ -386,11 +418,6 @@ export default function TacheForm() {
               <option value="haute">Haute</option>
             </select>
           </div>
-        </div>
-
-        <div>
-          <label className="label">Date d'échéance</label>
-          <input type="date" className="input" {...register('date_echeance')} />
         </div>
 
         <PhotoInput value={existingPhotoUrl} onChange={setPhoto} />

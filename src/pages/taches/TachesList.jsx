@@ -71,8 +71,12 @@ function ParcellePills({ t }) {
 function TacheCard({ t, onToggle, onPhoto, navigate }) {
   const statut = STATUTS[t.statut]
   const Icon = statut.icon
+  const refDate = t.date_debut || t.date_echeance
   const overdue = t.statut !== 'termine' && t.date_echeance && isPast(parseISO(t.date_echeance)) && !isToday(parseISO(t.date_echeance))
   const dueToday = t.statut !== 'termine' && t.date_echeance && isToday(parseISO(t.date_echeance))
+  const week = getWeekInfo(refDate)?.week
+  const hasRange = t.date_debut && t.date_fin && t.date_debut !== t.date_fin
+
   return (
     <div className="card flex gap-3">
       <button
@@ -82,19 +86,29 @@ function TacheCard({ t, onToggle, onPhoto, navigate }) {
         <Icon size={18} />
       </button>
       <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/taches/${t.id}/edit`)}>
-        <div className="flex items-center gap-1.5">
-          {PRIORITE_DOT[t.priorite] && (
-            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITE_DOT[t.priorite]}`} />
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {PRIORITE_DOT[t.priorite] && (
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITE_DOT[t.priorite]}`} />
+            )}
+            <p className={`font-semibold leading-tight ${t.statut === 'termine' ? 'line-through text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
+              {t.titre}
+            </p>
+          </div>
+          {week && (
+            <span className="text-[10px] font-bold text-vigne-600 dark:text-vigne-400 bg-vigne-50 dark:bg-vigne-900/20 px-1.5 py-0.5 rounded-full flex-shrink-0 mt-0.5">
+              S.{week}
+            </span>
           )}
-          <p className={`font-semibold leading-tight ${t.statut === 'termine' ? 'line-through text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
-            {t.titre}
-          </p>
         </div>
         <ParcellePills t={t} />
         {t.description && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{t.description}</p>}
-        {t.date_echeance && (
+        {refDate && (
           <p className={`text-xs mt-1 ${overdue ? 'text-red-500 font-medium' : dueToday ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
-            📅 {format(parseISO(t.date_echeance), 'd MMM yyyy', { locale: fr })}
+            {hasRange
+              ? `${format(parseISO(t.date_debut), 'd MMM', { locale: fr })} → ${format(parseISO(t.date_fin), 'd MMM', { locale: fr })}`
+              : format(parseISO(refDate), 'd MMM yyyy', { locale: fr })
+            }
             {overdue && ' · En retard'}
             {dueToday && " · Aujourd'hui"}
           </p>
