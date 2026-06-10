@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { Trash2, ChevronDown, Search, LayoutTemplate, Check } from 'lucide-react'
+import { Trash2, ChevronDown, Search, LayoutTemplate, Check, Calendar } from 'lucide-react'
 import { api } from '../../lib/api'
 import { uploadPhoto } from '../../lib/uploadPhoto'
 import PageHeader from '../../components/PageHeader'
@@ -21,8 +21,6 @@ function groupParcellesByCommune(parcelles) {
   return [...known, ...other].map(commune => ({ commune, parcelles: groups[commune] }))
 }
 
-// Si les ids correspondent exactement à toutes les parcelles d'UNE seule
-// commune, renvoie son nom (étiquette « toute la commune »), sinon null.
 function communeComplete(parcelles, ids) {
   const selected = parcelles.filter(p => ids.includes(p.id))
   if (selected.length === 0) return null
@@ -32,7 +30,6 @@ function communeComplete(parcelles, ids) {
   return selected.length === total ? communes[0] : null
 }
 
-// Résumé lisible de la cible (pour la box du picker)
 function cibleSummary(ids, parcelles) {
   if (!ids.length) return null
   if (ids.length === parcelles.length) return 'Toutes les parcelles'
@@ -42,7 +39,16 @@ function cibleSummary(ids, parcelles) {
   return `${ids.length} parcelles`
 }
 
-// value = tableau d'ids de parcelles ; sélection multiple
+function isoWeek(dateStr) {
+  if (!dateStr) return null
+  const d = new Date(dateStr)
+  if (isNaN(d)) return null
+  const tmp = new Date(d.valueOf())
+  tmp.setDate(tmp.getDate() + 3 - (tmp.getDay() + 6) % 7)
+  const jan4 = new Date(tmp.getFullYear(), 0, 4)
+  return 1 + Math.round(((tmp - jan4) / 86400000 - 3 + (jan4.getDay() + 6) % 7) / 7)
+}
+
 function ParcellePicker({ parcelles, value, onChange }) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
@@ -164,7 +170,6 @@ function ParcellePicker({ parcelles, value, onChange }) {
   )
 }
 
-// Sélecteur de type de tâche — même look que ParcellePicker (recherche + liste)
 function ModelePicker({ modeles, value, onChange }) {
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
@@ -244,7 +249,9 @@ export default function TacheForm() {
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  const { register, handleSubmit, setValue } = useForm()
+  const { register, handleSubmit, setValue, watch } = useForm()
+  const dateDebut = watch('date_debut')
+  const semaine = isoWeek(dateDebut)
 
   useEffect(() => {
     api.get('/parcelles').then(p => setParcelles(p || []))
@@ -258,6 +265,8 @@ export default function TacheForm() {
           setValue('statut',        t.statut)
           setValue('priorite',      t.priorite)
           setValue('date_echeance', t.date_echeance || '')
+          setValue('date_debut',    t.date_debut || '')
+          setValue('date_fin',      t.date_fin || '')
           setParcelleIds(t.parcelle_ids || (t.parcelles || []).map(p => p.id))
           setExistingPhotoUrl(t.photo_url)
         }
@@ -276,11 +285,12 @@ export default function TacheForm() {
         titre:         data.titre,
         description:   data.description || null,
         parcelle_ids:  parcelleIds,
-        // Étiquette « toute la commune X » si la sélection couvre exactement une commune
         commune:       communeComplete(parcelles, parcelleIds),
         statut:        data.statut || 'a_faire',
         priorite:      data.priorite || 'normale',
         date_echeance: data.date_echeance || null,
+        date_debut:    data.date_debut || null,
+        date_fin:      data.date_fin || null,
         photo_url,
       }
 
@@ -335,6 +345,28 @@ export default function TacheForm() {
         <div>
           <label className="label">Parcelle(s) ou commune concernée(s)</label>
           <ParcellePicker parcelles={parcelles} value={parcelleIds} onChange={setParcelleIds} />
+        </div>
+
+        <div>
+          <label className="label flex items-center gap-1.5">
+            <Calendar size={13} className="text-vigne-600" />
+            Période
+            {semaine && (
+              <span className="ml-auto text-xs font-semibold bg-vigne-100 text-vigne-700 px-2 py-0.5 rounded-full">
+                Semaine {semaine}
+              </span>
+            )}
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Début</p>
+              <input type="date" className="input" {...register('date_debut')} />
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Fin</p>
+              <input type="date" className="input" {...register('date_fin')} />
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

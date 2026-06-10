@@ -528,6 +528,12 @@ if (schemaVersion < 18) {
   db.pragma('user_version = 18')
 }
 
+if (schemaVersion < 19) {
+  try { db.exec(`ALTER TABLE taches ADD COLUMN date_debut TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE taches ADD COLUMN date_fin TEXT`) } catch {}
+  db.pragma('user_version = 19')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5

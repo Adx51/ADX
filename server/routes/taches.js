@@ -55,7 +55,7 @@ router.get('/', (req, res) => {
 })
 
 router.post('/', (req, res) => {
-  const { titre, description, parcelle_ids, commune, statut, priorite, date_echeance, photo_url } = req.body
+  const { titre, description, parcelle_ids, commune, statut, priorite, date_echeance, photo_url, date_debut, date_fin } = req.body
   if (!titre) return res.status(400).json({ error: 'Le titre est requis' })
 
   const ids = validParcelleIds(parcelle_ids)
@@ -64,10 +64,11 @@ router.post('/', (req, res) => {
   const tx = db.transaction(() => {
     db.prepare(`
       INSERT INTO taches
-        (id, user_id, parcelle_id, commune, titre, description, statut, priorite, date_echeance, photo_url)
-      VALUES (?,?,?,?,?,?,?,?,?,?)
+        (id, user_id, parcelle_id, commune, titre, description, statut, priorite, date_echeance, photo_url, date_debut, date_fin)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(id, req.userId, null, commune || null, titre, description || null,
-           statut || 'a_faire', priorite || 'normale', date_echeance || null, photo_url || null)
+           statut || 'a_faire', priorite || 'normale', date_echeance || null, photo_url || null,
+           date_debut || null, date_fin || null)
     setLinks(id, ids)
   })
   tx()
@@ -87,17 +88,19 @@ router.put('/:id', (req, res) => {
   const t = db.prepare('SELECT id FROM taches WHERE id = ?').get(req.params.id)
   if (!t) return res.status(404).json({ error: 'Tâche introuvable' })
 
-  const { titre, description, parcelle_ids, commune, statut, priorite, date_echeance, photo_url } = req.body
+  const { titre, description, parcelle_ids, commune, statut, priorite, date_echeance, photo_url, date_debut, date_fin } = req.body
   const ids = validParcelleIds(parcelle_ids)
 
   const tx = db.transaction(() => {
     db.prepare(`
       UPDATE taches SET
         titre = ?, description = ?, parcelle_id = ?, commune = ?, statut = ?,
-        priorite = ?, date_echeance = ?, photo_url = ?, updated_at = datetime('now')
+        priorite = ?, date_echeance = ?, photo_url = ?, date_debut = ?, date_fin = ?,
+        updated_at = datetime('now')
       WHERE id = ?
     `).run(titre, description || null, null, commune || null, statut,
-           priorite, date_echeance || null, photo_url || null, req.params.id)
+           priorite, date_echeance || null, photo_url || null,
+           date_debut || null, date_fin || null, req.params.id)
     setLinks(req.params.id, ids)
   })
   tx()
