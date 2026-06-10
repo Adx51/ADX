@@ -1,8 +1,9 @@
 import { useEffect, useState, lazy, Suspense } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Locate, Loader2, MapPin, Map, Crosshair } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useBack } from '../../lib/useBack'
 import { uploadPhoto } from '../../lib/uploadPhoto'
 import { parseToCa } from '../../lib/surface'
 import { locateFromCadastre } from '../../lib/cadastre'
@@ -20,7 +21,7 @@ const STATUTS = [
 export default function ParcelleForm() {
   const { id } = useParams()
   const isEdit = Boolean(id)
-  const navigate = useNavigate()
+  const goBack = useBack('/parcelles')
   const [photo, setPhoto] = useState(null)
   const [existingPhotoUrl, setExistingPhotoUrl] = useState(null)
   const [gpsLoading, setGpsLoading] = useState(false)
@@ -169,7 +170,7 @@ export default function ParcelleForm() {
       } else {
         await api.post('/parcelles', payload)
       }
-      navigate('/parcelles')
+      goBack()
     } catch (e) {
       setError(e.message)
       setSaving(false)

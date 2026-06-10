@@ -36,9 +36,10 @@ function ParcellePills({ t }) {
 function TacheCard({ t, onToggle, onPhoto, navigate }) {
   const statut = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
   const Icon = statut.Icon
-  const refDate = t.date_debut || t.date_echeance
-  const overdue = t.statut !== 'termine' && t.date_echeance && isPast(parseISO(t.date_echeance)) && !isToday(parseISO(t.date_echeance))
-  const dueToday = t.statut !== 'termine' && t.date_echeance && isToday(parseISO(t.date_echeance))
+  const refDate = t.date_debut || t.date_fin
+  const finDate = t.date_fin || t.date_echeance
+  const overdue = t.statut !== 'termine' && finDate && isPast(parseISO(finDate)) && !isToday(parseISO(finDate))
+  const dueToday = t.statut !== 'termine' && finDate && isToday(parseISO(finDate))
   const week = getISOWeek(refDate)
   const hasRange = t.date_debut && t.date_fin && t.date_debut !== t.date_fin
 
@@ -115,7 +116,7 @@ export default function TachesList() {
     const prevStatut = tache.statut
     setTaches(prev => prev.map(t => t.id === tache.id ? { ...t, statut: next } : t))
     try {
-      await api.put(`/taches/${tache.id}`, { ...tache, statut: next })
+      await api.put(`/taches/${tache.id}/statut`, { statut: next })
     } catch (e) {
       if (!e?.offline) {
         setTaches(prev => prev.map(t => t.id === tache.id ? { ...t, statut: prevStatut } : t))

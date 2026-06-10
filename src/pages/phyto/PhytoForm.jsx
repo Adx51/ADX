@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useBack } from '../../lib/useBack'
 import PageHeader from '../../components/PageHeader'
 
 const TYPES = [
@@ -15,7 +16,7 @@ const TYPES = [
 export default function PhytoForm() {
   const { id } = useParams()
   const isEdit = Boolean(id)
-  const navigate = useNavigate()
+  const goBack = useBack('/phyto')
 
   const [parcelles, setParcelles] = useState([])
   const [saving, setSaving] = useState(false)
@@ -84,7 +85,7 @@ export default function PhytoForm() {
       } else {
         await api.post('/traitements', payload)
       }
-      navigate('/phyto')
+      goBack()
     } catch (e) {
       setError(e.message)
       setSaving(false)
@@ -94,7 +95,7 @@ export default function PhytoForm() {
   async function handleDelete() {
     try {
       await api.delete(`/traitements/${id}`)
-      navigate('/phyto')
+      goBack()
     } catch (e) {
       setError(e.message)
     }

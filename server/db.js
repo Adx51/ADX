@@ -534,6 +534,15 @@ if (schemaVersion < 19) {
   db.pragma('user_version = 19')
 }
 
+if (schemaVersion < 20) {
+  // L'échéance limite disparaît de l'UI : Début/Fin suffisent, le retard se
+  // calcule sur date_fin. On rapatrie l'ancienne date_echeance dans les
+  // tâches qui n'ont pas encore de plage (la colonne reste pour compat).
+  db.exec(`UPDATE taches SET date_fin   = COALESCE(date_fin, date_echeance)`)
+  db.exec(`UPDATE taches SET date_debut = COALESCE(date_debut, date_fin)`)
+  db.pragma('user_version = 20')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5

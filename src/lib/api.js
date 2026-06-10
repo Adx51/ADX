@@ -96,19 +96,20 @@ export function invalidateAll() {
   window.dispatchEvent(new Event('adx:data-changed'))
 }
 
-function afterMutation(d, path) {
-  // Targeted invalidation: only clear cache for the affected route
-  invalidate(path)
-  window.dispatchEvent(new Event('adx:data-changed'))
+function afterMutation(d) {
+  // Invalidation globale : les entités sont trop liées entre elles pour une
+  // invalidation ciblée fiable (chargement → vendange → parcelle, tâche →
+  // activité parcelle…). Le cache est en mémoire, le refetch est bon marché.
+  invalidateAll()
   return d
 }
 
 export const api = {
   get:    (path)       => cachedGet(path),
-  post:   (path, body) => request('POST',   path, body).then(d => afterMutation(d, path)),
-  put:    (path, body) => request('PUT',    path, body).then(d => afterMutation(d, path)),
-  delete: (path)       => request('DELETE', path).then(d => afterMutation(d, path)),
-  upload: (path, formData) => request('POST', path, formData, true).then(d => afterMutation(d, path)),
+  post:   (path, body) => request('POST',   path, body).then(afterMutation),
+  put:    (path, body) => request('PUT',    path, body).then(afterMutation),
+  delete: (path)       => request('DELETE', path).then(afterMutation),
+  upload: (path, formData) => request('POST', path, formData, true).then(afterMutation),
   invalidate,
   invalidateAll,
 }

@@ -53,8 +53,14 @@ export default function TachesSemaines({ taches, onToggle, onOpen, groupParcelle
     byWeek[info.key].tasks.push(t)
   }
 
-  // Semaines du plus récent au plus ancien
-  const weeks = Object.values(byWeek).sort((a, b) => b.info.key.localeCompare(a.info.key))
+  // Ordre : la semaine courante en premier, puis le futur (du plus proche au
+  // plus lointain), puis le passé (du plus récent au plus ancien)
+  const all = Object.values(byWeek)
+  const weeks = [
+    ...all.filter(w => w.info.key === currentWeekKey),
+    ...all.filter(w => w.info.key > currentWeekKey).sort((a, b) => a.info.key.localeCompare(b.info.key)),
+    ...all.filter(w => w.info.key < currentWeekKey).sort((a, b) => b.info.key.localeCompare(a.info.key)),
+  ]
 
   function groupByParcelle(tasks) {
     const groups = {}

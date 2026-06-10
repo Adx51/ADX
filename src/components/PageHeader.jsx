@@ -1,13 +1,13 @@
-import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
+import { useBack } from '../lib/useBack'
 
 export default function PageHeader({ title, back, children }) {
-  const navigate = useNavigate()
+  const goBack = useBack(back)
   return (
     <div className="page-header flex items-center gap-3">
       {back && (
         <button
-          onClick={() => navigate(back)}
+          onClick={goBack}
           className="p-1 -ml-1 rounded-full active:bg-vigne-600"
         >
           <ArrowLeft size={22} />

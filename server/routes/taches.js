@@ -37,7 +37,7 @@ function setLinks(tacheId, ids) {
 router.get('/', (req, res) => {
   const rows = db.prepare(`
     SELECT * FROM taches
-    ORDER BY date_echeance ASC NULLS LAST, created_at DESC
+    ORDER BY COALESCE(date_debut, date_fin, date_echeance) ASC NULLS LAST, created_at DESC
   `).all()
 
   // Tous les liens en une requête, regroupés par tâche
@@ -67,7 +67,7 @@ router.post('/', (req, res) => {
         (id, user_id, parcelle_id, commune, titre, description, statut, priorite, date_echeance, photo_url, date_debut, date_fin)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(id, req.userId, null, commune || null, titre, description || null,
-           statut || 'a_faire', priorite || 'normale', date_echeance || null, photo_url || null,
+           statut || 'a_faire', priorite || 'normale', date_echeance || date_fin || null, photo_url || null,
            date_debut || null, date_fin || null)
     setLinks(id, ids)
   })
@@ -84,12 +84,28 @@ router.get('/:id', (req, res) => {
   res.json({ ...t, parcelles, parcelle_ids: parcelles.map(p => p.id) })
 })
 
+// Mise à jour du statut seul — ne touche ni aux dates ni aux liens parcelles.
+// Utilisé par le cycle de statut (liste des tâches, activité d'une parcelle).
+router.put('/:id/statut', (req, res) => {
+  const t = db.prepare('SELECT id FROM taches WHERE id = ?').get(req.params.id)
+  if (!t) return res.status(404).json({ error: 'Tâche introuvable' })
+
+  const { statut } = req.body
+  if (!['a_faire', 'en_cours', 'termine'].includes(statut)) {
+    return res.status(400).json({ error: 'Statut invalide' })
+  }
+  db.prepare(`UPDATE taches SET statut = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(statut, req.params.id)
+
+  const updated = db.prepare('SELECT * FROM taches WHERE id = ?').get(req.params.id)
+  res.json({ ...updated, parcelles: parcellesOf(req.params.id) })
+})
+
 router.put('/:id', (req, res) => {
   const t = db.prepare('SELECT id FROM taches WHERE id = ?').get(req.params.id)
   if (!t) return res.status(404).json({ error: 'Tâche introuvable' })
 
   const { titre, description, parcelle_ids, commune, statut, priorite, date_echeance, photo_url, date_debut, date_fin } = req.body
-  const ids = validParcelleIds(parcelle_ids)
 
   const tx = db.transaction(() => {
     db.prepare(`
@@ -99,9 +115,13 @@ router.put('/:id', (req, res) => {
         updated_at = datetime('now')
       WHERE id = ?
     `).run(titre, description || null, null, commune || null, statut,
-           priorite, date_echeance || null, photo_url || null,
+           priorite, date_echeance || date_fin || null, photo_url || null,
            date_debut || null, date_fin || null, req.params.id)
-    setLinks(req.params.id, ids)
+    // Ne réécrire les liens que si le client a explicitement envoyé parcelle_ids —
+    // sinon un PUT partiel (ex: ancien toggle de statut) effaçait tous les liens.
+    if (parcelle_ids !== undefined) {
+      setLinks(req.params.id, validParcelleIds(parcelle_ids))
+    }
   })
   tx()
 

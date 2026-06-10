@@ -139,7 +139,7 @@ router.get('/:id/activite', (req, res) => {
     FROM taches t
     JOIN tache_parcelles tp ON tp.tache_id = t.id
     WHERE tp.parcelle_id = ?
-    ORDER BY t.date_echeance ASC NULLS LAST, t.created_at DESC
+    ORDER BY COALESCE(t.date_debut, t.date_fin, t.date_echeance) ASC NULLS LAST, t.created_at DESC
   `).all(req.params.id)
 
   const traitements = db.prepare(`

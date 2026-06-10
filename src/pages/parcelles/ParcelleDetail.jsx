@@ -102,6 +102,23 @@ export default function ParcelleDetail() {
     navigate('/parcelles')
   }
 
+  // Cycle de statut depuis l'onglet Activité (a_faire → en_cours → termine)
+  async function toggleTacheStatut(tache) {
+    const next = tache.statut === 'a_faire' ? 'en_cours'
+               : tache.statut === 'en_cours' ? 'termine' : 'a_faire'
+    const prevStatut = tache.statut
+    const patch = statut => prev => prev && ({
+      ...prev,
+      taches: prev.taches.map(t => t.id === tache.id ? { ...t, statut } : t)
+    })
+    setActivite(patch(next))
+    try {
+      await api.put(`/taches/${tache.id}/statut`, { statut: next })
+    } catch (e) {
+      if (!e?.offline) setActivite(patch(prevStatut))
+    }
+  }
+
   const pendingTaches = activite?.taches?.filter(t => t.statut !== 'termine').length ?? 0
 
   if (loading) return (
@@ -232,7 +249,7 @@ export default function ParcelleDetail() {
         {/* ── Onglet Activité ── */}
         {activeTab === 'activite' && (
           activite
-            ? <ActiviteSection activite={activite} navigate={navigate} />
+            ? <ActiviteSection activite={activite} navigate={navigate} onToggleTache={toggleTacheStatut} />
             : <div className="card skeleton h-32" />
         )}
 
@@ -362,7 +379,7 @@ function TabBtn({ id, label, active, onClick, badge }) {
   )
 }
 
-function ActiviteSection({ activite, navigate }) {
+function ActiviteSection({ activite, navigate, onToggleTache }) {
   const { taches, traitements } = activite
 
   const seasons = [...new Set([
@@ -454,6 +471,7 @@ function ActiviteSection({ activite, navigate }) {
             <TachesSemaines
               taches={tachesSaison}
               groupParcelles={false}
+              onToggle={onToggleTache}
               onOpen={t => navigate(`/taches/${t.id}/edit`)}
             />
           ) : (
@@ -462,17 +480,18 @@ function ActiviteSection({ activite, navigate }) {
                 const s = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
                 const { Icon } = s
                 const done = t.statut === 'termine'
-                const refDate = t.date_debut || t.date_echeance
+                const refDate = t.date_debut || t.date_fin
                 const hasRange = t.date_debut && t.date_fin && t.date_debut !== t.date_fin
                 const week = getISOWeek(refDate)
                 const fmtD = d => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
                 return (
-                  <button key={t.id} onClick={() => navigate(`/taches/${t.id}/edit`)}
-                    className={`w-full flex items-start gap-2.5 text-left active:opacity-70 ${done ? 'opacity-50' : ''}`}>
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${s.badge}`}>
-                      <Icon size={12} />
-                    </span>
-                    <div className="flex-1 min-w-0">
+                  <div key={t.id} className={`flex items-start gap-2.5 ${done ? 'opacity-50' : ''}`}>
+                    <button onClick={() => onToggleTache(t)}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${s.badge}`}>
+                      <Icon size={13} />
+                    </button>
+                    <button onClick={() => navigate(`/taches/${t.id}/edit`)}
+                      className="flex-1 min-w-0 text-left active:opacity-70">
                       <span className={`text-sm leading-tight ${done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{t.titre}</span>
                       {refDate && (
                         <div className="flex items-center gap-1.5 mt-0.5">
@@ -486,8 +505,8 @@ function ActiviteSection({ activite, navigate }) {
                           )}
                         </div>
                       )}
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 )
               })}
             </div>

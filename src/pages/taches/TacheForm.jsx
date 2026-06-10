@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Trash2, ChevronDown, Search, LayoutTemplate, Check, Calendar } from 'lucide-react'
 import { api } from '../../lib/api'
 import { uploadPhoto } from '../../lib/uploadPhoto'
 import { getISOWeek, todayISO } from '../../lib/saison'
+import { useBack } from '../../lib/useBack'
 import PageHeader from '../../components/PageHeader'
 import PhotoInput from '../../components/PhotoInput'
 
@@ -229,7 +230,6 @@ function ModelePicker({ modeles, value, onChange }) {
 export default function TacheForm() {
   const { id } = useParams()
   const isEdit = Boolean(id)
-  const navigate = useNavigate()
   const [photo, setPhoto] = useState(null)
   const [existingPhotoUrl, setExistingPhotoUrl] = useState(null)
   const [parcelles, setParcelles] = useState([])
@@ -243,13 +243,14 @@ export default function TacheForm() {
 
   const today = todayISO()
 
+  const goBack = useBack('/taches')
+
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
-      statut:        'a_faire',
-      priorite:      'normale',
-      date_debut:    today,
-      date_fin:      today,
-      date_echeance: today,
+      statut:     'a_faire',
+      priorite:   'normale',
+      date_debut: today,
+      date_fin:   today,
     }
   })
 
@@ -268,20 +269,14 @@ export default function TacheForm() {
           setValue('description',   t.description || '')
           setValue('statut',        t.statut)
           setValue('priorite',      t.priorite)
-          setValue('date_debut',    t.date_debut    || today)
-          setValue('date_fin',      t.date_fin      || today)
-          setValue('date_echeance', t.date_echeance || today)
+          setValue('date_debut', t.date_debut || t.date_echeance || today)
+          setValue('date_fin',   t.date_fin   || t.date_echeance || today)
           setParcelleIds(t.parcelle_ids || (t.parcelles || []).map(p => p.id))
           setExistingPhotoUrl(t.photo_url)
         }
       })
     }
   }, [id, isEdit, setValue])
-
-  // Synchronise date_echeance sur date_fin pour les nouvelles tâches
-  useEffect(() => {
-    if (!isEdit && watchDateFin) setValue('date_echeance', watchDateFin)
-  }, [watchDateFin])
 
   // Si la date de début dépasse la fin, avancer la fin (jamais fin < début)
   useEffect(() => {
@@ -303,15 +298,14 @@ export default function TacheForm() {
       if (photo) photo_url = await uploadPhoto(photo, 'taches')
 
       const payload = {
-        titre:         data.titre,
-        description:   data.description || null,
-        parcelle_ids:  parcelleIds,
-        commune:       communeComplete(parcelles, parcelleIds),
-        statut:        data.statut || 'a_faire',
-        priorite:      data.priorite || 'normale',
-        date_debut:    data.date_debut    || null,
-        date_fin:      data.date_fin      || null,
-        date_echeance: data.date_echeance || null,
+        titre:        data.titre,
+        description:  data.description || null,
+        parcelle_ids: parcelleIds,
+        commune:      communeComplete(parcelles, parcelleIds),
+        statut:       data.statut || 'a_faire',
+        priorite:     data.priorite || 'normale',
+        date_debut:   data.date_debut || null,
+        date_fin:     data.date_fin   || null,
         photo_url,
       }
 
@@ -320,7 +314,7 @@ export default function TacheForm() {
       } else {
         await api.post('/taches', payload)
       }
-      navigate('/taches')
+      goBack()
     } catch (e) {
       setError(e.message)
       setSaving(false)
@@ -329,7 +323,7 @@ export default function TacheForm() {
 
   async function deleteTache() {
     await api.delete(`/taches/${id}`)
-    navigate('/taches')
+    goBack()
   }
 
   return (
@@ -401,13 +395,7 @@ export default function TacheForm() {
             </div>
           </div>
 
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 font-medium">Échéance limite</p>
-            <input type="date" className="input text-sm" {...register('date_echeance')} />
-            {!isEdit && (
-              <p className="text-xs text-gray-400 mt-1 pl-1">Suit automatiquement la date de fin</p>
-            )}
-          </div>
+          <p className="text-xs text-gray-400 pl-1">En retard si non terminée après la date de fin</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
