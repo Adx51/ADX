@@ -26,6 +26,87 @@ const WMO = {
 }
 function wmo(code) { return WMO[code] || ['🌡','Variable'] }
 
+// GET /api/dashboard/semaine?debut=YYYY-MM-DD&fin=YYYY-MM-DD&depuis=YYYY-MM-DD
+// Bloc « Ma semaine » de l'accueil : tâches de la semaine + retards,
+// et récap de ce qui a été fait depuis `depuis` (tâches terminées,
+// traitements appliqués, chargements de vendange saisis).
+router.get('/semaine', (req, res) => {
+  const { debut, fin, depuis } = req.query
+  if (!debut || !fin || !depuis) return res.status(400).json({ error: 'debut, fin et depuis requis' })
+
+  // Liens tâche ↔ parcelles en une requête
+  const links = db.prepare(`
+    SELECT tp.tache_id, p.id, p.nom
+    FROM tache_parcelles tp JOIN parcelles p ON p.id = tp.parcelle_id
+    ORDER BY p.nom
+  `).all()
+  const parcellesByTache = {}
+  for (const l of links) (parcellesByTache[l.tache_id] ||= []).push({ id: l.id, nom: l.nom })
+  const withParcelles = t => ({ ...t, parcelles: parcellesByTache[t.id] || [] })
+
+  // Tâches non terminées dont la plage chevauche la semaine courante
+  const tachesSemaine = db.prepare(`
+    SELECT id, titre, statut, priorite, date_debut, date_fin, commune
+    FROM taches
+    WHERE statut != 'termine'
+      AND COALESCE(date_debut, date_fin, date_echeance) <= ?
+      AND COALESCE(date_fin, date_debut, date_echeance) >= ?
+    ORDER BY COALESCE(date_debut, date_fin) ASC
+  `).all(fin, debut).map(withParcelles)
+
+  // Tâches en retard : non terminées, finies avant le début de la semaine
+  const tachesRetard = db.prepare(`
+    SELECT id, titre, statut, priorite, date_debut, date_fin, commune
+    FROM taches
+    WHERE statut != 'termine'
+      AND COALESCE(date_fin, date_debut, date_echeance) < ?
+    ORDER BY COALESCE(date_fin, date_debut) DESC
+    LIMIT 10
+  `).all(debut).map(withParcelles)
+
+  // ── Récap : fait depuis `depuis` ──
+  const tachesFaites = db.prepare(`
+    SELECT id, titre, date_fin, updated_at
+    FROM taches
+    WHERE statut = 'termine' AND updated_at >= ?
+    ORDER BY updated_at DESC
+    LIMIT 10
+  `).all(depuis).map(withParcelles)
+
+  const traitements = db.prepare(`
+    SELECT r.id, r.date,
+           (SELECT GROUP_CONCAT(DISTINCT rprod.nom) FROM rapports_phyto_produits rprod
+             WHERE rprod.rapport_id = r.id) AS produits,
+           (SELECT COUNT(*) FROM rapports_phyto_parcelles rpar
+             WHERE rpar.rapport_id = r.id) AS nb_parcelles
+    FROM rapports_phyto r
+    WHERE r.date >= ?
+    ORDER BY r.date DESC
+    LIMIT 10
+  `).all(depuis)
+
+  const chargements = db.prepare(`
+    SELECT c.id, c.date_chargement, c.poids_kg, c.nombre_caisses,
+           v.id AS vendange_id, COALESCE(p.nom, v.parcelle_nom) AS parcelle_nom
+    FROM chargements c
+    JOIN vendanges v ON v.id = c.vendange_id
+    LEFT JOIN parcelles p ON p.id = v.parcelle_id
+    WHERE c.date_chargement >= ?
+    ORDER BY c.date_chargement DESC, c.created_at DESC
+    LIMIT 10
+  `).all(depuis)
+
+  res.json({
+    taches_semaine: tachesSemaine,
+    taches_retard:  tachesRetard,
+    recap: {
+      taches:      tachesFaites,
+      traitements: traitements.map(t => ({ ...t, produits: t.produits ? t.produits.split(',') : [] })),
+      chargements,
+    }
+  })
+})
+
 // GET /api/dashboard/weather
 router.get('/weather', async (req, res) => {
   const cached = fromCache('weather', 20 * 60 * 1000)

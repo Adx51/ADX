@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { format } from 'date-fns'
+import { useNavigate } from 'react-router-dom'
+import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ExternalLink, RefreshCw, CloudOff, Newspaper } from 'lucide-react'
+import { ExternalLink, RefreshCw, CloudOff, Newspaper, CalendarDays, AlertTriangle, Sprout, Grape, CheckCircle2, Plus } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
+import { getISOWeek, todayISO } from '../../lib/saison'
+import { STATUT_TACHE, PRIORITE_DOT } from '../../lib/taches'
 
 const TAG_STYLE = {
   Champagne:   'bg-amber-100 text-amber-700',
@@ -98,7 +101,10 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <div className="px-4 pt-3 pb-6 lg:px-6 lg:pt-4">
+      <div className="px-4 pt-3 pb-6 lg:px-6 lg:pt-4 space-y-5">
+        {/* Ma semaine : à faire + fait récemment */}
+        <SemaineBlock refreshTick={refreshTick} />
+
         <div className="lg:grid lg:grid-cols-5 lg:gap-6 lg:items-start space-y-5 lg:space-y-0">
 
           {/* Left: Météo (2/5) */}
@@ -131,6 +137,175 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Bornes lundi–dimanche de la semaine courante + fenêtre du récap (7 jours)
+function semaineBounds() {
+  const now = new Date()
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const dow = (now.getDay() + 6) % 7
+  const mon = new Date(now); mon.setDate(now.getDate() - dow)
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6)
+  const depuis = new Date(now); depuis.setDate(now.getDate() - 7)
+  return { debut: iso(mon), fin: iso(sun), depuis: iso(depuis) }
+}
+
+function fmtJour(d) {
+  return format(parseISO(d), 'd MMM', { locale: fr })
+}
+
+function SemaineBlock({ refreshTick }) {
+  const navigate = useNavigate()
+  const [data, setData] = useState(null)
+
+  useEffect(() => {
+    const { debut, fin, depuis } = semaineBounds()
+    api.get(`/dashboard/semaine?debut=${debut}&fin=${fin}&depuis=${depuis}`)
+      .then(setData)
+      .catch(() => setData(null))
+  }, [refreshTick])
+
+  if (!data) return <div className="card skeleton h-24" />
+
+  const { taches_semaine, taches_retard, recap } = data
+  const week = getISOWeek(todayISO())
+  const recapVide = !recap.taches.length && !recap.traitements.length && !recap.chargements.length
+
+  async function toggleStatut(tache) {
+    const next = tache.statut === 'a_faire' ? 'en_cours'
+               : tache.statut === 'en_cours' ? 'termine' : 'a_faire'
+    const prevStatut = tache.statut
+    const patch = statut => prev => prev && ({
+      ...prev,
+      taches_semaine: prev.taches_semaine.map(t => t.id === tache.id ? { ...t, statut } : t),
+      taches_retard:  prev.taches_retard.map(t => t.id === tache.id ? { ...t, statut } : t),
+    })
+    setData(patch(next))
+    try {
+      await api.put(`/taches/${tache.id}/statut`, { statut: next })
+    } catch (e) {
+      if (!e?.offline) setData(patch(prevStatut))
+    }
+  }
+
+  function TacheRow({ t, retard }) {
+    const s = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
+    const { Icon } = s
+    const hasRange = t.date_debut && t.date_fin && t.date_debut !== t.date_fin
+    const refDate = t.date_debut || t.date_fin
+    return (
+      <div className="flex items-center gap-2.5">
+        <button onClick={() => toggleStatut(t)}
+          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${s.badge}`}>
+          <Icon size={14} />
+        </button>
+        <button onClick={() => navigate(`/taches/${t.id}/edit`)} className="flex-1 min-w-0 text-left active:opacity-70">
+          <span className="text-sm text-gray-900 dark:text-gray-100 leading-tight">
+            {PRIORITE_DOT[t.priorite] && (
+              <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${PRIORITE_DOT[t.priorite]}`} />
+            )}
+            {t.titre}
+          </span>
+          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+            {refDate && (
+              <span className={`text-xs ${retard ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
+                {hasRange ? `${fmtJour(t.date_debut)} → ${fmtJour(t.date_fin)}` : fmtJour(refDate)}
+                {retard && ' · En retard'}
+              </span>
+            )}
+            {(t.parcelles || []).slice(0, 3).map(p => (
+              <span key={p.id} className="text-xs bg-vigne-50 dark:bg-vigne-900/20 text-vigne-700 dark:text-vigne-400 px-1.5 py-0.5 rounded font-medium">
+                {p.nom}
+              </span>
+            ))}
+            {(t.parcelles || []).length > 3 && (
+              <span className="text-xs text-gray-400">+{t.parcelles.length - 3}</span>
+            )}
+          </div>
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card space-y-4">
+      {/* En-tête */}
+      <div className="flex items-center gap-2">
+        <CalendarDays size={16} className="text-vigne-600" />
+        <h2 className="font-bold text-gray-900 dark:text-gray-100">Ma semaine</h2>
+        <span className="text-xs font-bold text-vigne-600 dark:text-vigne-400 bg-vigne-50 dark:bg-vigne-900/20 px-2 py-0.5 rounded-full">
+          S.{week}
+        </span>
+        <button onClick={() => navigate('/taches/new')}
+          className="ml-auto flex items-center gap-1 text-xs font-semibold text-vigne-700 dark:text-vigne-400 px-2 py-1.5 -my-1 rounded-lg active:bg-vigne-50">
+          <Plus size={14} /> Tâche
+        </button>
+      </div>
+
+      {/* En retard */}
+      {taches_retard.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-red-500 uppercase tracking-wide flex items-center gap-1.5">
+            <AlertTriangle size={12} /> En retard <span className="font-normal normal-case">{taches_retard.length}</span>
+          </p>
+          {taches_retard.map(t => <TacheRow key={t.id} t={t} retard />)}
+        </div>
+      )}
+
+      {/* Tâches de la semaine */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">À faire cette semaine</p>
+        {taches_semaine.length === 0 ? (
+          <p className="text-sm text-gray-400">Aucune tâche prévue cette semaine</p>
+        ) : (
+          taches_semaine.map(t => <TacheRow key={t.id} t={t} />)
+        )}
+      </div>
+
+      {/* Récap : fait ces 7 derniers jours */}
+      <div className="space-y-2 pt-3 border-t border-gray-100 dark:border-gray-700">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Fait ces 7 derniers jours</p>
+        {recapVide ? (
+          <p className="text-sm text-gray-400">Rien d'enregistré sur la période</p>
+        ) : (
+          <div className="space-y-1.5">
+            {recap.taches.map(t => (
+              <button key={t.id} onClick={() => navigate(`/taches/${t.id}/edit`)}
+                className="w-full flex items-center gap-2 text-left active:opacity-70">
+                <CheckCircle2 size={15} className="text-vigne-600 flex-shrink-0" />
+                <span className="text-sm text-gray-600 dark:text-gray-300 truncate flex-1">{t.titre}</span>
+                <span className="text-xs text-gray-400 flex-shrink-0">
+                  {(t.parcelles || []).map(p => p.nom).join(', ') || ''}
+                </span>
+              </button>
+            ))}
+            {recap.traitements.map(t => (
+              <button key={t.id} onClick={() => navigate('/phyto')}
+                className="w-full flex items-center gap-2 text-left active:opacity-70">
+                <Sprout size={15} className="text-emerald-600 flex-shrink-0" />
+                <span className="text-sm text-gray-600 dark:text-gray-300 truncate flex-1">
+                  {t.produits.slice(0, 2).join(' + ')}{t.produits.length > 2 ? '…' : ''}
+                  {t.nb_parcelles > 0 && <span className="text-gray-400"> · {t.nb_parcelles} parcelle{t.nb_parcelles > 1 ? 's' : ''}</span>}
+                </span>
+                <span className="text-xs text-gray-400 flex-shrink-0">{fmtJour(t.date)}</span>
+              </button>
+            ))}
+            {recap.chargements.map(c => (
+              <button key={c.id} onClick={() => navigate(`/vendange/parcelle/${c.vendange_id}`)}
+                className="w-full flex items-center gap-2 text-left active:opacity-70">
+                <Grape size={15} className="text-amber-600 flex-shrink-0" />
+                <span className="text-sm text-gray-600 dark:text-gray-300 truncate flex-1">
+                  {Number(c.poids_kg).toLocaleString('fr-FR')} kg
+                  {c.parcelle_nom && <span className="text-gray-400"> · {c.parcelle_nom}</span>}
+                </span>
+                <span className="text-xs text-gray-400 flex-shrink-0">{fmtJour(c.date_chargement)}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
