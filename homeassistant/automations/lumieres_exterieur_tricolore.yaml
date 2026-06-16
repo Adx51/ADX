@@ -1,0 +1,65 @@
+# Automatisation : Lumières d'entrée extérieure — Tricolore bleu-blanc-rouge
+#
+# Remplace les entity_id ci-dessous par les vrais identifiants de tes lumières :
+#   light.entree_1  → Lumière 1 (bleue)
+#   light.entree_2  → Lumière 2 (blanche)
+#   light.entree_3  → Lumière 3 (blanche)
+#   light.entree_4  → Lumière 4 (rouge)
+#
+# Pour trouver les entity_id : Paramètres → Appareils et services → Entités
+# Filtre par "light" et cherche tes lumières d'entrée.
+
+alias: "Lumières entrée - Tricolore bleu-blanc-rouge"
+description: "Active le tricolore français sur les lumières extérieures d'entrée"
+mode: single
+
+# ─── DÉCLENCHEURS ────────────────────────────────────────────────────────────
+trigger:
+  # Au coucher du soleil (décalage de -15 min pour anticiper la nuit)
+  - platform: sun
+    event: sunset
+    offset: "-00:15:00"
+    id: coucher_soleil
+
+  # Activation manuelle via un bouton ou un helper (optionnel)
+  # - platform: state
+  #   entity_id: input_boolean.tricolore_entree
+  #   to: "on"
+  #   id: manuel
+
+# ─── CONDITIONS ──────────────────────────────────────────────────────────────
+condition: []
+
+# ─── ACTIONS ─────────────────────────────────────────────────────────────────
+action:
+  # Lumière 1 → Bleu
+  - service: light.turn_on
+    target:
+      entity_id: light.entree_1
+    data:
+      rgb_color: [0, 0, 255]
+      brightness: 255
+
+  # Lumière 2 → Blanc
+  - service: light.turn_on
+    target:
+      entity_id: light.entree_2
+    data:
+      rgb_color: [255, 255, 255]
+      brightness: 255
+
+  # Lumière 3 → Blanc
+  - service: light.turn_on
+    target:
+      entity_id: light.entree_3
+    data:
+      rgb_color: [255, 255, 255]
+      brightness: 255
+
+  # Lumière 4 → Rouge
+  - service: light.turn_on
+    target:
+      entity_id: light.entree_4
+    data:
+      rgb_color: [255, 0, 0]
+      brightness: 255

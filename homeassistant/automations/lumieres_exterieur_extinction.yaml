@@ -1,0 +1,28 @@
+# Automatisation : Extinction des lumières d'entrée extérieure
+#
+# Éteint les 4 lumières d'entrée au lever du soleil ou à une heure fixe.
+
+alias: "Lumières entrée - Extinction"
+description: "Éteint les lumières extérieures d'entrée au lever du soleil"
+mode: single
+
+trigger:
+  # Au lever du soleil
+  - platform: sun
+    event: sunrise
+    offset: "00:15:00"
+
+  # Ou à une heure fixe (ex: 23h30) — décommenter si préféré
+  # - platform: time
+  #   at: "23:30:00"
+
+condition: []
+
+action:
+  - service: light.turn_off
+    target:
+      entity_id:
+        - light.entree_1
+        - light.entree_2
+        - light.entree_3
+        - light.entree_4
