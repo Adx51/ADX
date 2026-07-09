@@ -1,0 +1,27 @@
+name: "LF-Boyer Vignoble"
+description: "Gestion du vignoble LF-Boyer : parcelles, tâches, vendanges et rendements"
+version: "0.2.0"
+slug: "adx_vignoble"
+url: "https://github.com/Adx51/ADX"
+init: false
+startup: services
+
+arch:
+  - aarch64
+  - armv7
+  - armhf
+  - amd64
+
+ports:
+  3001/tcp: 3001
+ports_description:
+  3001/tcp: "LF-Boyer Vignoble (interface web + API)"
+
+map:
+  - data:rw
+
+options:
+  jwt_secret: ""
+
+schema:
+  jwt_secret: "str?"
