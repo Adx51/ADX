@@ -1,8 +1,10 @@
-import { api, type Overview, type Bottle } from '@/lib/api';
+import type { Overview, Bottle } from '@/lib/api';
+import { serverApi } from '@/lib/api-server';
 import { withFallback, demoOverview, demoBottles } from '@/lib/demo';
 import { StatCard, Card, eur } from '@/components/ui';
 
 export default async function PortfolioPage() {
+  const api = serverApi();
   const [overview, bottles] = await Promise.all([
     withFallback<Overview>(() => api.get('/stats/overview'), demoOverview),
     withFallback<Bottle[]>(() => api.get('/bottles'), demoBottles),

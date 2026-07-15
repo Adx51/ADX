@@ -10,6 +10,7 @@ boursier, assistant sommelier conversationnel et scan par vision IA.
 
 ## ✨ Fonctionnalités livrées
 
+- **Authentification** — inscription / connexion JWT (bcrypt), guard global, routes protégées côté API et web
 - **Inventaire complet** — ajouter, modifier, supprimer, consommer, acheter plusieurs bouteilles
 - **Structure physique de la cave** — zones (murs) → casiers → emplacements précis (colonne/rangée/niveau), avec glisser-déposer
 - **Enrichissement IA automatique** — fiche technique, cépages, fenêtre de garde, accords mets/vins, histoire du domaine
@@ -61,12 +62,19 @@ npm run db:seed               # jeu de données de démo
 npm run dev                   # lance api (:4000) + web (:3000)
 ```
 
-- Web : http://localhost:3000
+- Web : http://localhost:3000 (redirige vers `/login`)
 - API : http://localhost:4000/api/health
 
+Connectez-vous avec le compte de démonstration créé par le seed :
+
+- **E-mail** : `demo@adx.wine`
+- **Mot de passe** : `demo1234`
+
+(ou créez un compte via `/register`).
+
 > **Sans clé OpenAI**, l'application fonctionne quand même : l'IA passe en mode
-> dégradé (heuristiques) et le frontend affiche des données de démonstration
-> lorsque l'API n'est pas jointe.
+> dégradé (heuristiques). La base de données et l'API doivent en revanche
+> tourner, l'authentification étant désormais requise.
 
 ### Tout via Docker
 
@@ -76,8 +84,14 @@ docker compose up --build
 
 ## 📚 API (extrait)
 
+Toutes les routes exigent un en-tête `Authorization: Bearer <token>`, sauf
+`/api/auth/*` et `/api/health` (`@Public()`).
+
 | Méthode | Route | Description |
 | --- | --- | --- |
+| `POST` | `/api/auth/register` | Créer un compte → `{ accessToken, user }` |
+| `POST` | `/api/auth/login` | Se connecter → `{ accessToken, user }` |
+| `GET` | `/api/auth/me` | Profil de l'utilisateur courant |
 | `GET` | `/api/cellars` | Liste des caves de l'utilisateur |
 | `POST` | `/api/cellars` | Créer une cave |
 | `POST` | `/api/cellars/:id/zones` | Ajouter un mur/zone |
@@ -95,7 +109,7 @@ docker compose up --build
 
 Priorités pour atteindre la vision complète :
 
-1. **Authentification** (Auth.js / Clerk) — remplacer l'en-tête `x-user-id` par de vrais JWT
+1. ~~**Authentification** — JWT (register/login/me), guard global, protection des routes~~ ✅ **fait**
 2. **Upload & Vision réels** — pipeline S3/Supabase + appels vision sur photos
 3. **Recherche vectorielle** — génération d'embeddings + recommandations pgvector
 4. **Historique de valorisation** — job planifié alimentant `PricePoint` + graphiques temporels

@@ -1,10 +1,12 @@
-import { api, type Overview, type Distribution, type Alert } from '@/lib/api';
+import type { Overview, Distribution, Alert } from '@/lib/api';
+import { serverApi } from '@/lib/api-server';
 import { withFallback, demoOverview, demoDistribution, demoAlerts } from '@/lib/demo';
 import { StatCard, Card, eur } from '@/components/ui';
 import { DistributionChart } from '@/components/distribution-chart';
 import { AlertList } from '@/components/alert-list';
 
 export default async function DashboardPage() {
+  const api = serverApi();
   const [overview, distribution, alerts] = await Promise.all([
     withFallback<Overview>(() => api.get('/stats/overview'), demoOverview),
     withFallback<Distribution>(() => api.get('/stats/distribution'), demoDistribution),

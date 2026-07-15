@@ -41,8 +41,11 @@ Database requires PostgreSQL with the `vector` extension: `docker compose up -d 
   most one bottle (`bottleId` unique) — moving a bottle reassigns `bottleId`.
 - All AI calls go through `OpenAiService`, which degrades gracefully when
   `OPENAI_API_KEY` is unset — never assume the AI is available.
-- Auth is provisional: `@CurrentUserId()` reads the `x-user-id` header. Replace
-  with a JWT guard populating `req.user`; call sites stay unchanged.
+- Auth is JWT-based: a global `JwtAuthGuard` verifies the bearer token and
+  populates `req.user`; `@CurrentUserId()` reads it. Mark unauthenticated routes
+  with `@Public()`. On the web, the token lives in the `adx_token` cookie
+  (Server Components read it via `cookies()`, Client Components via
+  `document.cookie`); the Next middleware guards routes.
 
 ## Git Workflow
 

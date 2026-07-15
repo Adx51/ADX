@@ -1,19 +1,25 @@
 import { PrismaClient, WineColor, WineStyle, Role } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
+
+// Demo credentials: demo@adx.wine / demo1234
+const DEMO_PASSWORD = 'demo1234';
 
 /**
  * Seeds a demo account with a small but realistic cellar so the UI has
  * something to render on a fresh install.
  */
 async function main() {
+  const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);
   const user = await prisma.user.upsert({
     where: { email: 'demo@adx.wine' },
-    update: {},
+    update: { passwordHash },
     create: {
       email: 'demo@adx.wine',
       name: 'Antoine',
       locale: 'fr',
+      passwordHash,
       preference: {
         create: {
           favoriteRegions: ['Bourgogne', 'Bordeaux', 'Rhône'],

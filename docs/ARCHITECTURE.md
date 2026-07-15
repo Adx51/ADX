@@ -50,6 +50,7 @@ Modules :
 | Module | Responsabilité |
 | --- | --- |
 | `PrismaModule` | Client Prisma partagé (global) |
+| `AuthModule` | Inscription/connexion JWT (bcrypt), `JwtAuthGuard` global |
 | `AiModule` | `OpenAiService` (wrapper tolérant aux pannes), `EnrichmentService`, `SommelierService`, `ScannerService` |
 | `WinesModule` | Résolution *find-or-create* + enrichissement du vin canonique |
 | `BottlesModule` | CRUD, consommation, achat, déplacement, revalorisation |
@@ -60,10 +61,17 @@ Modules :
 sans `OPENAI_API_KEY`, l'enrichissement et la valorisation basculent sur des
 heuristiques et l'application reste pleinement fonctionnelle.
 
-**Authentification (provisoire)** : `@CurrentUserId()` lit l'en-tête `x-user-id`
-(ou `DEMO_USER_ID`). Les points d'appel sont déjà en place — il suffira de
-brancher un guard JWT (Auth.js/Clerk) qui peuple `req.user` sans toucher aux
-contrôleurs.
+**Authentification** : JWT signé par `@nestjs/jwt`, mots de passe hachés avec
+`bcryptjs`. Le `JwtAuthGuard` est enregistré en `APP_GUARD` (global) : toute
+route exige un `Authorization: Bearer <token>` valide, sauf celles décorées
+`@Public()` (`/auth/*`, `/health`). Le guard vérifie le token et peuple
+`req.user`, que `@CurrentUserId()` lit. Côté web, le token est stocké dans un
+cookie `adx_token` : le middleware Next protège les routes, les Server
+Components le lisent via `cookies()` pour appeler l'API, et les Client
+Components via `document.cookie`.
+
+> Évolution possible : déléguer à Auth.js/Clerk (OAuth, magic links) en
+> conservant le même guard côté API.
 
 ## Frontend (Next.js App Router)
 

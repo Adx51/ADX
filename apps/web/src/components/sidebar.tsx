@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Wine,
@@ -9,7 +9,10 @@ import {
   Sparkles,
   ScanLine,
   TrendingUp,
+  LogOut,
 } from 'lucide-react';
+import { clearToken } from '@/lib/api-client';
+import type { AuthUser } from '@/lib/api';
 
 const NAV = [
   { href: '/', label: 'Tableau de bord', icon: LayoutDashboard },
@@ -20,8 +23,15 @@ const NAV = [
   { href: '/portfolio', label: 'Patrimoine', icon: TrendingUp },
 ];
 
-export function Sidebar() {
+export function Sidebar({ user }: { user: AuthUser }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  function logout() {
+    clearToken();
+    router.replace('/login');
+    router.refresh();
+  }
 
   return (
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-white/5 bg-ink-800/60 px-4 py-6 backdrop-blur-xl md:flex">
@@ -62,9 +72,23 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="mt-auto rounded-xl border border-white/5 bg-white/[0.02] p-3 text-xs text-neutral-500">
-        <p className="font-medium text-neutral-300">Compte démo</p>
-        <p>demo@adx.wine</p>
+      <div className="mt-auto flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] p-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-bordeaux-700 text-sm font-medium text-white">
+          {(user.name ?? user.email).charAt(0).toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-neutral-200">
+            {user.name ?? 'Compte'}
+          </p>
+          <p className="truncate text-xs text-neutral-500">{user.email}</p>
+        </div>
+        <button
+          onClick={logout}
+          title="Se déconnecter"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-white/5 hover:text-rose-400"
+        >
+          <LogOut size={16} />
+        </button>
       </div>
     </aside>
   );

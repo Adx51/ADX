@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { api, type SommelierAnswer } from '@/lib/api';
+import { clientApi } from '@/lib/api-client';
+import type { SommelierAnswer } from '@/lib/api';
 import { Sparkles, Send } from 'lucide-react';
 
 interface Turn {
@@ -28,7 +29,7 @@ export default function SommelierPage() {
     setTurns((t) => [...t, { role: 'user', content: q }]);
     setLoading(true);
     try {
-      const res = await api.post<SommelierAnswer>('/ai/sommelier', { question: q });
+      const res = await clientApi.post<SommelierAnswer>('/ai/sommelier', { question: q });
       setTurns((t) => [...t, { role: 'assistant', content: res.answer }]);
     } catch {
       setTurns((t) => [

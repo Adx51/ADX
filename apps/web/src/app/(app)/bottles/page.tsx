@@ -1,11 +1,12 @@
-import { api, type Bottle } from '@/lib/api';
+import type { Bottle } from '@/lib/api';
+import { serverApi } from '@/lib/api-server';
 import { withFallback, demoBottles } from '@/lib/demo';
 import { Card, ColorBadge, eur } from '@/components/ui';
 import { Wine } from 'lucide-react';
 
 export default async function BottlesPage() {
   const bottles = await withFallback<Bottle[]>(
-    () => api.get('/bottles'),
+    () => serverApi().get('/bottles'),
     demoBottles,
   );
 

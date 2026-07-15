@@ -1,35 +1,60 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
-// Demo identity header until the auth flow (Auth.js / Clerk) is wired in.
-const DEMO_USER = process.env.NEXT_PUBLIC_DEMO_USER_ID ?? 'demo';
+/** Name of the cookie holding the JWT (readable by client + server components). */
+export const TOKEN_COOKIE = 'adx_token';
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}/api${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-user-id': DEMO_USER,
-      ...init?.headers,
-    },
-    cache: 'no-store',
-  });
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * Low-level fetch against the API. A bearer token can be supplied explicitly
+ * (server components read it from cookies; client helpers from document.cookie).
+ */
+export async function apiFetch<T>(
+  path: string,
+  init: RequestInit = {},
+  token?: string | null,
+): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init.headers,
+      },
+      cache: 'no-store',
+    });
+  } catch {
+    // Network failure (API down, DNS, CORS) — surface as status 0.
+    throw new ApiError(0, 'Network error');
+  }
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`API ${res.status}: ${body}`);
+    const body = await res.text().catch(() => '');
+    throw new ApiError(res.status, body || res.statusText);
   }
   return res.json() as Promise<T>;
 }
 
-export const api = {
-  get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
-  patch: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
-  del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
-};
-
 // ─── Shared domain types (mirror the Prisma model) ──────────────────────────
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string | null;
+}
+
+export interface AuthResult {
+  accessToken: string;
+  user: AuthUser;
+}
 
 export interface Overview {
   bottleCount: number;
