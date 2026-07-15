@@ -1,9 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Roomy JSON limit so scan endpoints can accept base64 image data URLs
+  // (the client resizes photos first, so payloads stay small in practice).
+  app.useBodyParser('json', { limit: '12mb' });
 
   app.setGlobalPrefix('api');
   app.enableCors({

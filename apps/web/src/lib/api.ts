@@ -115,3 +115,18 @@ export interface SommelierAnswer {
   answer: string;
   bottleIds: string[];
 }
+
+export interface Cellar {
+  id: string;
+  name: string;
+}
+
+export interface ScannedBottle {
+  domain?: string;
+  cuvee?: string;
+  vintage?: number;
+  appellation?: string;
+  region?: string;
+  country?: string;
+  confidence?: number;
+}
