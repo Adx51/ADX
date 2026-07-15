@@ -2,26 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import {
-  LayoutDashboard,
-  Wine,
-  Grid3x3,
-  Sparkles,
-  ScanLine,
-  TrendingUp,
-  LogOut,
-} from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { clearToken } from '@/lib/api-client';
+import { NAV, isActive } from '@/lib/nav';
 import type { AuthUser } from '@/lib/api';
-
-const NAV = [
-  { href: '/', label: 'Tableau de bord', icon: LayoutDashboard },
-  { href: '/bottles', label: 'Mes bouteilles', icon: Wine },
-  { href: '/cellar', label: 'Ma cave', icon: Grid3x3 },
-  { href: '/sommelier', label: 'Sommelier IA', icon: Sparkles },
-  { href: '/scan', label: 'Scanner', icon: ScanLine },
-  { href: '/portfolio', label: 'Patrimoine', icon: TrendingUp },
-];
 
 export function Sidebar({ user }: { user: AuthUser }) {
   const pathname = usePathname();
@@ -51,7 +35,7 @@ export function Sidebar({ user }: { user: AuthUser }) {
 
       <nav className="flex flex-1 flex-col gap-1">
         {NAV.map(({ href, label, icon: Icon }) => {
-          const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
+          const active = isActive(pathname, href);
           return (
             <Link
               key={href}
