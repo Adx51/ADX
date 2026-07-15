@@ -55,7 +55,9 @@ npm run db:push -w @adx/database
 
 if [ ! -f "$DATA/.seeded" ]; then
   echo "[adx] Seeding demo data (first run)…"
-  npm run db:seed -w @adx/database && touch "$DATA/.seeded"
+  # The seed script is named `seed` inside the @adx/database workspace
+  # (the root alias is `db:seed`). Use the workspace-local name here.
+  npm run seed -w @adx/database && touch "$DATA/.seeded"
 fi
 
 export NODE_ENV=production
