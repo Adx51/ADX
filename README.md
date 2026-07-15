@@ -53,14 +53,24 @@ Détails dans [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 ### Installation
 
 ```bash
+npm install     # installe tout le monorepo
+npm run setup   # DB + schéma + données de démo (en une commande)
+npm run dev     # lance api (:4000) + web (:3000)
+```
+
+<details>
+<summary>Équivalent détaillé (si vous préférez étape par étape)</summary>
+
+```bash
 cp .env.example .env          # renseignez OPENAI_API_KEY si vous l'avez
-npm install                   # installe tout le monorepo
 docker compose up -d db       # PostgreSQL + pgvector
 npm run db:generate           # génère le client Prisma
 npm run db:push               # crée le schéma
 npm run db:seed               # jeu de données de démo
 npm run dev                   # lance api (:4000) + web (:3000)
 ```
+
+</details>
 
 - Web : http://localhost:3000 (redirige vers `/login`)
 - API : http://localhost:4000/api/health
