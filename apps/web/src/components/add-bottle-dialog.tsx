@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Sparkles } from 'lucide-react';
+import { Plus, Sparkles, Camera } from 'lucide-react';
 import { Modal, Field, inputClass } from './modal';
 import { clientApi } from '@/lib/api-client';
-import type { Cellar } from '@/lib/api';
+import { fileToResizedDataUrl } from '@/lib/image';
+import type { Cellar, ScannedBottle } from '@/lib/api';
 
 const EMPTY = {
   domain: '',
@@ -28,8 +29,44 @@ export function AddBottleDialog({ cellars }: { cellars: Cellar[] }) {
   const [error, setError] = useState<string | null>(null);
   const [cellarId, setCellarId] = useState(cellars[0]?.id ?? '');
   const [f, setF] = useState(EMPTY);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanMsg, setScanMsg] = useState<string | null>(null);
 
   const set = (k: keyof typeof EMPTY, v: string) => setF((s) => ({ ...s, [k]: v }));
+
+  async function onScanFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-picking the same file
+    if (!file) return;
+    setScanning(true);
+    setScanMsg(null);
+    setError(null);
+    try {
+      const image = await fileToResizedDataUrl(file);
+      const r = await clientApi.post<ScannedBottle | null>('/ai/scan/bottle', { image });
+      if (!r || (!r.domain && !r.cuvee && !r.vintage)) {
+        setScanMsg(
+          'Aucune information détectée — vérifiez que la clé OpenAI est configurée (option de l’add-on) ou réessayez avec une photo plus nette.',
+        );
+      } else {
+        setF((s) => ({
+          ...s,
+          domain: r.domain ?? s.domain,
+          cuvee: r.cuvee ?? s.cuvee,
+          vintage: r.vintage ? String(r.vintage) : s.vintage,
+          appellation: r.appellation ?? s.appellation,
+          region: r.region ?? s.region,
+          country: r.country ?? s.country,
+        }));
+        setScanMsg('Étiquette analysée ✓ — vérifiez et complétez si besoin.');
+      }
+    } catch {
+      setScanMsg('Échec de l’analyse de l’image. Réessayez.');
+    } finally {
+      setScanning(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,6 +125,30 @@ export function AddBottleDialog({ cellars }: { cellars: Cellar[] }) {
             <Sparkles size={13} /> L’IA complète automatiquement cépages, garde,
             accords et valeur estimée.
           </p>
+
+          {/* Scan the label: on a phone this opens the camera. */}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={onScanFile}
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={scanning}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 py-3 text-sm text-neutral-300 transition-colors hover:border-gold-500/40 hover:text-white disabled:opacity-60"
+          >
+            <Camera size={16} className="text-gold-400" />
+            {scanning ? 'Analyse de l’étiquette…' : 'Scanner l’étiquette (photo)'}
+          </button>
+          {scanMsg && (
+            <p className="rounded-lg bg-white/[0.04] px-3 py-2 text-xs text-neutral-300">
+              {scanMsg}
+            </p>
+          )}
 
           {cellars.length > 1 && (
             <Field label="Cave">
