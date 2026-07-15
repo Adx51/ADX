@@ -12,9 +12,10 @@ directement sur votre Home Assistant OS / Supervised.
    ```
 3. Le module **« ADX — Cave à vin »** apparaît dans la boutique. Ouvrez-le et
    cliquez sur **Installer**.
-   > La première installation **compile** l'application (téléchargement + build).
-   > Comptez plusieurs minutes ; prévoyez une machine avec assez de RAM
-   > (≥ 2 Go recommandés — un build complet peut être lourd sur petit matériel).
+   > L'installation **télécharge une image pré-compilée** depuis GHCR (rapide,
+   > adaptée au Raspberry Pi) — aucune compilation sur votre machine.
+   > *Prérequis : les images doivent avoir été publiées et rendues publiques au
+   > préalable — voir « Pour le mainteneur » plus bas.*
 4. Onglet **Configuration** (facultatif) :
    - `openai_api_key` : votre clé OpenAI pour activer le Sommelier IA,
      l'enrichissement automatique des fiches et le scan. Sans clé, tout le reste
@@ -47,10 +48,28 @@ navigateur ──▶ :3000  (Next.js)  ──/api/*──▶ :4000 (NestJS API) 
 Seul le port **3000** est exposé ; les appels API passent en *same-origin* et
 sont relayés en interne. Rien d'autre n'est accessible depuis l'extérieur.
 
+## Pour le mainteneur — publier les images (une seule fois par version)
+
+L'add-on installe une image pré-compilée. Il faut donc la publier au préalable :
+
+1. **Lancer le build** : onglet **Actions → « Build add-on image » → Run
+   workflow** (ou poussez un tag `v0.1.0`). Le workflow construit les images
+   **amd64** et **aarch64** et les pousse sur GHCR :
+   - `ghcr.io/adx51/adx-cellar-amd64:0.1.0`
+   - `ghcr.io/adx51/adx-cellar-aarch64:0.1.0`
+2. **Rendre les paquets publics** (pour que HA puisse les tirer sans
+   authentification) : sur GitHub → votre profil/orga → **Packages** → chaque
+   paquet `adx-cellar-*` → **Package settings → Change visibility → Public**.
+3. À chaque nouvelle version, incrémentez `version:` dans `config.yaml` puis
+   relancez le workflow (le tag d'image suit automatiquement la version).
+
+> Pour construire **depuis les sources** sur HA plutôt que tirer une image,
+> supprimez la ligne `image:` de `config.yaml` : HA utilisera alors le
+> `Dockerfile` local (plus lent, surtout sur Raspberry Pi).
+
 ## Notes
 
 - Architectures supportées : **amd64** et **aarch64** (64 bits). L'ARM 32 bits
   (armv7/armhf) n'est pas couvert par le dépôt APT de PostgreSQL.
-- Cet add-on est en version initiale ; l'intégration en barre latérale (Ingress)
-  et des images pré-compilées (installation instantanée sans build) sont des
-  évolutions prévues.
+- Version initiale ; l'intégration en barre latérale (Ingress) avec
+  l'authentification Home Assistant est une évolution prévue.

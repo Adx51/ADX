@@ -3,6 +3,9 @@ version: "0.1.0"
 slug: adx_cellar
 description: "Gestion de cave à vin premium propulsée par l'IA (web + API + PostgreSQL/pgvector)"
 url: "https://github.com/Adx51/ADX"
+# Prebuilt image pulled from GHCR (HA appends -{arch} and the version tag).
+# Remove this line to build from source locally instead (uses ./Dockerfile).
+image: "ghcr.io/adx51/adx-cellar-{arch}"
 # armv7/armhf are not built by the PostgreSQL apt repository, so only 64-bit archs.
 arch:
   - amd64
