@@ -3,15 +3,28 @@ name: Build add-on image
 # Publishes the Home Assistant add-on image to GHCR, one image per architecture
 # (adx-cellar-amd64 / adx-cellar-aarch64), tagged with the add-on version.
 #
-# Run it manually (Actions → "Build add-on image" → Run workflow) or by pushing
-# a tag like v0.1.0. After the first run, make the GHCR packages public so Home
-# Assistant can pull them anonymously (see adx-cellar/DOCS.md).
+# Triggers: manually (Actions → "Build add-on image" → Run workflow), on a tag
+# like v0.1.0, or on a push to a release branch that touches the app/add-on.
+# The image tag comes from `version:` in adx-cellar/config.yaml, not the git ref.
+# After the first run, make the GHCR packages public so Home Assistant can pull
+# them anonymously (see adx-cellar/DOCS.md).
 
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
+      - claude/wine-cellar-app-tl4zvr
     tags:
       - 'v*'
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'docker/**'
+      - 'adx-cellar/**'
+      - '.github/workflows/addon-image.yml'
+      - 'package.json'
+      - 'package-lock.json'
 
 permissions:
   contents: read
