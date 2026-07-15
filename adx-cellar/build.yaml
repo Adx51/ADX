@@ -1,0 +1,7 @@
+build_from:
+  amd64: node:22-bookworm-slim
+  aarch64: node:22-bookworm-slim
+args:
+  # Git ref of the ADX app to build. Set to "main" once the branch is merged.
+  ADX_REPO: "https://github.com/Adx51/ADX.git"
+  ADX_REF: "claude/wine-cellar-app-tl4zvr"

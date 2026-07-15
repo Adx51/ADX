@@ -23,6 +23,7 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Run on everything except Next internals and static assets.
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Run on everything except Next internals, static assets, and the API proxy
+  // path (`/api/*` is forwarded to the backend, which enforces its own auth).
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };

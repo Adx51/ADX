@@ -1,0 +1,24 @@
+name: "ADX — Cave à vin"
+version: "0.1.0"
+slug: adx_cellar
+description: "Gestion de cave à vin premium propulsée par l'IA (web + API + PostgreSQL/pgvector)"
+url: "https://github.com/Adx51/ADX"
+# armv7/armhf are not built by the PostgreSQL apt repository, so only 64-bit archs.
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+boot: manual
+# Only the web UI is exposed; it proxies /api/* to the API internally.
+ports:
+  3000/tcp: 3000
+ports_description:
+  3000/tcp: "Interface web ADX"
+webui: "http://[HOST]:[PORT:3000]"
+options:
+  openai_api_key: ""
+  jwt_secret: ""
+schema:
+  openai_api_key: "password?"
+  jwt_secret: "password?"

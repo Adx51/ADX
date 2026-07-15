@@ -92,6 +92,19 @@ Connectez-vous avec le compte de démonstration créé par le seed :
 docker compose up --build
 ```
 
+### Sur Home Assistant (add-on)
+
+ADX peut s'installer comme **module complémentaire Home Assistant** (HA OS /
+Supervised) : interface web + API + PostgreSQL/pgvector dans un seul conteneur.
+
+1. **Paramètres → Modules complémentaires → Boutique → ⋮ → Dépôts**
+2. Ajoutez `https://github.com/Adx51/ADX`
+3. Installez **« ADX — Cave à vin »**, démarrez, puis *Ouvrir l'interface web*
+
+Le module et sa documentation vivent dans [`adx-cellar/`](adx-cellar/DOCS.md).
+Seul le port web (3000) est exposé ; les appels `/api/*` sont relayés en interne
+(*same-origin*), ce qui rend l'app compatible reverse-proxy.
+
 ## 📚 API (extrait)
 
 Toutes les routes exigent un en-tête `Authorization: Bearer <token>`, sauf

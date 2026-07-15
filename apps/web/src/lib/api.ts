@@ -1,4 +1,7 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+// Client-side base. Empty string ⇒ same-origin: requests hit `/api/*`, which
+// Next.js proxies to the API (see next.config rewrites). This keeps everything
+// on one origin so it works behind a reverse proxy such as Home Assistant Ingress.
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 /** Name of the cookie holding the JWT (readable by client + server components). */
 export const TOKEN_COOKIE = 'adx_token';
@@ -20,10 +23,11 @@ export async function apiFetch<T>(
   path: string,
   init: RequestInit = {},
   token?: string | null,
+  base: string = API_BASE,
 ): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}/api${path}`, {
+    res = await fetch(`${base}/api${path}`, {
       ...init,
       headers: {
         'Content-Type': 'application/json',
