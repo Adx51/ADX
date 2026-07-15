@@ -115,3 +115,8 @@ export interface SommelierAnswer {
   answer: string;
   bottleIds: string[];
 }
+
+export interface Cellar {
+  id: string;
+  name: string;
+}

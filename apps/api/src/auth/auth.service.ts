@@ -33,6 +33,15 @@ export class AuthService {
       },
     });
 
+    // Give every new account a default cellar so they can add bottles right away.
+    await this.prisma.cellar.create({
+      data: {
+        name: 'Ma cave',
+        ownerId: user.id,
+        memberships: { create: { userId: user.id, role: 'OWNER' } },
+      },
+    });
+
     return this.issue(user.id, user.email, user.name);
   }
 
