@@ -11,7 +11,9 @@ export function MobileNav() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-ink-800/95 backdrop-blur-xl md:hidden"
+      // Solid background (no backdrop-blur): a blurred fixed bar repaints on
+      // every scroll frame and makes taps feel laggy on mobile.
+      className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-ink-800 md:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       {NAV.map(({ href, short, icon: Icon }) => {
@@ -20,7 +22,8 @@ export function MobileNav() {
           <Link
             key={href}
             href={href}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] ${
+            prefetch
+            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition-colors active:bg-white/5 ${
               active ? 'text-gold-400' : 'text-neutral-500'
             }`}
           >
