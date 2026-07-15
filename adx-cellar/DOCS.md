@@ -22,16 +22,18 @@ directement sur votre Home Assistant OS / Supervised.
      fonctionne en mode dégradé.
    - `jwt_secret` : laissez vide pour qu'un secret soit généré et conservé
      automatiquement.
+   - `seed_demo_data` : **désactivé par défaut**. Activez-le uniquement pour une
+     démo — il crée un compte `demo@adx.wine` / `demo1234` aux identifiants
+     publics (à éviter sur une instance exposée). Tant qu'il est désactivé, ce
+     compte démo est neutralisé (connexion impossible) à chaque démarrage.
 5. **Démarrer**, puis **Ouvrir l'interface web** (ou `http://<votre-HA>:3000`).
 
 ## Connexion
 
-Un compte de démonstration est créé au premier démarrage :
+Au premier lancement, **créez votre compte** via l'écran d'inscription.
 
-- **E-mail** : `demo@adx.wine`
-- **Mot de passe** : `demo1234`
-
-Vous pouvez aussi créer votre propre compte via l'écran d'inscription.
+> Pour un compte de démonstration prérempli (`demo@adx.wine` / `demo1234`),
+> activez l'option `seed_demo_data` puis redémarrez le module.
 
 ## Données & persistance
 

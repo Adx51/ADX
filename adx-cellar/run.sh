@@ -14,6 +14,7 @@ OPTIONS="$DATA/options.json"
 # ── Read add-on options (written by the Supervisor) ──────────────────────────
 OPENAI_API_KEY="$(jq -r '.openai_api_key // ""' "$OPTIONS" 2>/dev/null || echo "")"
 JWT_SECRET="$(jq -r '.jwt_secret // ""' "$OPTIONS" 2>/dev/null || echo "")"
+SEED_DEMO_DATA="$(jq -r '.seed_demo_data // false' "$OPTIONS" 2>/dev/null || echo false)"
 if [ -z "$JWT_SECRET" ]; then
   # Persist a generated secret so sessions survive restarts.
   if [ -f "$DATA/.jwt_secret" ]; then
@@ -53,11 +54,23 @@ cd /app
 echo "[adx] Syncing schema…"
 npm run db:push -w @adx/database
 
-if [ ! -f "$DATA/.seeded" ]; then
-  echo "[adx] Seeding demo data (first run)…"
-  # The seed script is named `seed` inside the @adx/database workspace
-  # (the root alias is `db:seed`). Use the workspace-local name here.
-  npm run seed -w @adx/database && touch "$DATA/.seeded"
+# Demo data is opt-in (off by default): on a public deployment the demo account
+# uses well-known credentials. Enable it with the `seed_demo_data` option.
+if [ "$SEED_DEMO_DATA" = "true" ]; then
+  if [ ! -f "$DATA/.seeded" ]; then
+    echo "[adx] Seeding demo data (first run)…"
+    # The seed script is named `seed` inside the @adx/database workspace
+    # (the root alias is `db:seed`). Use the workspace-local name here.
+    npm run seed -w @adx/database && touch "$DATA/.seeded"
+  fi
+else
+  # Neutralise any demo account left over from a previous seeded run so its
+  # public credentials can't be used (login requires a non-null password hash).
+  echo "[adx] Demo data disabled — ensuring the demo account cannot log in."
+  echo "UPDATE users SET \"passwordHash\" = NULL WHERE email = 'demo@adx.wine';" \
+    > /tmp/adx_disable_demo.sql
+  su postgres -c "psql -h /tmp -d adx -f /tmp/adx_disable_demo.sql" || true
+  rm -f /tmp/adx_disable_demo.sql
 fi
 
 export NODE_ENV=production
