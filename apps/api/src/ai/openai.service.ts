@@ -2,14 +2,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import OpenAI from 'openai';
 
 /**
- * Thin wrapper around the OpenAI SDK. The whole app must degrade gracefully
- * when no API key is configured, so `isEnabled` is checked by every caller and
- * the service never throws on a missing key.
+ * Thin wrapper around the OpenAI SDK. Works with any OpenAI-compatible provider
+ * (OpenAI, Google Gemini's compat endpoint, Groq, …) by pointing `OPENAI_BASE_URL`
+ * at it. The whole app must degrade gracefully when no API key is configured, so
+ * `isEnabled` is checked by every caller and the service never throws.
  */
 @Injectable()
 export class OpenAiService {
   private readonly logger = new Logger(OpenAiService.name);
   private readonly client: OpenAI | null;
+  // Only the native OpenAI endpoint reliably supports json_object response mode;
+  // for other providers we rely on the prompt + robust parsing instead.
+  private readonly useResponseFormat: boolean;
 
   readonly chatModel = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
   readonly visionModel = process.env.OPENAI_VISION_MODEL ?? 'gpt-4o';
@@ -17,14 +21,36 @@ export class OpenAiService {
 
   constructor() {
     const apiKey = process.env.OPENAI_API_KEY;
-    this.client = apiKey ? new OpenAI({ apiKey }) : null;
+    const baseURL = process.env.OPENAI_BASE_URL?.trim() || undefined;
+    this.useResponseFormat = !baseURL;
+    this.client = apiKey ? new OpenAI({ apiKey, baseURL }) : null;
     if (!this.client) {
-      this.logger.warn('OPENAI_API_KEY not set — AI features run in fallback mode.');
+      this.logger.warn('No AI API key set — AI features run in fallback mode.');
+    } else if (baseURL) {
+      this.logger.log(`AI provider: custom endpoint (${baseURL}), model ${this.chatModel}`);
     }
   }
 
   get isEnabled(): boolean {
     return this.client !== null;
+  }
+
+  /** Extracts a JSON object from a model response, tolerating markdown fences. */
+  private parse<T>(content: string | null | undefined): T | null {
+    if (!content) return null;
+    let s = content.trim();
+    const fenced = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenced) s = fenced[1].trim();
+    if (!s.startsWith('{') && !s.startsWith('[')) {
+      const start = s.indexOf('{');
+      const end = s.lastIndexOf('}');
+      if (start >= 0 && end > start) s = s.slice(start, end + 1);
+    }
+    try {
+      return JSON.parse(s) as T;
+    } catch {
+      return null;
+    }
   }
 
   /** Returns a parsed JSON object from a structured prompt, or null on failure. */
@@ -33,16 +59,17 @@ export class OpenAiService {
     try {
       const res = await this.client.chat.completions.create({
         model: this.chatModel,
-        response_format: { type: 'json_object' },
+        ...(this.useResponseFormat
+          ? { response_format: { type: 'json_object' as const } }
+          : {}),
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: user },
         ],
       });
-      const content = res.choices[0]?.message?.content;
-      return content ? (JSON.parse(content) as T) : null;
+      return this.parse<T>(res.choices[0]?.message?.content);
     } catch (err) {
-      this.logger.error(`OpenAI json() failed: ${(err as Error).message}`);
+      this.logger.error(`AI json() failed: ${(err as Error).message}`);
       return null;
     }
   }
@@ -68,7 +95,9 @@ export class OpenAiService {
     try {
       const res = await this.client.chat.completions.create({
         model: this.visionModel,
-        response_format: { type: 'json_object' },
+        ...(this.useResponseFormat
+          ? { response_format: { type: 'json_object' as const } }
+          : {}),
         messages: [
           { role: 'system', content: system },
           {
@@ -80,10 +109,9 @@ export class OpenAiService {
           },
         ],
       });
-      const content = res.choices[0]?.message?.content;
-      return content ? (JSON.parse(content) as T) : null;
+      return this.parse<T>(res.choices[0]?.message?.content);
     } catch (err) {
-      this.logger.error(`OpenAI vision() failed: ${(err as Error).message}`);
+      this.logger.error(`AI vision() failed: ${(err as Error).message}`);
       return null;
     }
   }

@@ -17,9 +17,15 @@ directement sur votre Home Assistant OS / Supervised.
    > *Prérequis : les images doivent avoir été publiées et rendues publiques au
    > préalable — voir « Pour le mainteneur » plus bas.*
 4. Onglet **Configuration** (facultatif) :
-   - `openai_api_key` : votre clé OpenAI pour activer le Sommelier IA,
-     l'enrichissement automatique des fiches et le scan. Sans clé, tout le reste
-     fonctionne en mode dégradé.
+   - `ai_provider` : `openai` (payant à l'usage) ou **`gemini`** (Google, **palier
+     gratuit**). Active le Sommelier IA, l'enrichissement des fiches et le scan
+     d'étiquette. Sans clé, tout le reste fonctionne en mode dégradé.
+   - `openai_api_key` : la clé du fournisseur choisi.
+     - **OpenAI** → https://platform.openai.com (facturé à l'usage).
+     - **Gemini (gratuit)** → mettez `ai_provider: gemini` et collez une clé
+       obtenue sur **https://aistudio.google.com/apikey**.
+   - `ai_model` / `ai_vision_model` : facultatif, pour forcer un modèle précis
+     (par défaut : `gpt-4o-mini`/`gpt-4o` pour OpenAI, `gemini-2.0-flash` pour Gemini).
    - `jwt_secret` : laissez vide pour qu'un secret soit généré et conservé
      automatiquement.
    - `seed_demo_data` : **désactivé par défaut**. Activez-le uniquement pour une

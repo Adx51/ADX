@@ -1,5 +1,5 @@
 name: "ADX — Cave à vin"
-version: "0.1.3"
+version: "0.1.4"
 slug: adx_cellar
 description: "Gestion de cave à vin premium propulsée par l'IA (web + API + PostgreSQL/pgvector)"
 url: "https://github.com/Adx51/ADX"
@@ -20,10 +20,16 @@ ports_description:
   3000/tcp: "Interface web ADX"
 webui: "http://[HOST]:[PORT:3000]"
 options:
+  ai_provider: openai
   openai_api_key: ""
+  ai_model: ""
+  ai_vision_model: ""
   jwt_secret: ""
   seed_demo_data: false
 schema:
+  ai_provider: "list(openai|gemini)"
   openai_api_key: "password?"
+  ai_model: "str?"
+  ai_vision_model: "str?"
   jwt_secret: "password?"
   seed_demo_data: "bool?"

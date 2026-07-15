@@ -15,6 +15,21 @@ OPTIONS="$DATA/options.json"
 OPENAI_API_KEY="$(jq -r '.openai_api_key // ""' "$OPTIONS" 2>/dev/null || echo "")"
 JWT_SECRET="$(jq -r '.jwt_secret // ""' "$OPTIONS" 2>/dev/null || echo "")"
 SEED_DEMO_DATA="$(jq -r '.seed_demo_data // false' "$OPTIONS" 2>/dev/null || echo false)"
+AI_PROVIDER="$(jq -r '.ai_provider // "openai"' "$OPTIONS" 2>/dev/null || echo openai)"
+AI_MODEL="$(jq -r '.ai_model // ""' "$OPTIONS" 2>/dev/null || echo "")"
+AI_VISION_MODEL="$(jq -r '.ai_vision_model // ""' "$OPTIONS" 2>/dev/null || echo "")"
+
+# ── AI provider (any OpenAI-compatible endpoint) ─────────────────────────────
+if [ "$AI_PROVIDER" = "gemini" ]; then
+  # Google Gemini's OpenAI-compatible endpoint (free tier). Get a key at
+  # https://aistudio.google.com/apikey and put it in `openai_api_key`.
+  export OPENAI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
+  export OPENAI_MODEL="${AI_MODEL:-gemini-2.0-flash}"
+  export OPENAI_VISION_MODEL="${AI_VISION_MODEL:-gemini-2.0-flash}"
+else
+  [ -n "$AI_MODEL" ] && export OPENAI_MODEL="$AI_MODEL"
+  [ -n "$AI_VISION_MODEL" ] && export OPENAI_VISION_MODEL="$AI_VISION_MODEL"
+fi
 if [ -z "$JWT_SECRET" ]; then
   # Persist a generated secret so sessions survive restarts.
   if [ -f "$DATA/.jwt_secret" ]; then
