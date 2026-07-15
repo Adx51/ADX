@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Georgia', serif;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-ink-900 text-neutral-200 antialiased;
+  background-image:
+    radial-gradient(60% 60% at 80% 0%, rgba(125, 31, 61, 0.18), transparent 60%),
+    radial-gradient(50% 50% at 0% 100%, rgba(212, 164, 55, 0.06), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* Glass card */
+.glass {
+  @apply border border-white/5 bg-white/[0.03] backdrop-blur-xl;
+}
+
+/* Subtle scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-white/10;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-white/20;
+}

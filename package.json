@@ -1,0 +1,31 @@
+{
+  "name": "adx-wine-cellar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ADX — Premium AI-powered wine cellar management platform",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "db:generate": "npm run generate -w @adx/database",
+    "db:migrate": "npm run migrate -w @adx/database",
+    "db:push": "npm run db:push -w @adx/database",
+    "db:seed": "npm run seed -w @adx/database",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "turbo": "^2.1.0",
+    "typescript": "^5.5.4"
+  },
+  "packageManager": "npm@10.9.7",
+  "engines": {
+    "node": ">=20"
+  }
+}

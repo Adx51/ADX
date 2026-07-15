@@ -1,0 +1,331 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// ADX — Wine cellar data model
+// PostgreSQL + pgvector. Designed to scale to 100k+ bottles per account.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, vector]
+}
+
+// ─── Identity & access ───────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String   @unique
+  passwordHash String?
+  name         String?
+  avatarUrl    String?
+  locale       String   @default("fr")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships   Membership[]
+  ownedCellars  Cellar[]        @relation("CellarOwner")
+  tastingNotes  TastingNote[]
+  chatSessions  ChatSession[]
+  preference    UserPreference?
+
+  @@map("users")
+}
+
+// A cellar can be shared among several users (family / friends) with roles.
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+model Membership {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role     Role   @default(MEMBER)
+  userId   String @db.Uuid
+  cellarId String @db.Uuid
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cellar Cellar @relation(fields: [cellarId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, cellarId])
+  @@map("memberships")
+}
+
+// Learned taste profile used by the recommendation engine.
+model UserPreference {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String   @unique @db.Uuid
+  favoriteRegions String[] @default([])
+  favoriteGrapes  String[] @default([])
+  avgBudget       Decimal? @db.Money
+  tasteProfile    Json? // structured flavor/acidity/tannin preferences
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// ─── Physical cellar structure ───────────────────────────────────────────────
+
+model Cellar {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String?
+  imageUrl    String?
+  ownerId     String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner       User         @relation("CellarOwner", fields: [ownerId], references: [id])
+  memberships Membership[]
+  zones       Zone[]
+  bottles     Bottle[]
+
+  @@index([ownerId])
+  @@map("cellars")
+}
+
+// A zone is a wall / section ("Mur A", "Cave principale").
+model Zone {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  cellarId  String   @db.Uuid
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  cellar Cellar @relation(fields: [cellarId], references: [id], onDelete: Cascade)
+  racks  Rack[]
+
+  @@index([cellarId])
+  @@map("zones")
+}
+
+// A rack / casier with a physical grid layout.
+model Rack {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name     String
+  zoneId   String @db.Uuid
+  columns  Int    @default(1)
+  rows     Int    @default(1)
+  depth    Int    @default(1)
+  capacity Int    @default(0)
+
+  zone      Zone      @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  positions Position[]
+
+  @@index([zoneId])
+  @@map("racks")
+}
+
+// A precise slot inside a rack (column / row / level). Holds at most one bottle.
+model Position {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  rackId   String  @db.Uuid
+  column   Int
+  row      Int
+  level    Int     @default(1)
+  bottleId String? @unique @db.Uuid
+
+  rack   Rack    @relation(fields: [rackId], references: [id], onDelete: Cascade)
+  bottle Bottle? @relation(fields: [bottleId], references: [id], onDelete: SetNull)
+
+  @@unique([rackId, column, row, level])
+  @@index([rackId])
+  @@map("positions")
+}
+
+// ─── Wine reference data ─────────────────────────────────────────────────────
+
+enum WineColor {
+  RED
+  WHITE
+  ROSE
+  ORANGE
+}
+
+enum WineStyle {
+  STILL // tranquille
+  SPARKLING // effervescent
+  FORTIFIED // muté / fortifié
+  SWEET // liquoreux
+}
+
+// A canonical wine (a producer's cuvée at a given vintage). Deduplicated and
+// enriched by the AI pipeline; embeddings power semantic / vector search.
+model Wine {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  domain      String // Domaine
+  cuvee       String? // Cuvée
+  producer    String? // Producteur
+  vintage     Int? // Millésime (null = non-vintage)
+  appellation String?
+  region      String?
+  country     String?
+  color       WineColor?
+  style       WineStyle  @default(STILL)
+  grapes      String[]   @default([])
+  abv         Decimal?   @db.Decimal(4, 2) // degré d'alcool
+
+  // AI-enriched knowledge
+  description       String?
+  history           String? // histoire du domaine
+  servingTempC      Int? // température idéale
+  decantMinutes     Int? // temps de carafage
+  foodPairings      String[] @default([])
+  drinkFrom         Int? // fenêtre idéale (année de début)
+  drinkUntil        Int? // fenêtre idéale (année de fin)
+  peakYear          Int? // pic de dégustation
+  communityRating   Decimal? @db.Decimal(3, 1) // note communauté /100
+  aiConfidence      Decimal? @db.Decimal(3, 2) // fiabilité de l'enrichissement 0..1
+
+  // Semantic search embedding (text-embedding-3-small = 1536 dims)
+  embedding Unsupported("vector(1536)")?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bottles     Bottle[]
+  pricepoints PricePoint[]
+
+  @@unique([domain, cuvee, vintage])
+  @@index([region])
+  @@index([country])
+  @@index([color])
+  @@map("wines")
+}
+
+// Time series of market valuations (auctions / international quotes).
+model PricePoint {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  wineId    String   @db.Uuid
+  price     Decimal  @db.Decimal(12, 2)
+  currency  String   @default("EUR")
+  source    String? // auction house / marketplace
+  recordedAt DateTime @default(now())
+
+  wine Wine @relation(fields: [wineId], references: [id], onDelete: Cascade)
+
+  @@index([wineId, recordedAt])
+  @@map("price_points")
+}
+
+// ─── Owned bottles (inventory) ───────────────────────────────────────────────
+
+enum BottleStatus {
+  IN_STOCK
+  CONSUMED
+  GIFTED
+  SOLD
+  LOST
+}
+
+model Bottle {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cellarId String @db.Uuid
+  wineId   String @db.Uuid
+
+  status   BottleStatus @default(IN_STOCK)
+  quantity Int          @default(1)
+  volumeMl Int          @default(750)
+
+  // Acquisition
+  purchasePrice Decimal?  @db.Decimal(12, 2)
+  purchaseDate  DateTime?
+  purchasePlace String?
+
+  // Valuation (denormalized from AI estimate for fast portfolio queries)
+  estimatedValue Decimal? @db.Decimal(12, 2)
+  valueMin       Decimal? @db.Decimal(12, 2)
+  valueMax       Decimal? @db.Decimal(12, 2)
+
+  // Personal
+  personalRating Int? // note utilisateur /100
+  notes          String?
+  photoUrl       String?
+  labelUrl       String?
+  invoiceUrl     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cellar       Cellar        @relation(fields: [cellarId], references: [id], onDelete: Cascade)
+  wine         Wine          @relation(fields: [wineId], references: [id])
+  position     Position?
+  tastingNotes TastingNote[]
+  consumptions Consumption[]
+
+  @@index([cellarId, status])
+  @@index([wineId])
+  @@map("bottles")
+}
+
+// A consumption / drinking event (a bottle can be partly consumed over time).
+model Consumption {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bottleId   String   @db.Uuid
+  quantity   Int      @default(1)
+  occasion   String?
+  consumedAt DateTime @default(now())
+
+  bottle Bottle @relation(fields: [bottleId], references: [id], onDelete: Cascade)
+
+  @@index([bottleId])
+  @@map("consumptions")
+}
+
+model TastingNote {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bottleId  String   @db.Uuid
+  userId    String   @db.Uuid
+  rating    Int? // /100
+  body      String?
+  createdAt DateTime @default(now())
+
+  bottle Bottle @relation(fields: [bottleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([bottleId])
+  @@map("tasting_notes")
+}
+
+// ─── AI sommelier chat ───────────────────────────────────────────────────────
+
+model ChatSession {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @db.Uuid
+  title     String?
+  createdAt DateTime @default(now())
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([userId])
+  @@map("chat_sessions")
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model ChatMessage {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId String   @db.Uuid
+  role      ChatRole
+  content   String
+  createdAt DateTime @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("chat_messages")
+}
