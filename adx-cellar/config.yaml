@@ -1,5 +1,5 @@
 name: "ADX — Cave à vin"
-version: "0.1.5"
+version: "0.1.6"
 slug: adx_cellar
 description: "Gestion de cave à vin premium propulsée par l'IA (web + API + PostgreSQL/pgvector)"
 url: "https://github.com/Adx51/ADX"

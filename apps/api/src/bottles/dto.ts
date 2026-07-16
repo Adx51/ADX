@@ -6,6 +6,7 @@ import {
   IsUUID,
   Min,
   IsDateString,
+  IsIn,
 } from 'class-validator';
 
 export class CreateBottleDto {
@@ -35,6 +36,10 @@ export class CreateBottleDto {
   @IsOptional()
   @IsString()
   country?: string;
+
+  @IsOptional()
+  @IsIn(['RED', 'WHITE', 'ROSE', 'ORANGE'])
+  color?: 'RED' | 'WHITE' | 'ROSE' | 'ORANGE';
 
   // Inventory
   @IsOptional()

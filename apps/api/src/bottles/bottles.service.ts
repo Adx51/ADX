@@ -73,6 +73,7 @@ export class BottlesService {
       appellation: dto.appellation,
       region: dto.region,
       country: dto.country,
+      color: dto.color,
     });
 
     const valuation = await this.enrichment.valuate({

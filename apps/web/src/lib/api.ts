@@ -128,5 +128,7 @@ export interface ScannedBottle {
   appellation?: string;
   region?: string;
   country?: string;
+  color?: 'RED' | 'WHITE' | 'ROSE' | 'ORANGE';
+  grapes?: string[];
   confidence?: number;
 }

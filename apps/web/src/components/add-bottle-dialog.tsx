@@ -15,12 +15,21 @@ const EMPTY = {
   region: '',
   country: '',
   appellation: '',
+  color: '',
   quantity: '1',
   purchasePrice: '',
   purchaseDate: '',
   purchasePlace: '',
   notes: '',
 };
+
+const COLORS = [
+  { value: '', label: 'Auto (IA)' },
+  { value: 'RED', label: 'Rouge' },
+  { value: 'WHITE', label: 'Blanc' },
+  { value: 'ROSE', label: 'Rosé' },
+  { value: 'ORANGE', label: 'Orange' },
+];
 
 export function AddBottleDialog({ cellars }: { cellars: Cellar[] }) {
   const router = useRouter();
@@ -58,6 +67,7 @@ export function AddBottleDialog({ cellars }: { cellars: Cellar[] }) {
           appellation: r.appellation ?? s.appellation,
           region: r.region ?? s.region,
           country: r.country ?? s.country,
+          color: r.color ?? s.color,
         }));
         setScanMsg('Étiquette analysée ✓ — vérifiez et complétez si besoin.');
       }
@@ -93,6 +103,7 @@ export function AddBottleDialog({ cellars }: { cellars: Cellar[] }) {
       if (f.region.trim()) payload.region = f.region.trim();
       if (f.country.trim()) payload.country = f.country.trim();
       if (f.appellation.trim()) payload.appellation = f.appellation.trim();
+      if (f.color) payload.color = f.color;
       if (f.quantity) payload.quantity = Number(f.quantity);
       if (f.purchasePrice) payload.purchasePrice = Number(f.purchasePrice);
       if (f.purchaseDate) payload.purchaseDate = f.purchaseDate;
@@ -211,16 +222,27 @@ export function AddBottleDialog({ cellars }: { cellars: Cellar[] }) {
                 placeholder="France"
               />
             </Field>
-            <div className="col-span-2">
-              <Field label="Appellation">
-                <input
-                  className={inputClass}
-                  value={f.appellation}
-                  onChange={(e) => set('appellation', e.target.value)}
-                  placeholder="Margaux"
-                />
-              </Field>
-            </div>
+            <Field label="Appellation">
+              <input
+                className={inputClass}
+                value={f.appellation}
+                onChange={(e) => set('appellation', e.target.value)}
+                placeholder="Margaux"
+              />
+            </Field>
+            <Field label="Couleur">
+              <select
+                value={f.color}
+                onChange={(e) => set('color', e.target.value)}
+                className={inputClass}
+              >
+                {COLORS.map((c) => (
+                  <option key={c.value} value={c.value} className="bg-ink-800">
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <Field label="Quantité">
               <input
                 className={inputClass}
