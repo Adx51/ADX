@@ -17,15 +17,19 @@ directement sur votre Home Assistant OS / Supervised.
    > *Prérequis : les images doivent avoir été publiées et rendues publiques au
    > préalable — voir « Pour le mainteneur » plus bas.*
 4. Onglet **Configuration** (facultatif) :
-   - `ai_provider` : `openai` (payant à l'usage) ou **`gemini`** (Google, **palier
-     gratuit**). Active le Sommelier IA, l'enrichissement des fiches et le scan
-     d'étiquette. Sans clé, tout le reste fonctionne en mode dégradé.
+   - `ai_provider` : `openai`, `gemini` ou `qwen`. Active le Sommelier IA,
+     l'enrichissement des fiches et le scan d'étiquette. Sans clé, tout le reste
+     fonctionne en mode dégradé.
    - `openai_api_key` : la clé du fournisseur choisi.
-     - **OpenAI** → https://platform.openai.com (facturé à l'usage).
-     - **Gemini (gratuit)** → mettez `ai_provider: gemini` et collez une clé
-       obtenue sur **https://aistudio.google.com/apikey**.
-   - `ai_model` / `ai_vision_model` : facultatif, pour forcer un modèle précis
-     (par défaut : `gpt-4o-mini`/`gpt-4o` pour OpenAI, `gemini-2.0-flash` pour Gemini).
+     - **OpenAI** → https://platform.openai.com (facturé à l'usage, fiable).
+     - **Gemini** (`ai_provider: gemini`) → clé sur https://aistudio.google.com/apikey
+       (palier gratuit, mais quotas serrés — 429 possible).
+     - **Qwen / Alibaba** (`ai_provider: qwen`) → clé sur
+       https://bailian.console.alibabacloud.com (Model Studio → API-KEY). Quota
+       d'essai gratuit, modèles `qwen-vl-max` (vision) et `qwen-plus` (texte).
+   - `ai_base_url` : avancé — pointez n'importe quel endpoint compatible OpenAI
+     (Groq, Zhipu, OpenRouter…) et précisez `ai_model` / `ai_vision_model`.
+   - `ai_model` / `ai_vision_model` : facultatif, pour forcer un modèle précis.
    - `jwt_secret` : laissez vide pour qu'un secret soit généré et conservé
      automatiquement.
    - `seed_demo_data` : **désactivé par défaut**. Activez-le uniquement pour une
