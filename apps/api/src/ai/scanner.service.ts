@@ -8,6 +8,8 @@ export interface ScannedBottle {
   appellation?: string;
   region?: string;
   country?: string;
+  color?: 'RED' | 'WHITE' | 'ROSE' | 'ORANGE';
+  grapes?: string[];
   confidence?: number;
 }
 
@@ -33,8 +35,14 @@ export class ScannerService {
 
   async scanBottle(imageUrl: string): Promise<ScannedBottle | null> {
     return this.ai.vision<ScannedBottle>(
-      'You extract wine label data. Return ONLY JSON: { domain, cuvee, vintage (number), appellation, region, country, confidence (0-1) }.',
-      "Identifie ce vin d'après l'étiquette.",
+      `You read a wine bottle photo. Return ONLY JSON:
+{ domain, cuvee, vintage (number), appellation, region, country,
+  color ("RED"|"WHITE"|"ROSE"|"ORANGE"), grapes (string[]), confidence (0-1) }.
+Determine "color" from BOTH the label wording AND the visible colour of the wine
+and packaging — a pink/salmon liquid or "rosé"/"rosado"/"rosato" wording is ROSE,
+a clear pale bottle labelled blanc/white is WHITE, etc. Include "grapes" only if
+printed on the label. Omit any field you cannot read; never invent a vintage.`,
+      "Identifie ce vin d'après la photo de la bouteille.",
       imageUrl,
     );
   }

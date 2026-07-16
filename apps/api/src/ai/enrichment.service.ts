@@ -74,11 +74,22 @@ Write description, history and foodPairings in French.`,
   }): Promise<WineValuation | null> {
     const label = [seed.domain, seed.cuvee, seed.vintage].filter(Boolean).join(' ');
     const result = await this.ai.json<WineValuation>(
-      `You are a fine-wine market analyst. Estimate the current secondary-market
-value of a single bottle in EUR. Return ONLY JSON:
-{ estimatedValue, valueMin, valueMax, rationale }. Rationale in French.`,
-      `Estime la valeur actuelle de : "${label}".${
-        seed.purchasePrice ? ` Prix d'achat connu : ${seed.purchasePrice} €.` : ''
+      `You are a realistic wine-pricing analyst valuing ONE bottle in EUR.
+Be conservative and honest:
+- The vast majority of wines are everyday bottles with NO secondary/auction
+  market; their value ≈ current retail price, typically 5–25 €. Do NOT inflate.
+- Only genuinely recognised fine/collectible wines (grands crus classés, iconic
+  domaines, sought-after vintages) are worth clearly more.
+- If a purchase price is given, stay close to it (roughly ±30 %) UNLESS the wine
+  is a recognised collectible that has appreciated.
+- If you do not recognise the wine, assume an ordinary bottle near its purchase
+  price (or 8–15 € if unknown).
+Return ONLY JSON: { estimatedValue, valueMin, valueMax, rationale }.
+Rationale: one short sentence in French.`,
+      `Estime la valeur actuelle réaliste de : "${label}".${
+        seed.purchasePrice
+          ? ` Prix d'achat payé : ${seed.purchasePrice} € (reste proche sauf grand cru reconnu).`
+          : ' Prix d’achat inconnu — suppose une bouteille ordinaire.'
       }`,
     );
     if (result) return result;
