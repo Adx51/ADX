@@ -12,10 +12,10 @@ import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 export default function VendangeDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, readOnly } = useAuth()
   const isAdmin = user?.role === 'admin'
-  const canDeleteVendange = isAdmin || user?.can_delete?.vendanges === true
-  const canDeleteChargement = isAdmin || user?.can_delete?.chargements === true
+  const canDeleteVendange = !readOnly && (isAdmin || user?.can_delete?.vendanges === true)
+  const canDeleteChargement = !readOnly && (isAdmin || user?.can_delete?.chargements === true)
   const [vendange, setVendange] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -70,6 +70,8 @@ export default function VendangeDetail() {
 
   const backUrl = `/vendange/${vendange.annee}`
   const isClosed = vendange.statut === 'cloturee'
+  // En lecture seule, aucune action d'écriture (mêmes verrous qu'une vendange clôturée)
+  const canWrite = !isClosed && !readOnly
   const parcelle  = vendange.parcelles
   const campagne  = vendange.campagne
   const chargements = vendange.chargements || []
@@ -169,7 +171,7 @@ export default function VendangeDetail() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-gray-900">Chargements au pressoir</h2>
-            {!isClosed && (
+            {canWrite && (
               <button onClick={() => navigate(`/vendange/parcelle/${id}/chargement/new`)}
                       className="flex items-center gap-1 text-amber-600 font-semibold text-sm">
                 <Plus size={18} />
@@ -182,7 +184,7 @@ export default function VendangeDetail() {
             <div className="card text-center py-8">
               <Package size={32} className="mx-auto text-gray-300 mb-2" />
               <p className="text-gray-500 text-sm">Aucun chargement enregistré</p>
-              {!isClosed && (
+              {canWrite && (
                 <button onClick={() => navigate(`/vendange/parcelle/${id}/chargement/new`)}
                         className="mt-3 text-amber-600 font-medium text-sm">
                   Ajouter le premier chargement
@@ -234,7 +236,7 @@ export default function VendangeDetail() {
                               <Scale size={14} className="text-gray-400" />
                               <span className="font-bold text-amber-700">{c.poids_kg} kg</span>
                             </div>
-                            {!isClosed && (
+                            {canWrite && (
                               <div className="flex gap-1">
                                 <button onClick={() => navigate(`/vendange/parcelle/${id}/chargement/${c.id}/edit`)}
                                         className="p-2 text-gray-400 active:text-vigne-700">
@@ -262,7 +264,7 @@ export default function VendangeDetail() {
         </div>
 
         {/* Clôturer / Rouvrir */}
-        {!isClosed ? (
+        {canWrite ? (
           confirmCloture ? (
             <div className="card border-amber-200 bg-amber-50 space-y-3">
               <p className="text-amber-800 font-medium text-sm text-center">
@@ -284,7 +286,7 @@ export default function VendangeDetail() {
             </button>
           )
         ) : (
-          <button onClick={rouvrir}
+          !readOnly && <button onClick={rouvrir}
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm font-medium active:bg-gray-50">
             <Unlock size={16} />
             Rouvrir la vendange
