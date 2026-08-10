@@ -63,7 +63,7 @@ function TabBtn({ active, onClick, children }) {
   )
 }
 
-// ── Users tab ────────────────────────────────────────────────────────────────
+// ── Users tab ───────────────────────────────────────────────────────────
 
 function UsersTab() {
   const { user: me } = useAuth()
@@ -97,6 +97,18 @@ function UsersTab() {
 
   async function toggleRole(u) {
     const newRole = u.role === 'admin' ? 'user' : 'admin'
+    setError('')
+    try {
+      await api.put(`/admin/users/${u.id}/role`, { role: newRole })
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, role: newRole } : x))
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  // Bascule consultation seule ↔ saisie autorisée
+  async function toggleLecteur(u) {
+    const newRole = u.role === 'lecteur' ? 'user' : 'lecteur'
     setError('')
     try {
       await api.put(`/admin/users/${u.id}/role`, { role: newRole })
@@ -163,10 +175,14 @@ function UsersTab() {
           ) : (
             <>
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${u.role === 'admin' ? 'bg-vigne-100' : 'bg-gray-100'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  u.role === 'admin' ? 'bg-vigne-100' : u.role === 'lecteur' ? 'bg-blue-100' : 'bg-gray-100'
+                }`}>
                   {u.role === 'admin'
                     ? <Crown size={18} className="text-vigne-700" />
-                    : <User size={18} className="text-gray-500" />}
+                    : u.role === 'lecteur'
+                      ? <Eye size={18} className="text-blue-600" />
+                      : <User size={18} className="text-gray-500" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-gray-900 truncate">
@@ -174,8 +190,14 @@ function UsersTab() {
                     {u.id === me?.id && <span className="text-xs text-gray-400 ml-1">(moi)</span>}
                   </p>
                   <p className="text-xs text-gray-500 truncate">{u.email}</p>
-                  <span className={`text-xs font-medium ${u.role === 'admin' ? 'text-vigne-700' : 'text-gray-400'}`}>
-                    {u.role === 'admin' ? 'Administrateur' : 'Utilisateur'}
+                  <span className={`text-xs font-medium ${
+                    u.role === 'admin' ? 'text-vigne-700'
+                    : u.role === 'lecteur' ? 'text-blue-600'
+                    : 'text-gray-400'
+                  }`}>
+                    {u.role === 'admin' ? 'Administrateur'
+                     : u.role === 'lecteur' ? 'Lecteur — consultation seule'
+                     : 'Utilisateur'}
                   </span>
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
@@ -191,6 +213,13 @@ function UsersTab() {
                         <Crown size={15} className={u.role === 'admin' ? 'text-vigne-600' : 'text-gray-300'} />
                       </button>
                       {u.role !== 'admin' && (
+                        <button onClick={() => toggleLecteur(u)}
+                                className="p-2 rounded-xl active:bg-gray-100"
+                                title={u.role === 'lecteur' ? 'Autoriser la saisie' : 'Passer en consultation seule'}>
+                          <Eye size={15} className={u.role === 'lecteur' ? 'text-blue-600' : 'text-gray-300'} />
+                        </button>
+                      )}
+                      {u.role === 'user' && (
                         <button
                           onClick={() => setPermsId(permsId === u.id ? null : u.id)}
                           className={`p-2 rounded-xl active:bg-gray-100 ${permsId === u.id ? 'text-vigne-600 bg-vigne-50' : 'text-gray-400'}`}
@@ -209,7 +238,7 @@ function UsersTab() {
               </div>
 
               {/* Panneau permissions — uniquement pour non-admins */}
-              {permsId === u.id && u.role !== 'admin' && (
+              {permsId === u.id && u.role === 'user' && (
                 <div className="mt-3 pt-3 border-t border-gray-100">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                     Droits de suppression
@@ -407,10 +436,14 @@ function CreateUserForm({ onCreate, onCancel }) {
           </button>
         </div>
       </div>
-      <label className="flex items-center gap-2 text-sm text-gray-700">
-        <input type="checkbox" checked={role === 'admin'} onChange={e => setRole(e.target.checked ? 'admin' : 'user')} />
-        Administrateur
-      </label>
+      <div>
+        <label className="label">Rôle</label>
+        <select className="input py-2" value={role} onChange={e => setRole(e.target.value)}>
+          <option value="user">Utilisateur — peut saisir et modifier</option>
+          <option value="lecteur">Lecteur — consultation seule</option>
+          <option value="admin">Administrateur</option>
+        </select>
+      </div>
       <div className="flex gap-2">
         <button type="button" onClick={onCancel}
                 className="flex-1 py-2 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 active:bg-gray-50">
@@ -426,7 +459,7 @@ function CreateUserForm({ onCreate, onCancel }) {
   )
 }
 
-// ── Backup tab ───────────────────────────────────────────────────────────────
+// ── Backup tab ──────────────────────────────────────────────────────────
 
 function BackupTab() {
   const navigate = useNavigate()
@@ -505,7 +538,7 @@ function BackupTab() {
   )
 }
 
-// ── Referentials tab ─────────────────────────────────────────────────────────
+// ── Referentials tab ────────────────────────────────────────────────────
 
 function RefsTab() {
   return (
