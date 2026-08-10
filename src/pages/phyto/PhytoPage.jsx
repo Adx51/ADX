@@ -6,6 +6,7 @@ import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import PageHeader from '../../components/PageHeader'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
+import { useAuth } from '../../contexts/AuthContext'
 import { typeBadge } from '../../lib/taches'
 
 function fmtDate(iso) {
@@ -20,7 +21,7 @@ function fmtDose(prod) {
   return '—'
 }
 
-// ── Vue par OT (groupement par numéro d'OT) ──────────────────────────────────
+// ── Vue par OT (groupement par numéro d'OT) ────────────────────────────────
 function VueOTCard({ ot, rapports, confirmDelete, setConfirmDelete, onDelete }) {
   // Tous les rapports partagent date + OT — on prend le premier comme référence
   const ref = rapports[0]
@@ -75,7 +76,7 @@ function VueOTCard({ ot, rapports, confirmDelete, setConfirmDelete, onDelete }) 
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{ref.notes.replace(/^OT\s+\d+\s*—?\s*/, '')}</p>
           )}
         </div>
-        {confirmDelete === deleteKey ? (
+        {!setConfirmDelete ? null : confirmDelete === deleteKey ? (
           <div className="flex gap-1 flex-shrink-0">
             <button onClick={() => onDelete(ids)} className="px-2 py-1 text-xs bg-red-600 text-white rounded-lg">Suppr. tout</button>
             <button onClick={() => setConfirmDelete(null)} className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400">Annuler</button>
@@ -242,7 +243,7 @@ function VueProduitTable({ rapports, prestataireFilter, setPrestataireFilter, pr
   )
 }
 
-// ── Vue par parcelle ─────────────────────────────────────────────────────────
+// ── Vue par parcelle ────────────────────────────────────────────────────
 function VueParcelleGroup({ nom, entries, allRapports, confirmDelete, setConfirmDelete, onDelete }) {
   const [open, setOpen] = useState(true)
 
@@ -287,7 +288,7 @@ function VueParcelleGroup({ nom, entries, allRapports, confirmDelete, setConfirm
                     {r.source === 'pdf_carnet' && <span className="text-[9px] bg-vigne-50 dark:bg-vigne-900/20 text-vigne-600 dark:text-vigne-400 px-1 rounded">PDF</span>}
                     {surface && <span className="text-[10px] text-gray-500 dark:text-gray-400">{surface}</span>}
                   </div>
-                  {confirmDelete === deleteKey ? (
+                  {!setConfirmDelete ? null : confirmDelete === deleteKey ? (
                     <div className="flex gap-1.5 flex-shrink-0">
                       <button onClick={() => onDelete(r.id)} className="px-3 py-1.5 text-xs font-medium bg-red-600 text-white rounded-lg">Suppr.</button>
                       <button onClick={() => setConfirmDelete(null)} className="px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400">Annuler</button>
@@ -352,9 +353,10 @@ function VueParcelleGroup({ nom, entries, allRapports, confirmDelete, setConfirm
   )
 }
 
-// ── Page principale ───────────────────────────────────────────────────────────
+// ── Page principale ──────────────────────────────────────────────────────
 export default function PhytoPage() {
   const navigate = useNavigate()
+  const { readOnly } = useAuth()
   const [allRapports, setAllRapports] = useState([])
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -483,6 +485,7 @@ export default function PhytoPage() {
       <PageHeader title="Registre phytosanitaire" />
 
       {/* Boutons d'action */}
+      {!readOnly && (
       <div className="flex gap-2 px-4 pt-4">
         <button
           onClick={() => navigate('/phyto/import')}
@@ -503,6 +506,7 @@ export default function PhytoPage() {
           <Plus size={15} /> Manuel
         </button>
       </div>
+      )}
 
       {/* Sélecteur d'année */}
       {!loading && anneesDispo.length > 0 && (
@@ -581,7 +585,7 @@ export default function PhytoPage() {
                 Annuler
               </button>
             </div>
-          ) : (
+          ) : readOnly ? null : (
             <button
               onClick={() => setConfirmBulkDelete(true)}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
@@ -599,23 +603,27 @@ export default function PhytoPage() {
           <div className="text-center py-16">
             <Leaf size={48} className="mx-auto text-vigne-300 mb-4" />
             <p className="text-gray-500 dark:text-gray-400 font-medium">Aucun traitement enregistré</p>
-            <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
-              Importez un email ou un carnet de traitement PDF
-            </p>
-            <div className="flex gap-2 justify-center mt-6">
-              <button
-                onClick={() => navigate('/phyto/import')}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-vigne-700 text-white text-sm font-semibold"
-              >
-                <Upload size={15} /> Email
-              </button>
-              <button
-                onClick={() => navigate('/phyto/carnet/import')}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-vigne-600 text-white text-sm font-semibold"
-              >
-                <BookOpen size={15} /> Carnet PDF
-              </button>
-            </div>
+            {!readOnly && (
+              <>
+                <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
+                  Importez un email ou un carnet de traitement PDF
+                </p>
+                <div className="flex gap-2 justify-center mt-6">
+                  <button
+                    onClick={() => navigate('/phyto/import')}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-vigne-700 text-white text-sm font-semibold"
+                  >
+                    <Upload size={15} /> Email
+                  </button>
+                  <button
+                    onClick={() => navigate('/phyto/carnet/import')}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-vigne-600 text-white text-sm font-semibold"
+                  >
+                    <BookOpen size={15} /> Carnet PDF
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         ) : view === 'parcelle' ? (
           byParcelle.map(group => (
@@ -625,7 +633,7 @@ export default function PhytoPage() {
               entries={group.entries}
               allRapports={rapports}
               confirmDelete={confirmDelete}
-              setConfirmDelete={setConfirmDelete}
+              setConfirmDelete={readOnly ? null : setConfirmDelete}
               onDelete={deleteRapport}
             />
           ))
@@ -636,7 +644,7 @@ export default function PhytoPage() {
               ot={g.ot}
               rapports={g.rapports}
               confirmDelete={confirmDelete}
-              setConfirmDelete={setConfirmDelete}
+              setConfirmDelete={readOnly ? null : setConfirmDelete}
               onDelete={deleteRapport}
             />
           ))
