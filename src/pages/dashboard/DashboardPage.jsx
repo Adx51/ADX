@@ -169,6 +169,7 @@ function parcellesLabel(parcelles) {
 
 function SemaineBlock({ refreshTick }) {
   const navigate = useNavigate()
+  const { readOnly } = useAuth()
   const [data, setData] = useState(null)
 
   useEffect(() => {
@@ -206,13 +207,17 @@ function SemaineBlock({ refreshTick }) {
     const { Icon } = s
     const hasRange = t.date_debut && t.date_fin && t.date_debut !== t.date_fin
     const refDate = t.date_debut || t.date_fin
+    const rond = `w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${s.badge}`
+    const Corps = readOnly ? 'div' : 'button'
     return (
       <div className="flex items-center gap-2.5">
-        <button onClick={() => toggleStatut(t)}
-          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${s.badge}`}>
-          <Icon size={14} />
-        </button>
-        <button onClick={() => navigate(`/taches/${t.id}/edit`)} className="flex-1 min-w-0 text-left active:opacity-70">
+        {readOnly ? (
+          <span className={rond}><Icon size={14} /></span>
+        ) : (
+          <button onClick={() => toggleStatut(t)} className={rond}><Icon size={14} /></button>
+        )}
+        <Corps onClick={readOnly ? undefined : () => navigate(`/taches/${t.id}/edit`)}
+               className={`flex-1 min-w-0 text-left ${readOnly ? '' : 'active:opacity-70'}`}>
           <span className="text-sm text-gray-900 dark:text-gray-100 leading-tight">
             {PRIORITE_DOT[t.priorite] && (
               <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${PRIORITE_DOT[t.priorite]}`} />
@@ -235,7 +240,7 @@ function SemaineBlock({ refreshTick }) {
               <span className="text-xs text-gray-400">+{t.parcelles.length - 3}</span>
             )}
           </div>
-        </button>
+        </Corps>
       </div>
     )
   }
@@ -249,10 +254,12 @@ function SemaineBlock({ refreshTick }) {
         <span className="text-xs font-bold text-vigne-600 dark:text-vigne-400 bg-vigne-50 dark:bg-vigne-900/20 px-2 py-0.5 rounded-full">
           S.{week}
         </span>
-        <button onClick={() => navigate('/taches/new')}
-          className="ml-auto flex items-center gap-1 text-xs font-semibold text-vigne-700 dark:text-vigne-400 px-2 py-1.5 -my-1 rounded-lg active:bg-vigne-50">
-          <Plus size={14} /> Tâche
-        </button>
+        {!readOnly && (
+          <button onClick={() => navigate('/taches/new')}
+            className="ml-auto flex items-center gap-1 text-xs font-semibold text-vigne-700 dark:text-vigne-400 px-2 py-1.5 -my-1 rounded-lg active:bg-vigne-50">
+            <Plus size={14} /> Tâche
+          </button>
+        )}
       </div>
 
       {/* En retard */}
@@ -282,27 +289,36 @@ function SemaineBlock({ refreshTick }) {
           <p className="text-sm text-gray-400">Rien d'enregistré sur la période</p>
         ) : (
           <div className="space-y-1.5">
-            {recap.taches.map(t => (
-              <button key={t.id} onClick={() => navigate(`/taches/${t.id}/edit`)}
-                className="w-full flex items-center gap-2 text-left active:opacity-70">
-                <CheckCircle2 size={15} className="text-vigne-600 flex-shrink-0" />
-                <span className="text-sm text-gray-600 dark:text-gray-300 truncate">{t.titre}</span>
-                <span className="text-xs text-gray-400 truncate ml-auto pl-2 max-w-[45%] text-right">
-                  {parcellesLabel(t.parcelles)}
-                </span>
-              </button>
-            ))}
-            {recap.traitements.map(t => (
-              <button key={t.id} onClick={() => navigate('/phyto')}
-                className="w-full flex items-center gap-2 text-left active:opacity-70">
-                <Sprout size={15} className="text-emerald-600 flex-shrink-0" />
-                <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
-                  {t.produits.slice(0, 2).join(' + ')}{t.produits.length > 2 ? '…' : ''}
-                  {t.nb_parcelles > 0 && <span className="text-gray-400"> · {t.nb_parcelles} parcelle{t.nb_parcelles > 1 ? 's' : ''}</span>}
-                </span>
-                <span className="text-xs text-gray-400 flex-shrink-0 ml-auto pl-2">{fmtJour(t.date)}</span>
-              </button>
-            ))}
+            {recap.taches.map(t => {
+              // En lecture seule la ligne n'est pas cliquable : /taches/:id/edit
+              // n'est pas accessible à un lecteur.
+              const L = readOnly ? 'div' : 'button'
+              return (
+                <L key={t.id} onClick={readOnly ? undefined : () => navigate(`/taches/${t.id}/edit`)}
+                  className={`w-full flex items-center gap-2 text-left ${readOnly ? '' : 'active:opacity-70'}`}>
+                  <CheckCircle2 size={15} className="text-vigne-600 flex-shrink-0" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate">{t.titre}</span>
+                  <span className="text-xs text-gray-400 truncate ml-auto pl-2 max-w-[45%] text-right">
+                    {parcellesLabel(t.parcelles)}
+                  </span>
+                </L>
+              )
+            })}
+            {recap.traitements.map(t => {
+              // Le registre phyto est réservé aux admins → pas de lien pour les autres
+              const L = readOnly ? 'div' : 'button'
+              return (
+                <L key={t.id} onClick={readOnly ? undefined : () => navigate('/phyto')}
+                  className={`w-full flex items-center gap-2 text-left ${readOnly ? '' : 'active:opacity-70'}`}>
+                  <Sprout size={15} className="text-emerald-600 flex-shrink-0" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                    {t.produits.slice(0, 2).join(' + ')}{t.produits.length > 2 ? '…' : ''}
+                    {t.nb_parcelles > 0 && <span className="text-gray-400"> · {t.nb_parcelles} parcelle{t.nb_parcelles > 1 ? 's' : ''}</span>}
+                  </span>
+                  <span className="text-xs text-gray-400 flex-shrink-0 ml-auto pl-2">{fmtJour(t.date)}</span>
+                </L>
+              )
+            })}
             {recap.chargements.map(c => (
               <button key={c.id} onClick={() => navigate(`/vendange/parcelle/${c.vendange_id}`)}
                 className="w-full flex items-center gap-2 text-left active:opacity-70">
