@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, CheckSquare, CalendarDays } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useAuth } from '../../contexts/AuthContext'
 import { format, parseISO, isPast, isToday } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import PhotoModal from '../../components/PhotoModal'
@@ -33,7 +34,7 @@ function ParcellePills({ t }) {
   )
 }
 
-function TacheCard({ t, onToggle, onPhoto, navigate }) {
+function TacheCard({ t, onToggle, onPhoto, navigate, readOnly }) {
   const statut = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
   const Icon = statut.Icon
   const refDate = t.date_debut || t.date_fin
@@ -45,13 +46,20 @@ function TacheCard({ t, onToggle, onPhoto, navigate }) {
 
   return (
     <div className="card flex gap-3">
-      <button
-        onClick={() => onToggle(t)}
-        className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${statut.badge}`}
-      >
-        <Icon size={18} />
-      </button>
-      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/taches/${t.id}/edit`)}>
+      {readOnly ? (
+        <span className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${statut.badge}`}>
+          <Icon size={18} />
+        </span>
+      ) : (
+        <button
+          onClick={() => onToggle(t)}
+          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${statut.badge}`}
+        >
+          <Icon size={18} />
+        </button>
+      )}
+      <div className={`flex-1 min-w-0 ${readOnly ? '' : 'cursor-pointer'}`}
+           onClick={readOnly ? undefined : () => navigate(`/taches/${t.id}/edit`)}>
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
             {PRIORITE_DOT[t.priorite] && (
@@ -93,6 +101,7 @@ function TacheCard({ t, onToggle, onPhoto, navigate }) {
 }
 
 export default function TachesList() {
+  const { readOnly } = useAuth()
   const navigate = useNavigate()
   const [taches, setTaches] = useState([])
   const [loading, setLoading] = useState(true)
@@ -197,8 +206,8 @@ export default function TachesList() {
         <div className="px-4 pt-2 pb-8">
           <TachesSemaines
             taches={tachesSaison}
-            onToggle={toggleStatut}
-            onOpen={t => navigate(`/taches/${t.id}/edit`)}
+            onToggle={readOnly ? undefined : toggleStatut}
+            onOpen={readOnly ? undefined : (t => navigate(`/taches/${t.id}/edit`))}
           />
         </div>
       ) : (
@@ -207,7 +216,7 @@ export default function TachesList() {
             <div className="text-center py-16">
               <CheckSquare size={48} className="mx-auto text-vigne-300 mb-4" />
               <p className="text-gray-500 font-medium">Aucune tâche</p>
-              {filtre === 'a_faire' && saison === getSaisonCourante() && (
+              {!readOnly && filtre === 'a_faire' && saison === getSaisonCourante() && (
                 <button onClick={() => navigate('/taches/new')} className="mt-4 text-vigne-600 font-medium text-sm">
                   + Créer une tâche
                 </button>
@@ -215,20 +224,22 @@ export default function TachesList() {
             </div>
           ) : (
             filtered.map(t => (
-              <TacheCard key={t.id} t={t} onToggle={toggleStatut} onPhoto={setPhotoUrl} navigate={navigate} />
+              <TacheCard key={t.id} t={t} onToggle={toggleStatut} onPhoto={setPhotoUrl} navigate={navigate} readOnly={readOnly} />
             ))
           )}
         </div>
       )}
 
-      <button
-        onClick={() => navigate('/taches/new')}
-        className="fab-offset fixed right-4 bg-vigne-700 text-white w-14 h-14 rounded-full
-                   shadow-lg flex items-center justify-center active:scale-95 transition-transform z-10"
-        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
-      >
-        <Plus size={28} />
-      </button>
+      {!readOnly && (
+        <button
+          onClick={() => navigate('/taches/new')}
+          className="fab-offset fixed right-4 bg-vigne-700 text-white w-14 h-14 rounded-full
+                     shadow-lg flex items-center justify-center active:scale-95 transition-transform z-10"
+          style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+        >
+          <Plus size={28} />
+        </button>
+      )}
 
       <PhotoModal url={photoUrl} onClose={() => setPhotoUrl(null)} />
     </div>

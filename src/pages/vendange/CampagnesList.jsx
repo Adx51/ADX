@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Grape, ChevronRight, Lock, BarChart2 } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useAuth } from '../../contexts/AuthContext'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 
 function CardStats({ c }) {
@@ -61,6 +62,7 @@ function CardStats({ c }) {
 }
 
 export default function CampagnesList() {
+  const { readOnly } = useAuth()
   const navigate = useNavigate()
   const [campagnes, setCampagnes] = useState([])
   const [loading, setLoading] = useState(true)
@@ -92,9 +94,11 @@ export default function CampagnesList() {
           <div className="text-center py-16 lg:col-span-2">
             <Grape size={48} className="mx-auto text-vigne-300 mb-4" />
             <p className="text-gray-500 font-medium">Aucune campagne enregistrée</p>
-            <button onClick={() => navigate('/vendange/new')} className="mt-4 text-amber-600 font-medium">
-              Créer la première campagne
-            </button>
+            {!readOnly && (
+              <button onClick={() => navigate('/vendange/new')} className="mt-4 text-amber-600 font-medium">
+                Créer la première campagne
+              </button>
+            )}
           </div>
         ) : (
           campagnes.map(c => (
@@ -117,14 +121,16 @@ export default function CampagnesList() {
         )}
       </div>
 
-      <button
-        onClick={() => navigate('/vendange/new')}
-        className="fab-offset fixed right-4 bg-amber-500 text-white w-14 h-14 rounded-full
-                   shadow-lg flex items-center justify-center active:scale-95 transition-transform z-10"
-        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
-      >
-        <Plus size={28} />
-      </button>
+      {!readOnly && (
+        <button
+          onClick={() => navigate('/vendange/new')}
+          className="fab-offset fixed right-4 bg-amber-500 text-white w-14 h-14 rounded-full
+                     shadow-lg flex items-center justify-center active:scale-95 transition-transform z-10"
+          style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+        >
+          <Plus size={28} />
+        </button>
+      )}
     </div>
   )
 }

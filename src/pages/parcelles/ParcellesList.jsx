@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Map, ChevronRight, ChevronDown, Search, X } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, caToDisplayHa } from '../../lib/surface'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 
@@ -37,6 +38,7 @@ function filterParcelles(parcelles, search) {
 }
 
 export default function ParcellesList() {
+  const { readOnly } = useAuth()
   const navigate = useNavigate()
   const [parcelles, setParcelles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -97,9 +99,11 @@ export default function ParcellesList() {
             {parcelles.length === 0
               ? <>
                   <p className="text-gray-500 font-medium">Aucune parcelle pour l'instant</p>
-                  <button onClick={() => navigate('/parcelles/new')} className="mt-4 text-vigne-600 font-medium text-sm">
-                    + Ajouter une parcelle
-                  </button>
+                  {!readOnly && (
+                    <button onClick={() => navigate('/parcelles/new')} className="mt-4 text-vigne-600 font-medium text-sm">
+                      + Ajouter une parcelle
+                    </button>
+                  )}
                 </>
               : <p className="text-gray-500 font-medium">Aucun résultat pour « {search} »</p>
             }
@@ -178,14 +182,16 @@ export default function ParcellesList() {
         )}
       </div>
 
-      <button
-        onClick={() => navigate('/parcelles/new')}
-        className="fab-offset fixed right-4 bg-vigne-700 text-white w-14 h-14 rounded-full
-                   shadow-lg flex items-center justify-center active:scale-95 transition-transform z-10"
-        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
-      >
-        <Plus size={28} />
-      </button>
+      {!readOnly && (
+        <button
+          onClick={() => navigate('/parcelles/new')}
+          className="fab-offset fixed right-4 bg-vigne-700 text-white w-14 h-14 rounded-full
+                     shadow-lg flex items-center justify-center active:scale-95 transition-transform z-10"
+          style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+        >
+          <Plus size={28} />
+        </button>
+      )}
     </div>
   )
 }
