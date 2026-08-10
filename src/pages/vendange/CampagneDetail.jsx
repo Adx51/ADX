@@ -4,6 +4,7 @@ import { Edit2, Trash2, Lock, Unlock, ChevronRight, Grape, TrendingUp, TrendingD
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { api } from '../../lib/api'
+import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
@@ -11,6 +12,7 @@ import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 export default function CampagneDetail() {
   const { annee } = useParams()
   const navigate = useNavigate()
+  const { readOnly } = useAuth()
   const [campagne, setCampagne] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -57,6 +59,7 @@ export default function CampagneDetail() {
   // Crée la vendange si besoin, en se protégeant des taps multiples.
   async function ensureVendange(parcelle_id, vendange_id) {
     if (vendange_id) return vendange_id
+    if (readOnly) return null // consultation : on ne crée pas de vendange à la volée
     if (creatingRef.current.has(parcelle_id)) return null // création déjà en cours
     creatingRef.current.add(parcelle_id)
     try {
@@ -94,6 +97,8 @@ export default function CampagneDetail() {
   )
 
   const isClosed = campagne.statut === 'cloturee'
+  // En lecture seule : aucune écriture (mêmes verrous qu'une campagne clôturée)
+  const canWrite = !isClosed && !readOnly
   const parcelles = campagne.parcelles || []
 
   // Quand clôturée : utiliser les valeurs figées au moment de la clôture
@@ -146,7 +151,7 @@ export default function CampagneDetail() {
                 className="p-2 rounded-full active:bg-vigne-600">
           <Printer size={18} />
         </button>
-        {!isClosed && (
+        {canWrite && (
           <button onClick={() => navigate(`/vendange/${annee}/edit`)}
                   className="p-2 rounded-full active:bg-vigne-600">
             <Edit2 size={18} />
@@ -243,7 +248,7 @@ export default function CampagneDetail() {
             <div className="card space-y-2">
               <div className="flex items-center justify-between">
                 <p className="font-semibold text-gray-900 text-sm">Note de bilan</p>
-                {!bilanEdit && (
+                {!bilanEdit && !readOnly && (
                   <button onClick={() => setBilanEdit(true)} className="text-vigne-700 text-sm font-medium">
                     Modifier
                   </button>
@@ -268,7 +273,7 @@ export default function CampagneDetail() {
           )}
 
           {/* Boutons clôture / réouverture */}
-          {!isClosed ? (
+          {canWrite ? (
             confirmCloture ? (
               <div className="card border-amber-200 bg-amber-50 space-y-3">
                 <p className="text-amber-800 font-medium text-sm text-center">
@@ -287,7 +292,7 @@ export default function CampagneDetail() {
                 Clôturer la campagne
               </button>
             )
-          ) : (
+          ) : readOnly ? null : (
             <button onClick={rouvrir}
                     className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm font-medium active:bg-gray-50">
               <Unlock size={16} />
@@ -295,7 +300,7 @@ export default function CampagneDetail() {
             </button>
           )}
 
-          {!confirmDelete ? (
+          {readOnly ? null : !confirmDelete ? (
             <button onClick={() => setConfirmDelete(true)}
                     className="w-full flex items-center justify-center gap-2 text-red-500 py-3 text-sm font-medium">
               <Trash2 size={16} />
@@ -320,7 +325,7 @@ export default function CampagneDetail() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-bold text-gray-900">Parcelles</h2>
-              {!isClosed && (
+              {canWrite && (
                 <p className="text-xs text-gray-400">+ = nouveau chargement</p>
               )}
             </div>
@@ -334,25 +339,25 @@ export default function CampagneDetail() {
                 {actives.length > 0 && (
                   <div className="space-y-2">
                     <SectionLabel label="En cours" count={actives.length} />
-                    <ParcelleSection parcelles={actives} attendu={attendu} campagneClosed={isClosed}
+                    <ParcelleSection parcelles={actives} attendu={attendu} campagneClosed={!canWrite}
                       onOpen={p => openParcelle(p.id, p.vendange_id)}
-                      onAdd={p => quickChargement(p.id, p.vendange_id)} />
+                      onAdd={canWrite ? (p => quickChargement(p.id, p.vendange_id)) : null} />
                   </div>
                 )}
 
                 {nonLancees.length > 0 && (
                   <div className="space-y-2">
                     <SectionLabel label="À vendanger" count={nonLancees.length} className={actives.length > 0 ? 'mt-3' : ''} />
-                    <ParcelleSection parcelles={nonLancees} attendu={attendu} campagneClosed={isClosed}
+                    <ParcelleSection parcelles={nonLancees} attendu={attendu} campagneClosed={!canWrite}
                       onOpen={p => openParcelle(p.id, p.vendange_id)}
-                      onAdd={p => quickChargement(p.id, p.vendange_id)} />
+                      onAdd={canWrite ? (p => quickChargement(p.id, p.vendange_id)) : null} />
                   </div>
                 )}
 
                 {clotsurees.length > 0 && (
                   <div className="space-y-2">
                     <SectionLabel label="Clôturées" icon={<Lock size={14} className="text-gray-400" />} count={clotsurees.length} className="mt-3" />
-                    <ParcelleSection parcelles={clotsurees} attendu={attendu} campagneClosed={isClosed}
+                    <ParcelleSection parcelles={clotsurees} attendu={attendu} campagneClosed={!canWrite}
                       closed
                       onOpen={p => openParcelle(p.id, p.vendange_id)}
                       onAdd={null} />
