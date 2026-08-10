@@ -16,9 +16,9 @@ import PhotoModal from '../../components/PhotoModal'
 export default function ParcelleDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, readOnly } = useAuth()
   const isAdmin = user?.role === 'admin'
-  const canDelete = isAdmin || user?.can_delete?.parcelles === true
+  const canDelete = !readOnly && (isAdmin || user?.can_delete?.parcelles === true)
   const [parcelle, setParcelle] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -140,10 +140,12 @@ export default function ParcelleDetail() {
   return (
     <div>
       <PageHeader title={parcelle.nom} back="/parcelles">
-        <button onClick={() => navigate(`/parcelles/${id}/edit`)}
-                className="p-2 rounded-full active:bg-vigne-600">
-          <Edit2 size={18} />
-        </button>
+        {!readOnly && (
+          <button onClick={() => navigate(`/parcelles/${id}/edit`)}
+                  className="p-2 rounded-full active:bg-vigne-600">
+            <Edit2 size={18} />
+          </button>
+        )}
       </PageHeader>
 
       {parcelle.photo_url && (
@@ -249,7 +251,8 @@ export default function ParcelleDetail() {
         {/* ── Onglet Activité ── */}
         {activeTab === 'activite' && (
           activite
-            ? <ActiviteSection activite={activite} navigate={navigate} onToggleTache={toggleTacheStatut} />
+            ? <ActiviteSection activite={activite} navigate={navigate}
+                               onToggleTache={readOnly ? undefined : toggleTacheStatut} />
             : <div className="card skeleton h-32" />
         )}
 
@@ -277,9 +280,11 @@ export default function ParcelleDetail() {
               <div className="card text-center py-6">
                 <Grape size={32} className="mx-auto text-vigne-300 mb-2" />
                 <p className="text-gray-500 text-sm">Aucune vendange enregistrée</p>
-                <Link to="/vendange" className="mt-3 inline-block text-vigne-700 text-sm font-semibold">
-                  + Saisir une vendange
-                </Link>
+                {!readOnly && (
+                  <Link to="/vendange" className="mt-3 inline-block text-vigne-700 text-sm font-semibold">
+                    + Saisir une vendange
+                  </Link>
+                )}
               </div>
             ) : (
               <>
@@ -472,7 +477,7 @@ function ActiviteSection({ activite, navigate, onToggleTache }) {
               taches={tachesSaison}
               groupParcelles={false}
               onToggle={onToggleTache}
-              onOpen={t => navigate(`/taches/${t.id}/edit`)}
+              onOpen={onToggleTache ? (t => navigate(`/taches/${t.id}/edit`)) : undefined}
             />
           ) : (
             <div className="card space-y-2">
@@ -484,28 +489,37 @@ function ActiviteSection({ activite, navigate, onToggleTache }) {
                 const hasRange = t.date_debut && t.date_fin && t.date_debut !== t.date_fin
                 const week = getISOWeek(refDate)
                 const fmtD = d => new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+                const rond = `w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${s.badge}`
+                const corps = (
+                  <>
+                    <span className={`text-sm leading-tight ${done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{t.titre}</span>
+                    {refDate && (
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs text-gray-400">
+                          {hasRange ? `${fmtD(t.date_debut)} → ${fmtD(t.date_fin)}` : fmtD(refDate)}
+                        </span>
+                        {week && (
+                          <span className="text-xs font-semibold text-vigne-600 bg-vigne-50 px-1.5 py-0.5 rounded-full">
+                            S.{week}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )
                 return (
                   <div key={t.id} className={`flex items-start gap-2.5 ${done ? 'opacity-50' : ''}`}>
-                    <button onClick={() => onToggleTache(t)}
-                      className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${s.badge}`}>
-                      <Icon size={13} />
-                    </button>
-                    <button onClick={() => navigate(`/taches/${t.id}/edit`)}
-                      className="flex-1 min-w-0 text-left active:opacity-70">
-                      <span className={`text-sm leading-tight ${done ? 'line-through text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{t.titre}</span>
-                      {refDate && (
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-xs text-gray-400">
-                            {hasRange ? `${fmtD(t.date_debut)} → ${fmtD(t.date_fin)}` : fmtD(refDate)}
-                          </span>
-                          {week && (
-                            <span className="text-xs font-semibold text-vigne-600 bg-vigne-50 px-1.5 py-0.5 rounded-full">
-                              S.{week}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </button>
+                    {onToggleTache ? (
+                      <button onClick={() => onToggleTache(t)} className={rond}><Icon size={13} /></button>
+                    ) : (
+                      <span className={rond}><Icon size={13} /></span>
+                    )}
+                    {onToggleTache ? (
+                      <button onClick={() => navigate(`/taches/${t.id}/edit`)}
+                        className="flex-1 min-w-0 text-left active:opacity-70">{corps}</button>
+                    ) : (
+                      <div className="flex-1 min-w-0">{corps}</div>
+                    )}
                   </div>
                 )
               })}
