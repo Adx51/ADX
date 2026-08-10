@@ -2,6 +2,7 @@ import { useEffect, useState, Fragment } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FileUp, Download, Trash2, BarChart2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useAuth } from '../../contexts/AuthContext'
 import PageHeader from '../../components/PageHeader'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
 
@@ -9,6 +10,7 @@ const CURRENT_YEAR = new Date().getFullYear()
 
 export default function PhytoRecapsPage() {
   const navigate = useNavigate()
+  const { readOnly } = useAuth()
   const [annee, setAnnee] = useState(CURRENT_YEAR)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -79,9 +81,11 @@ export default function PhytoRecapsPage() {
 
       {/* Actions */}
       <div className="flex gap-2 px-4 pt-2 pb-3">
-        <button onClick={() => navigate('/phyto/recaps/import')} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl bg-vigne-700 text-white text-sm font-semibold active:bg-vigne-800">
-          <FileUp size={15} /> Importer un PDF
-        </button>
+        {!readOnly && (
+          <button onClick={() => navigate('/phyto/recaps/import')} className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl bg-vigne-700 text-white text-sm font-semibold active:bg-vigne-800">
+            <FileUp size={15} /> Importer un PDF
+          </button>
+        )}
         {data?.recaps?.length > 0 && (
           <button onClick={downloadCSV} className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium">
             <Download size={15} /> Export CSV
@@ -113,7 +117,7 @@ export default function PhytoRecapsPage() {
                   <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{r.prestataire || 'Récap ' + r.annee}</p>
                   <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{r.parcelles.length} parcelle{r.parcelles.length > 1 ? 's' : ''}</p>
                 </div>
-                {confirmDelete === r.id ? (
+                {readOnly ? null : confirmDelete === r.id ? (
                   <div className="flex gap-1">
                     <button onClick={() => deleteRecap(r.id)} className="px-2 py-1 text-xs bg-red-600 text-white rounded-lg">Suppr.</button>
                     <button onClick={() => setConfirmDelete(null)} className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400">Annuler</button>
