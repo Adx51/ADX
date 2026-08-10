@@ -12,22 +12,31 @@ function TacheRow({ t, onToggle, onOpen }) {
   const s = STATUT_TACHE[t.statut] || STATUT_TACHE.a_faire
   const { Icon } = s
   const done = t.statut === 'termine'
+  // Sans onToggle ni onOpen (lecture seule), la ligne devient purement
+  // informative : ni bouton de statut, ni navigation vers un formulaire.
+  const rond = `w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${s.badge}`
+  const titre = (
+    <span className={`text-sm ${done ? 'line-through text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
+      {PRIORITE_DOT[t.priorite] && (
+        <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${PRIORITE_DOT[t.priorite]}`} />
+      )}
+      {t.titre}
+    </span>
+  )
   return (
     <div className="flex items-center gap-2">
-      <button
-        onClick={() => (onToggle ? onToggle(t) : onOpen(t))}
-        className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${s.badge}`}
-      >
-        <Icon size={13} />
-      </button>
-      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onOpen(t)}>
-        <span className={`text-sm ${done ? 'line-through text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
-          {PRIORITE_DOT[t.priorite] && (
-            <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${PRIORITE_DOT[t.priorite]}`} />
-          )}
-          {t.titre}
-        </span>
-      </div>
+      {onToggle || onOpen ? (
+        <button onClick={() => (onToggle ? onToggle(t) : onOpen(t))} className={rond}>
+          <Icon size={13} />
+        </button>
+      ) : (
+        <span className={rond}><Icon size={13} /></span>
+      )}
+      {onOpen ? (
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onOpen(t)}>{titre}</div>
+      ) : (
+        <div className="flex-1 min-w-0">{titre}</div>
+      )}
       {(t.date_debut || t.date_fin) && (
         <span className="text-xs text-gray-400 flex-shrink-0">
           {t.date_debut && format(parseISO(t.date_debut), 'd MMM', { locale: fr })}

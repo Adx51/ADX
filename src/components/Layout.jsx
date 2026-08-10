@@ -5,6 +5,7 @@ import SideNav from './SideNav'
 import TopBar from './TopBar'
 import OfflineBanner from './OfflineBanner'
 import UpdateBanner from './UpdateBanner'
+import ReadOnlyBanner from './ReadOnlyBanner'
 
 export default function Layout() {
   const { pathname } = useLocation()
@@ -22,6 +23,7 @@ export default function Layout() {
         <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden overscroll-none print:overflow-visible print:h-auto">
           <UpdateBanner />
           <OfflineBanner />
+          <ReadOnlyBanner />
           <main className="page-content">
             <div className="md:max-w-4xl lg:max-w-5xl md:mx-auto lg:mx-auto">
               <Outlet />

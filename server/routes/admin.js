@@ -9,7 +9,7 @@ const router = Router()
 router.use(requireAuth)
 router.use(requireAdmin)
 
-// ── Backup / Export BDD ──────────────────────────────────────────────────────
+// ── Backup / Export BDD ────────────────────────────────────────────────────
 
 router.get('/backup', async (req, res) => {
   const dest = await backupDb()
@@ -31,7 +31,7 @@ router.get('/export', (req, res) => {
   res.json(data)
 })
 
-// ── Users ────────────────────────────────────────────────────────────────────
+// ── Users ──────────────────────────────────────────────────────────────
 
 router.post('/users', async (req, res) => {
   const { email, password, prenom, nom, role } = req.body
@@ -42,7 +42,7 @@ router.post('/users', async (req, res) => {
   const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail)
   if (existing) return res.status(409).json({ error: 'Cet email est déjà utilisé' })
 
-  const r = role === 'admin' ? 'admin' : 'user'
+  const r = ['admin', 'lecteur'].includes(role) ? role : 'user'
   const hash = await bcrypt.hash(password, 12)
   const id = uuidv4()
   db.prepare(`
@@ -92,7 +92,7 @@ router.put('/users/:id', (req, res) => {
 
 router.put('/users/:id/role', (req, res) => {
   const { role } = req.body
-  if (!['admin', 'user'].includes(role)) {
+  if (!['admin', 'user', 'lecteur'].includes(role)) {
     return res.status(400).json({ error: 'Rôle invalide' })
   }
   const u = db.prepare('SELECT id, email FROM users WHERE id = ?').get(req.params.id)
@@ -129,7 +129,7 @@ router.delete('/users/:id', (req, res) => {
   res.json({ success: true })
 })
 
-// ── Referentials ─────────────────────────────────────────────────────────────
+// ── Referentials ────────────────────────────────────────────────────────
 
 router.get('/referentiels/:type', (req, res) => {
   const rows = db.prepare(

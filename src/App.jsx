@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { OfflineProvider } from './contexts/OfflineContext'
 import PrivateRoute from './components/PrivateRoute'
+import WriteRoute from './components/WriteRoute'
 import Layout from './components/Layout'
 
 import Login from './pages/auth/Login'
@@ -61,38 +62,47 @@ export default function App() {
 
                 {/* Parcelles */}
                 <Route path="/parcelles" element={<ParcellesList />} />
-                <Route path="/parcelles/new" element={<ParcelleForm />} />
                 <Route path="/parcelles/:id" element={<ParcelleDetail />} />
-                <Route path="/parcelles/:id/edit" element={<ParcelleForm />} />
 
                 {/* Tâches */}
                 <Route path="/taches" element={<TachesList />} />
-                <Route path="/taches/new" element={<TacheForm />} />
-                <Route path="/taches/:id/edit" element={<TacheForm />} />
 
                 {/* Vendange — campagnes annuelles */}
                 <Route path="/vendange"                element={<CampagnesList />} />
                 <Route path="/vendange/stats"          element={<StatsGlobales />} />
-                <Route path="/vendange/new"            element={<CampagneForm />} />
                 <Route path="/vendange/parcelle/:id"   element={<VendangeDetail />} />
-                <Route path="/vendange/parcelle/:id/chargement/new"         element={<ChargementForm />} />
-                <Route path="/vendange/parcelle/:vendangeId/chargement/:id/edit" element={<ChargementForm />} />
                 <Route path="/vendange/:annee"         element={<CampagneDetail />} />
-                <Route path="/vendange/:annee/edit"    element={<CampagneForm />} />
                 <Route path="/vendange/:annee/export"  element={<CampagneExport />} />
                 <Route path="/vendange/:annee/export-journalier" element={<CampagneExportJournalier />} />
 
                 {/* Phyto */}
                 <Route path="/phyto" element={<PhytoPage />} />
-                <Route path="/phyto/import" element={<PhytoImportPage />} />
                 <Route path="/phyto/saison/:annee" element={<PhytoSaisonPage />} />
                 <Route path="/phyto/saison" element={<PhytoSaisonPage />} />
-                <Route path="/phyto/new" element={<PhytoForm />} />
-                <Route path="/phyto/:id/edit" element={<PhytoForm />} />
-
                 <Route path="/phyto/recaps" element={<PhytoRecapsPage />} />
-                <Route path="/phyto/recaps/import" element={<PhytoRecapImportPage />} />
-                <Route path="/phyto/carnet/import" element={<PhytoCarnetImportPage />} />
+
+                {/* Routes d'écriture — inaccessibles aux comptes en lecture seule */}
+                <Route element={<WriteRoute redirect="/parcelles" />}>
+                  <Route path="/parcelles/new" element={<ParcelleForm />} />
+                  <Route path="/parcelles/:id/edit" element={<ParcelleForm />} />
+                </Route>
+                <Route element={<WriteRoute redirect="/taches" />}>
+                  <Route path="/taches/new" element={<TacheForm />} />
+                  <Route path="/taches/:id/edit" element={<TacheForm />} />
+                </Route>
+                <Route element={<WriteRoute redirect="/vendange" />}>
+                  <Route path="/vendange/new"            element={<CampagneForm />} />
+                  <Route path="/vendange/:annee/edit"    element={<CampagneForm />} />
+                  <Route path="/vendange/parcelle/:id/chargement/new"         element={<ChargementForm />} />
+                  <Route path="/vendange/parcelle/:vendangeId/chargement/:id/edit" element={<ChargementForm />} />
+                </Route>
+                <Route element={<WriteRoute redirect="/phyto" />}>
+                  <Route path="/phyto/import" element={<PhytoImportPage />} />
+                  <Route path="/phyto/new" element={<PhytoForm />} />
+                  <Route path="/phyto/:id/edit" element={<PhytoForm />} />
+                  <Route path="/phyto/recaps/import" element={<PhytoRecapImportPage />} />
+                  <Route path="/phyto/carnet/import" element={<PhytoCarnetImportPage />} />
+                </Route>
 
                 {/* Admin & Réglages */}
                 <Route path="/admin" element={<AdminPage />} />
