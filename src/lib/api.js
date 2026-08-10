@@ -96,6 +96,25 @@ export function invalidateAll() {
   window.dispatchEvent(new Event('adx:data-changed'))
 }
 
+// ─── Mode lecture seule ───────────────────────────────────────────────────────
+// Miroir client du rôle « lecteur ». La vraie sécurité est côté serveur
+// (middleware blockReadOnlyWrites) ; ce garde-fou évite qu'une écriture partie
+// d'un bouton oublié ne soit mise en file d'attente hors ligne, et donne une
+// erreur immédiate et lisible.
+let _readOnly = false
+
+export function setReadOnly(v) { _readOnly = Boolean(v) }
+export function isReadOnly() { return _readOnly }
+
+function guardWrite(path) {
+  if (!_readOnly) return null
+  // La connexion reste possible (POST /auth/login) même en lecture seule
+  if (typeof path === 'string' && path.startsWith('/auth/')) return null
+  const e = new Error('Compte en lecture seule — aucune modification autorisée')
+  e.readOnly = true
+  return e
+}
+
 function afterMutation(d) {
   // Invalidation globale : les entités sont trop liées entre elles pour une
   // invalidation ciblée fiable (chargement → vendange → parcelle, tâche →
@@ -104,12 +123,20 @@ function afterMutation(d) {
   return d
 }
 
+// Toute écriture passe par ce wrapper : refus immédiat en lecture seule
+function write(fn) {
+  return (path, ...rest) => {
+    const blocked = guardWrite(path)
+    return blocked ? Promise.reject(blocked) : fn(path, ...rest)
+  }
+}
+
 export const api = {
   get:    (path)       => cachedGet(path),
-  post:   (path, body) => request('POST',   path, body).then(afterMutation),
-  put:    (path, body) => request('PUT',    path, body).then(afterMutation),
-  delete: (path)       => request('DELETE', path).then(afterMutation),
-  upload: (path, formData) => request('POST', path, formData, true).then(afterMutation),
+  post:   write((path, body) => request('POST',   path, body).then(afterMutation)),
+  put:    write((path, body) => request('PUT',    path, body).then(afterMutation)),
+  delete: write((path)       => request('DELETE', path).then(afterMutation)),
+  upload: write((path, formData) => request('POST', path, formData, true).then(afterMutation)),
   invalidate,
   invalidateAll,
 }

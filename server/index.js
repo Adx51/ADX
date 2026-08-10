@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url'
 import fs from 'fs'
 
 import db, { backupDb } from './db.js'
+import { blockReadOnlyWrites } from './middleware/auth.js'
 import authRoutes         from './routes/auth.js'
 import parcellesRoutes    from './routes/parcelles.js'
 import tachesRoutes       from './routes/taches.js'
@@ -48,6 +49,12 @@ app.use('/photos', (req, res, next) => {
 
 // API
 app.use('/api/auth',          authRoutes)
+
+// Garde lecture seule : montée ici, elle couvre TOUTES les routes de données
+// déclarées en dessous (y compris celles ajoutées plus tard). /api/auth est
+// au-dessus pour que la connexion (POST /login) reste possible.
+app.use('/api', blockReadOnlyWrites)
+
 app.use('/api/parcelles',     parcellesRoutes)
 app.use('/api/taches',        tachesRoutes)
 app.use('/api/campagnes',     campagnesRoutes)

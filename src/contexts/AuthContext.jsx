@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { api } from '../lib/api'
+import { api, setReadOnly } from '../lib/api'
 
 const AuthContext = createContext(null)
 
@@ -7,9 +7,18 @@ function getStoredUser() {
   try { return JSON.parse(localStorage.getItem('adx_user')) } catch { return null }
 }
 
+// Rôle « lecteur » = consultation seule sur toute l'application
+export function isReader(user) {
+  return user?.role === 'lecteur'
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(getStoredUser)
   const [loading, setLoading] = useState(true)
+
+  // Synchronise le garde-fou de api.js dès que l'utilisateur change
+  // (au montage depuis localStorage, après /auth/me, login et logout)
+  useEffect(() => { setReadOnly(isReader(user)) }, [user])
 
   useEffect(() => {
     const token = localStorage.getItem('adx_token')
@@ -73,7 +82,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, readOnly: isReader(user) }}>
       {children}
     </AuthContext.Provider>
   )
