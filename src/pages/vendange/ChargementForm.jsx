@@ -5,6 +5,7 @@ import { Package, Scale, Clock, CalendarDays, FileText, AlertTriangle } from 'lu
 import { api } from '../../lib/api'
 import { useBack } from '../../lib/useBack'
 import PageHeader from '../../components/PageHeader'
+import RepartitionParcelles, { repartirPoids } from '../../components/RepartitionParcelles'
 import { format } from 'date-fns'
 
 // Interprète une saisie libre en nombre, le plus largement possible : en
@@ -53,6 +54,10 @@ export default function ChargementForm() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [vendange, setVendange] = useState(null)
+  // Répartition d'une livraison mixte : parcelles AJOUTÉES uniquement.
+  // La parcelle courante n'y figure pas, elle porte toujours le reste.
+  const [repartition, setRepartition] = useState([])
+  const [autresParcelles, setAutresParcelles] = useState([])
 
   const { register, handleSubmit, setValue, control, formState } = useForm({
     defaultValues: {
@@ -85,7 +90,13 @@ export default function ChargementForm() {
     // le rythme est soutenu et une pesée doit s'enregistrer sans réglage.
     // Le contrôle de cohérence se fait par l'avertissement affiché plus bas,
     // qui n'impose aucune manipulation.
-    api.get(`/vendanges/${vendangeId}`).then(v => setVendange(v))
+    api.get(`/vendanges/${vendangeId}`).then(v => {
+      setVendange(v)
+      // Parcelles proposables pour une répartition (toutes sauf la courante)
+      api.get('/parcelles')
+        .then(ps => setAutresParcelles((ps || []).filter(p => p.id !== v?.parcelle_id)))
+        .catch(() => {})
+    })
 
     if (isEdit && chargementId) {
       api.get(`/chargements/${chargementId}`).then(c => {
@@ -117,9 +128,46 @@ export default function ChargementForm() {
       return
     }
 
+    // Lignes de répartition réellement renseignées
+    const ajoutees = repartition.filter(l => Number(l.caisses) > 0)
+
     setSaving(true)
     setError('')
     try {
+      if (!isEdit && ajoutees.length > 0) {
+        // Livraison mixte : UN SEUL appel, traité en transaction côté serveur.
+        // Hors ligne cela ne fait qu'une opération en file, et une livraison
+        // ne peut jamais être enregistrée à moitié.
+        const caissesAjoutees = ajoutees.map(l => Number(l.caisses))
+        const part = repartirPoids(kg, Math.round(caisses), caissesAjoutees)
+        const resteCaisses = Math.round(caisses) - caissesAjoutees.reduce((s, c) => s + c, 0)
+
+        const lignes = [
+          // La parcelle courante porte le reste — omise si tout a été réparti
+          ...(resteCaisses > 0
+            ? [{ parcelle_id: vendange.parcelles?.id ?? vendange.parcelle_id,
+                 nombre_caisses: resteCaisses, poids_kg: part.courante }]
+            : []),
+          ...ajoutees.map((l, i) => ({
+            parcelle_id: l.parcelle_id,
+            nombre_caisses: Number(l.caisses),
+            poids_kg: part.ajoutees[i],
+          })),
+        ]
+
+        await api.post('/livraisons', {
+          annee:           vendange.annee,
+          date_chargement: data.date_chargement,
+          heure_livraison: data.heure_livraison || null,
+          notes:           data.notes || null,
+          lignes,
+        })
+        api.invalidate(`/vendanges/${vendangeId}`)
+        api.invalidate('/campagnes')
+        goBack()
+        return
+      }
+
       const payload = {
         vendange_id:     vendangeId,
         nombre_caisses:  Math.round(caisses),
@@ -253,6 +301,19 @@ export default function ChargementForm() {
                   <span className="text-lg font-bold">{moyenne} kg/caisse</span>
                 </p>
               </div>
+            )}
+
+            {/* Répartition entre parcelles — repliée par défaut, invisible
+                quand la livraison ne concerne qu'une parcelle. */}
+            {!isEdit && moyenne && (
+              <RepartitionParcelles
+                parcelles={autresParcelles}
+                lignes={repartition}
+                setLignes={setRepartition}
+                totalCaisses={nbSaisi}
+                totalKg={kgSaisi}
+                nomParcelleCourante={vendange?.parcelles?.nom || 'Cette parcelle'}
+              />
             )}
           </div>
 

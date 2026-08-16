@@ -543,6 +543,18 @@ if (schemaVersion < 20) {
   db.pragma('user_version = 20')
 }
 
+if (schemaVersion < 21) {
+  // Une livraison au pressoir peut mélanger plusieurs parcelles (ex. 24 caisses
+  // dont 12 de chaque). Elle reste enregistrée comme un chargement par parcelle
+  // — indispensable au rendement kg/ha — mais les lignes issues d'une même
+  // pesée partagent désormais un identifiant, pour pouvoir les retrouver, les
+  // corriger ensemble et savoir qu'un poids est une quote-part et non une
+  // pesée autonome. Colonne facultative : les chargements existants ne bougent
+  // pas et restent parfaitement valides avec livraison_id à NULL.
+  try { db.exec(`ALTER TABLE chargements ADD COLUMN livraison_id TEXT`) } catch {}
+  db.pragma('user_version = 21')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5

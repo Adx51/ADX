@@ -13,6 +13,7 @@ import tachesRoutes       from './routes/taches.js'
 import campagnesRoutes    from './routes/campagnes.js'
 import vendangesRoutes    from './routes/vendanges.js'
 import chargementsRoutes  from './routes/chargements.js'
+import livraisonsRoutes   from './routes/livraisons.js'
 import traitementsRoutes  from './routes/traitements.js'
 import photosRoutes       from './routes/photos.js'
 import adminRoutes        from './routes/admin.js'
@@ -60,6 +61,7 @@ app.use('/api/taches',        tachesRoutes)
 app.use('/api/campagnes',     campagnesRoutes)
 app.use('/api/vendanges',     vendangesRoutes)
 app.use('/api/chargements',   chargementsRoutes)
+app.use('/api/livraisons',    livraisonsRoutes)
 app.use('/api/traitements',   traitementsRoutes)
 app.use('/api/photos',        photosRoutes)
 app.use('/api/admin',         adminRoutes)
