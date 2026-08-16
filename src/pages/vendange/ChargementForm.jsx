@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useForm, useWatch } from 'react-hook-form'
-import { Package, Scale, Clock, CalendarDays, FileText } from 'lucide-react'
+import { Package, Scale, Clock, CalendarDays, FileText, AlertTriangle } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useBack } from '../../lib/useBack'
 import PageHeader from '../../components/PageHeader'
@@ -38,6 +38,14 @@ export default function ChargementForm() {
 
   const nbCaisses = useWatch({ control, name: 'nombre_caisses' })
   const poids     = useWatch({ control, name: 'poids_kg' })
+  const dateSaisie = useWatch({ control, name: 'date_chargement' })
+
+  // Une pesée doit être datée dans la saison de sa vendange. Un écart signale
+  // presque toujours une erreur de date : on l'affiche sans bloquer la saisie.
+  const anneeDate = dateSaisie ? parseInt(String(dateSaisie).slice(0, 4), 10) : null
+  const anneeIncoherente = Boolean(
+    vendange?.annee && anneeDate && anneeDate !== vendange.annee
+  )
   const nbSaisi   = toNumber(nbCaisses)
   const kgSaisi   = toNumber(poids)
   const moyenne   = nbSaisi > 0 && kgSaisi != null
@@ -45,7 +53,18 @@ export default function ChargementForm() {
     : null
 
   useEffect(() => {
-    api.get(`/vendanges/${vendangeId}`).then(v => setVendange(v))
+    api.get(`/vendanges/${vendangeId}`).then(v => {
+      setVendange(v)
+      // Saisie sur une vendange d'une autre année que l'année courante :
+      // pré-remplir avec « aujourd'hui » daterait la pesée hors de sa saison
+      // (ex. un chargement de la vendange 2025 daté 2026). On propose la date
+      // du dernier chargement existant, sinon le 1er septembre de la saison.
+      if (!isEdit && v?.annee && v.annee !== new Date().getFullYear()) {
+        const derniere = (v.chargements || [])
+          .map(c => c.date_chargement).filter(Boolean).sort().pop()
+        setValue('date_chargement', derniere || `${v.annee}-09-01`)
+      }
+    })
 
     if (isEdit && chargementId) {
       api.get(`/chargements/${chargementId}`).then(c => {
@@ -131,6 +150,19 @@ export default function ChargementForm() {
                 <p className="text-amber-100 text-xs">{vendange.nb_caisses_total || 0} caisses au total</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Date hors de la saison de la vendange — presque toujours une erreur */}
+        {anneeIncoherente && (
+          <div className="bg-orange-50 border border-orange-300 text-orange-800 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+            <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+            <span>
+              La date saisie est en <strong>{anneeDate}</strong> alors que cette
+              vendange est celle de <strong>{vendange.annee}</strong>. Vérifiez la
+              date : la pesée apparaîtrait dans le récap {vendange.annee} avec une
+              date {anneeDate}.
+            </span>
           </div>
         )}
 
