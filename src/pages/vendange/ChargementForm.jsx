@@ -39,11 +39,6 @@ function toNumber(v) {
   return Number.isFinite(n) ? n : null
 }
 
-// Affichage à la française du nombre interprété (450.5 → « 450,5 »)
-function fmtFr(n) {
-  return n.toLocaleString('fr-FR', { maximumFractionDigits: 3 })
-}
-
 export default function ChargementForm() {
   const params = useParams()
   const isEdit = Boolean(params.vendangeId)
@@ -295,12 +290,6 @@ export default function ChargementForm() {
                 « 450,5 ») a bien été comprise, sans jamais bloquer la saisie. */}
             {moyenne && (
               <div className="border-t border-gray-100 bg-vigne-50 px-4 py-3 text-center">
-                {/* Deux lignes distinctes : le calcul, puis le résultat. Sur
-                    un écran de téléphone une seule ligne coupait au mauvais
-                    endroit (« = 45,8 » / « kg/caisse »). */}
-                <p className="text-vigne-700 text-xs">
-                  {fmtFr(kgSaisi)} kg ÷ {fmtFr(nbSaisi)} caisses
-                </p>
                 <p className="text-vigne-800 font-bold text-lg leading-tight">
                   {moyenne} kg/caisse
                 </p>
