@@ -53,18 +53,11 @@ export default function ChargementForm() {
     : null
 
   useEffect(() => {
-    api.get(`/vendanges/${vendangeId}`).then(v => {
-      setVendange(v)
-      // Saisie sur une vendange d'une autre année que l'année courante :
-      // pré-remplir avec « aujourd'hui » daterait la pesée hors de sa saison
-      // (ex. un chargement de la vendange 2025 daté 2026). On propose la date
-      // du dernier chargement existant, sinon le 1er septembre de la saison.
-      if (!isEdit && v?.annee && v.annee !== new Date().getFullYear()) {
-        const derniere = (v.chargements || [])
-          .map(c => c.date_chargement).filter(Boolean).sort().pop()
-        setValue('date_chargement', derniere || `${v.annee}-09-01`)
-      }
-    })
+    // La date et l'heure restent celles de la saisie, toujours : en vendange
+    // le rythme est soutenu et une pesée doit s'enregistrer sans réglage.
+    // Le contrôle de cohérence se fait par l'avertissement affiché plus bas,
+    // qui n'impose aucune manipulation.
+    api.get(`/vendanges/${vendangeId}`).then(v => setVendange(v))
 
     if (isEdit && chargementId) {
       api.get(`/chargements/${chargementId}`).then(c => {
