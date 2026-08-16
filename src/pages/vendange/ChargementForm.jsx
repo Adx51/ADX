@@ -295,10 +295,14 @@ export default function ChargementForm() {
                 « 450,5 ») a bien été comprise, sans jamais bloquer la saisie. */}
             {moyenne && (
               <div className="border-t border-gray-100 bg-vigne-50 px-4 py-3 text-center">
-                <p className="text-vigne-800 font-semibold text-sm">
+                {/* Deux lignes distinctes : le calcul, puis le résultat. Sur
+                    un écran de téléphone une seule ligne coupait au mauvais
+                    endroit (« = 45,8 » / « kg/caisse »). */}
+                <p className="text-vigne-700 text-xs">
                   {fmtFr(kgSaisi)} kg ÷ {fmtFr(nbSaisi)} caisses
-                  {' = '}
-                  <span className="text-lg font-bold">{moyenne} kg/caisse</span>
+                </p>
+                <p className="text-vigne-800 font-bold text-lg leading-tight">
+                  {moyenne} kg/caisse
                 </p>
               </div>
             )}
