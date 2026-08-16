@@ -18,7 +18,7 @@ export default function ChargementForm() {
   const [error, setError] = useState('')
   const [vendange, setVendange] = useState(null)
 
-  const { register, handleSubmit, setValue, control } = useForm({
+  const { register, handleSubmit, setValue, control, formState } = useForm({
     defaultValues: {
       date_chargement: format(new Date(), 'yyyy-MM-dd'),
       nombre_caisses: '',
@@ -73,6 +73,11 @@ export default function ChargementForm() {
       // l'historique — sinon le bouton précédent y ramènerait.
       goBack()
     } catch (e) {
+      // Hors ligne : la saisie est déjà en file dans IndexedDB, elle n'est
+      // PAS perdue. On sort comme pour un enregistrement réussi, sinon
+      // l'utilisateur croit à un échec, ressaisit, et crée un doublon de pesée.
+      // Le bandeau ambré indique le nombre de saisies en attente d'envoi.
+      if (e?.offline) { goBack(); return }
       setError(e.message)
       setSaving(false)
     }
@@ -85,6 +90,7 @@ export default function ChargementForm() {
       <PageHeader
         title={isEdit ? 'Modifier le chargement' : 'Nouveau chargement'}
         back={backUrl}
+        dirty={formState.isDirty && !saving}
       />
 
       <div className="px-4 pt-3 pb-8 space-y-4">

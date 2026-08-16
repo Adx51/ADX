@@ -47,6 +47,9 @@ export default function CampagneForm() {
         navigate(`/vendange/${created.annee}`, { replace: true })
       }
     } catch (e) {
+      // Hors ligne : la saisie est déjà en file, elle n'est pas perdue.
+      // On sort comme pour un succès pour éviter une ressaisie en doublon.
+      if (e?.offline) { goBack(); return }
       setError(e.message)
       setSaving(false)
     }
