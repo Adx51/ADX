@@ -7,12 +7,40 @@ import { useBack } from '../../lib/useBack'
 import PageHeader from '../../components/PageHeader'
 import { format } from 'date-fns'
 
-// Le clavier français produit une virgule décimale (« 450,5 »).
-// Number('450,5') vaut NaN : on normalise AVANT tout calcul ou envoi.
-// Renvoie null si la saisie n'est pas un nombre exploitable.
+// Interprète une saisie libre en nombre, le plus largement possible : en
+// vendange on tape vite, la valeur doit passer sans avoir à la reformater.
+// Sont acceptés : « 450,5 », « 450.5 », « 1 250 », « 1 250,5 », « 450 kg »,
+// « 1.250,5 », espaces insécables du clavier, etc.
+//
+// Règles, volontairement simples et prévisibles :
+//   • les espaces et le texte (unités) sont ignorés ;
+//   • s'il n'y a qu'un séparateur, c'est le séparateur DÉCIMAL — c'est ce que
+//     produit le pavé numérique ;
+//   • s'il y en a plusieurs, le dernier est le décimal, les précédents sont
+//     des séparateurs de milliers.
+// La valeur interprétée est affichée à l'écran avant enregistrement, pour que
+// l'opérateur voie exactement le poids qui sera enregistré.
 function toNumber(v) {
-  const n = parseFloat(String(v ?? '').replace(',', '.').trim())
+  if (v == null) return null
+  let s = String(v)
+    .replace(/[\s   ]/g, '')  // espaces, y compris insécables
+    .replace(/[^0-9.,-]/g, '')               // unités et autres caractères
+  if (!s) return null
+
+  const dec = Math.max(s.lastIndexOf(','), s.lastIndexOf('.'))
+  if (dec !== -1) {
+    const entier   = s.slice(0, dec).replace(/[.,]/g, '')
+    const decimale = s.slice(dec + 1).replace(/[.,]/g, '')
+    s = `${entier}.${decimale}`
+  }
+
+  const n = parseFloat(s)
   return Number.isFinite(n) ? n : null
+}
+
+// Affichage à la française du nombre interprété (450.5 → « 450,5 »)
+function fmtFr(n) {
+  return n.toLocaleString('fr-FR', { maximumFractionDigits: 3 })
 }
 
 export default function ChargementForm() {
@@ -49,7 +77,7 @@ export default function ChargementForm() {
   const nbSaisi   = toNumber(nbCaisses)
   const kgSaisi   = toNumber(poids)
   const moyenne   = nbSaisi > 0 && kgSaisi != null
-    ? (kgSaisi / nbSaisi).toFixed(1)
+    ? (kgSaisi / nbSaisi).toFixed(1).replace('.', ',')
     : null
 
   useEffect(() => {
@@ -78,12 +106,14 @@ export default function ChargementForm() {
     // fausse et silencieuse est pire qu'un message d'erreur.
     const caisses = toNumber(data.nombre_caisses)
     const kg      = toNumber(data.poids_kg)
+    // Après interprétation, seule une saisie sans le moindre chiffre peut
+    // encore échouer. Le message indique alors ce qui a été compris.
     if (caisses == null || caisses <= 0) {
-      setError('Nombre de caisses invalide.')
+      setError(`Nombre de caisses illisible : « ${data.nombre_caisses ?? ''} ». Saisissez au moins un chiffre.`)
       return
     }
     if (kg == null || kg < 0) {
-      setError('Poids invalide. Utilisez des chiffres (la virgule est acceptée).')
+      setError(`Poids illisible : « ${data.poids_kg ?? ''} ». Saisissez au moins un chiffre.`)
       return
     }
 
@@ -194,7 +224,7 @@ export default function ChargementForm() {
                   <Package size={15} className="text-amber-500" />
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Caisses *</label>
                 </div>
-                <input type="text" inputMode="numeric" pattern="[0-9]*"
+                <input type="text" inputMode="numeric"
                        autoFocus={!isEdit}
                        className="w-full text-center text-4xl font-bold text-gray-900 outline-none bg-transparent py-1"
                        placeholder="0"
@@ -205,17 +235,22 @@ export default function ChargementForm() {
                   <Scale size={15} className="text-amber-500" />
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Poids (kg) *</label>
                 </div>
-                <input type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]*"
+                <input type="text" inputMode="decimal"
                        className="w-full text-center text-4xl font-bold text-amber-700 outline-none bg-transparent py-1"
                        placeholder="0"
                        {...register('poids_kg', { required: true, min: 0, valueAsNumber: false })} />
               </div>
             </div>
 
+            {/* Ce qui sera réellement enregistré, tel qu'interprété. Permet de
+                vérifier d'un coup d'œil qu'une saisie libre (« 1 250 kg »,
+                « 450,5 ») a bien été comprise, sans jamais bloquer la saisie. */}
             {moyenne && (
               <div className="border-t border-gray-100 bg-vigne-50 px-4 py-3 text-center">
-                <p className="text-vigne-700 font-semibold text-sm">
-                  Moyenne : <span className="text-vigne-800 text-lg font-bold">{moyenne} kg/caisse</span>
+                <p className="text-vigne-800 font-semibold text-sm">
+                  {fmtFr(kgSaisi)} kg ÷ {fmtFr(nbSaisi)} caisses
+                  {' = '}
+                  <span className="text-lg font-bold">{moyenne} kg/caisse</span>
                 </p>
               </div>
             )}
