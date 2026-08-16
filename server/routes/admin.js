@@ -31,6 +31,29 @@ router.get('/export', (req, res) => {
   res.json(data)
 })
 
+// ── Contrôles de cohérence ─────────────────────────────────────────────
+
+// Chargements dont l'année de la date ne correspond pas à la saison de leur
+// vendange (ex. pesée rattachée à la vendange 2025 mais datée 2026, cas type
+// d'une saisie faite sur une saison passée avec la date du jour).
+// Lecture seule : cette route ne modifie rien, elle sert au diagnostic.
+router.get('/chargements-incoherents', (req, res) => {
+  const rows = db.prepare(`
+    SELECT ch.id, ch.date_chargement, ch.heure_livraison,
+           ch.nombre_caisses, ch.poids_kg,
+           v.id    AS vendange_id,
+           v.annee AS saison,
+           COALESCE(p.nom, v.parcelle_nom, '(parcelle supprimée)') AS parcelle_nom
+    FROM chargements ch
+    JOIN vendanges v ON v.id = ch.vendange_id
+    LEFT JOIN parcelles p ON p.id = v.parcelle_id
+    WHERE ch.date_chargement IS NOT NULL
+      AND CAST(strftime('%Y', ch.date_chargement) AS INTEGER) <> v.annee
+    ORDER BY v.annee DESC, ch.date_chargement ASC
+  `).all()
+  res.json(rows)
+})
+
 // ── Users ──────────────────────────────────────────────────────────────
 
 router.post('/users', async (req, res) => {

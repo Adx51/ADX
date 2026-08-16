@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, List, Trash2, Crown, User, Plus, X, Edit2, Check, Database, Download, Shield, ChevronDown, Leaf, ChevronRight, Eye, EyeOff, KeyRound } from 'lucide-react'
+import { Users, List, Trash2, Crown, User, Plus, X, Edit2, Check, Database, Download, Shield, ChevronDown, Leaf, ChevronRight, Eye, EyeOff, KeyRound, Stethoscope } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import PageHeader from '../../components/PageHeader'
+import ControleSaisies from '../../components/ControleSaisies'
 import { APP_VERSION } from '../../lib/version'
 
 const PERM_SECTIONS = [
@@ -39,12 +40,16 @@ export default function AdminPage() {
         <TabBtn active={tab === 'backup'} onClick={() => setTab('backup')}>
           <Database size={16} /> Sauvegarde
         </TabBtn>
+        <TabBtn active={tab === 'controle'} onClick={() => setTab('controle')}>
+          <Stethoscope size={16} /> Contrôle
+        </TabBtn>
       </div>
 
       <div className="px-4 pt-4 pb-8">
         {tab === 'users' && <UsersTab />}
         {tab === 'refs'  && <RefsTab />}
         {tab === 'backup' && <BackupTab />}
+        {tab === 'controle' && <ControleSaisies />}
       </div>
     </div>
   )
