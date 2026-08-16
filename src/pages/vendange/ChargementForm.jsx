@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useForm, useWatch } from 'react-hook-form'
 import { Package, Scale, Clock, CalendarDays, FileText } from 'lucide-react'
 import { api } from '../../lib/api'
+import { useBack } from '../../lib/useBack'
 import PageHeader from '../../components/PageHeader'
 import { format } from 'date-fns'
 
@@ -12,7 +13,7 @@ export default function ChargementForm() {
   const vendangeId = isEdit ? params.vendangeId : params.id
   const chargementId = isEdit ? params.id : null
 
-  const navigate = useNavigate()
+  const goBack = useBack(`/vendange/parcelle/${vendangeId}`)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [vendange, setVendange] = useState(null)
@@ -68,7 +69,9 @@ export default function ChargementForm() {
       }
       api.invalidate(`/vendanges/${vendangeId}`)
       api.invalidate('/campagnes')
-      navigate(`/vendange/parcelle/${vendangeId}`)
+      // Retour à l'écran d'où l'on vient SANS laisser le formulaire dans
+      // l'historique — sinon le bouton précédent y ramènerait.
+      goBack()
     } catch (e) {
       setError(e.message)
       setSaving(false)

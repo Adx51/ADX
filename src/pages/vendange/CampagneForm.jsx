@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { api } from '../../lib/api'
+import { useBack } from '../../lib/useBack'
 import PageHeader from '../../components/PageHeader'
 
 export default function CampagneForm() {
   const { annee } = useParams()
   const isEdit = Boolean(annee)
   const navigate = useNavigate()
+  const goBack = useBack('/vendange')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -34,11 +36,15 @@ export default function CampagneForm() {
         rendement_attendu_kgha: data.rendement_attendu_kgha ? parseInt(data.rendement_attendu_kgha) : null,
       }
       if (isEdit) {
+        // On revient sur la campagne d'où l'on vient, sans laisser le
+        // formulaire dans l'historique.
         await api.put(`/campagnes/${annee}`, payload)
-        navigate(`/vendange/${annee}`)
+        goBack()
       } else {
+        // Création : on va voir la campagne créée. `replace` remplace le
+        // formulaire dans l'historique au lieu de l'empiler dessous.
         const created = await api.post('/campagnes', { ...payload, annee: parseInt(data.annee) })
-        navigate(`/vendange/${created.annee}`)
+        navigate(`/vendange/${created.annee}`, { replace: true })
       }
     } catch (e) {
       setError(e.message)

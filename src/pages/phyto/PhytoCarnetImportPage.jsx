@@ -62,7 +62,8 @@ export default function PhytoCarnetImportPage() {
         traitements: parsed.traitements,
       })
       api.invalidate('/phyto/rapports')
-      navigate('/phyto')
+      // `replace` : l'écran d'import ne reste pas dans l'historique
+      navigate('/phyto', { replace: true })
     } catch (e) {
       setError(e.message)
       setSaving(false)

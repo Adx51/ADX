@@ -65,7 +65,8 @@ export default function PhytoRecapImportPage() {
       })
       api.invalidate('/phyto/rapports')
       // Si des traitements datés ont été sauvegardés, retour au registre, sinon au récap
-      navigate(res.nbTraitements > 0 ? '/phyto' : '/phyto/recaps')
+      // `replace` : l'écran d'import ne reste pas dans l'historique
+      navigate(res.nbTraitements > 0 ? '/phyto' : '/phyto/recaps', { replace: true })
     } catch (e) {
       setError(e.message)
       setSaving(false)

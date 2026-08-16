@@ -48,7 +48,8 @@ export default function PhytoImportPage() {
         parcelles:   parsed.parcelles,
         produits:    parsed.produits,
       })
-      navigate('/phyto')
+      // `replace` : l'écran d'import ne reste pas dans l'historique
+      navigate('/phyto', { replace: true })
     } catch (e) {
       setError(e.message)
       setSaving(false)
