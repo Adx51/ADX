@@ -7,6 +7,14 @@ import { useBack } from '../../lib/useBack'
 import PageHeader from '../../components/PageHeader'
 import { format } from 'date-fns'
 
+// Le clavier français produit une virgule décimale (« 450,5 »).
+// Number('450,5') vaut NaN : on normalise AVANT tout calcul ou envoi.
+// Renvoie null si la saisie n'est pas un nombre exploitable.
+function toNumber(v) {
+  const n = parseFloat(String(v ?? '').replace(',', '.').trim())
+  return Number.isFinite(n) ? n : null
+}
+
 export default function ChargementForm() {
   const params = useParams()
   const isEdit = Boolean(params.vendangeId)
@@ -30,8 +38,11 @@ export default function ChargementForm() {
 
   const nbCaisses = useWatch({ control, name: 'nombre_caisses' })
   const poids     = useWatch({ control, name: 'poids_kg' })
-  const moyenne   = nbCaisses && poids && Number(nbCaisses) > 0
-    ? (Number(poids) / Number(nbCaisses)).toFixed(1) : null
+  const nbSaisi   = toNumber(nbCaisses)
+  const kgSaisi   = toNumber(poids)
+  const moyenne   = nbSaisi > 0 && kgSaisi != null
+    ? (kgSaisi / nbSaisi).toFixed(1)
+    : null
 
   useEffect(() => {
     api.get(`/vendanges/${vendangeId}`).then(v => setVendange(v))
@@ -50,14 +61,27 @@ export default function ChargementForm() {
   }, [vendangeId, chargementId, isEdit, setValue])
 
   async function onSubmit(data) {
+    // Garde-fou : une saisie illisible ne doit JAMAIS partir au serveur.
+    // NaN devient null en JSON et s'enregistrerait en poids 0 — une pesée
+    // fausse et silencieuse est pire qu'un message d'erreur.
+    const caisses = toNumber(data.nombre_caisses)
+    const kg      = toNumber(data.poids_kg)
+    if (caisses == null || caisses <= 0) {
+      setError('Nombre de caisses invalide.')
+      return
+    }
+    if (kg == null || kg < 0) {
+      setError('Poids invalide. Utilisez des chiffres (la virgule est acceptée).')
+      return
+    }
+
     setSaving(true)
     setError('')
     try {
-      const poidsStr = String(data.poids_kg || '').replace(',', '.').trim()
       const payload = {
         vendange_id:     vendangeId,
-        nombre_caisses:  parseInt(data.nombre_caisses, 10),
-        poids_kg:        parseFloat(poidsStr),
+        nombre_caisses:  Math.round(caisses),
+        poids_kg:        kg,
         date_chargement: data.date_chargement,
         heure_livraison: data.heure_livraison || null,
         notes:           data.notes || null,
