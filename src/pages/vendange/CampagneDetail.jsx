@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import PageHeader from '../../components/PageHeader'
 import { useRefreshTrigger } from '../../lib/useRefreshOnFocus'
+import ResteAVendanger from '../../components/ResteAVendanger'
 
 export default function CampagneDetail() {
   const { annee } = useParams()
@@ -246,6 +247,12 @@ export default function CampagneDetail() {
               </p>
             )}
           </div>
+
+          {/* Reste à vendanger, par commune — pilotage de fin de vendange.
+              Affichage seul : aucun calcul enregistré n'est modifié. */}
+          {!isClosed && (
+            <ResteAVendanger parcelles={parcelles} attendu={attendu} />
+          )}
 
           {/* Note de bilan */}
           {(isClosed || campagne.note_bilan) && (
