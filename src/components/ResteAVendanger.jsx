@@ -1,8 +1,12 @@
 import { MapPin, CheckCircle2 } from 'lucide-react'
 import { caToDisplay } from '../lib/surface'
 
-// Ce qu'il reste à vendanger, commune par commune — pour piloter les journées
-// de fin de vendange : où envoyer l'équipe, et combien de kilos attendre.
+// Ce qu'il reste à vendanger, PRESSOIR par pressoir — c'est ce qui pilote la
+// logistique en campagne : combien il reste encore à livrer à chacun.
+//
+// Le pressoir de référence d'une parcelle est sa commune de pressoir, et à
+// défaut sa commune — même règle que partout ailleurs dans l'application
+// (comparaison de rendement, exports).
 //
 // Une parcelle compte comme restante tant que sa vendange n'est pas clôturée.
 // Sa surface est donc comptée en entier même si elle est déjà entamée : on ne
@@ -25,10 +29,10 @@ export default function ResteAVendanger({ parcelles, attendu }) {
     )
   }
 
-  // Regroupement par commune
+  // Regroupement par pressoir de référence
   const parCommune = new Map()
   for (const p of restantes) {
-    const cle = p.commune || 'Sans commune'
+    const cle = (p.commune_pressoir || '').trim() || (p.commune || '').trim() || 'Pressoir non défini'
     if (!parCommune.has(cle)) {
       parCommune.set(cle, { commune: cle, nb: 0, enCours: 0, surface: 0, kg: 0 })
     }
@@ -54,7 +58,7 @@ export default function ResteAVendanger({ parcelles, attendu }) {
   return (
     <div className="card space-y-2">
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-        Reste à vendanger
+        Reste à vendanger <span className="normal-case font-normal text-gray-400">· par pressoir</span>
       </p>
 
       {communes.map(c => (

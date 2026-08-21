@@ -143,6 +143,7 @@ router.get('/:annee', (req, res) => {
         COALESCE(p.surface_totale_ca, 0)    AS surface_totale_ca,
         COALESCE(p.surface_plantee_ca, 0)   AS surface_plantee_ca,
         COALESCE(p.commune, '')             AS commune,
+        COALESCE(p.commune_pressoir, '')    AS commune_pressoir,
         COALESCE(p.cepages, '[]')           AS cepages,
         p.statut,
         v.id   AS vendange_id,
@@ -157,7 +158,8 @@ router.get('/:annee', (req, res) => {
     `).all(annee)
   } else {
     parcelles = db.prepare(`
-      SELECT p.id, p.nom, p.surface_plantee_ca, p.surface_totale_ca, p.commune, p.cepages, p.statut,
+      SELECT p.id, p.nom, p.surface_plantee_ca, p.surface_totale_ca, p.commune,
+             p.commune_pressoir, p.cepages, p.statut,
              v.id AS vendange_id, v.poids_total, v.nb_caisses_total, v.notes AS vendange_notes,
              v.statut AS vendange_statut
       FROM parcelles p
