@@ -114,6 +114,12 @@
     top: unset !important;
     z-index: unset !important;
   }
+  /* Un en-tête portant des boutons d'action dispose de moins de largeur :
+     on réduit le titre pour qu'il tienne sur une ligne (ex. « Vendange 2026 »
+     avec ses trois icônes). */
+  .page-header.has-actions h1 {
+    font-size: 1.25rem !important;
+  }
   .page-header h1 {
     font-size: 1.6rem !important;
     font-weight: 800 !important;

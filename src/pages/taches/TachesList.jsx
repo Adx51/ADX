@@ -203,7 +203,7 @@ export default function TachesList() {
           {Array.from({ length: 3 }).map((_, i) => <div key={i} className="card skeleton h-20" />)}
         </div>
       ) : vue === 'semaine' ? (
-        <div className="px-4 pt-2 pb-8">
+        <div className="px-4 pt-2 pb-28">
           <TachesSemaines
             taches={tachesSaison}
             onToggle={readOnly ? undefined : toggleStatut}
@@ -211,7 +211,7 @@ export default function TachesList() {
           />
         </div>
       ) : (
-        <div className="px-4 space-y-3 pt-2">
+        <div className="px-4 space-y-3 pt-2 pb-28">
           {filtered.length === 0 ? (
             <div className="text-center py-16">
               <CheckSquare size={48} className="mx-auto text-vigne-300 mb-4" />

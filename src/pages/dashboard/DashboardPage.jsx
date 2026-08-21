@@ -159,11 +159,12 @@ function fmtJour(d) {
   return format(parseISO(d), 'd MMM', { locale: fr })
 }
 
-// "Les Côtelles" · "Les Côtelles, La Carelle" · "8 parcelles"
+// Un seul nom tient sur la ligne ; au-delà on compte, plutôt que de tronquer
+// au milieu d'un nom de parcelle (« Le Mont Aigu, Les Ba… »).
 function parcellesLabel(parcelles) {
   const ps = parcelles || []
   if (ps.length === 0) return ''
-  if (ps.length <= 2) return ps.map(p => p.nom).join(', ')
+  if (ps.length === 1) return ps[0].nom
   return `${ps.length} parcelles`
 }
 

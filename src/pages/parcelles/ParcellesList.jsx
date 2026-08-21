@@ -90,7 +90,8 @@ export default function ParcellesList() {
         </div>
       </div>
 
-      <div className="px-4 pt-3 pb-4 space-y-4">
+      {/* pb-28 : dégage le dernier élément du bouton flottant et de la barre */}
+      <div className="px-4 pt-3 pb-28 space-y-4">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => <div key={i} className="card skeleton h-20" />)
         ) : filtered.length === 0 ? (
@@ -167,7 +168,7 @@ export default function ParcellesList() {
                               <p className="text-xs text-vigne-600 mt-0.5">{cepagesDisplay}</p>
                             )}
                             {p.reference_cadastrale && (
-                              <p className="text-xs text-gray-400 mt-0.5">{p.reference_cadastrale}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">{p.reference_cadastrale.replace(/,/g, ', ')}</p>
                             )}
                           </div>
                           <ChevronRight size={18} className="text-gray-300 flex-shrink-0" />

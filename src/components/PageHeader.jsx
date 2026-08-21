@@ -23,7 +23,7 @@ export default function PageHeader({ title, back, children, dirty = false }) {
   }
 
   return (
-    <div className="page-header flex items-center gap-3">
+    <div className={`page-header flex items-center gap-3 ${children ? 'has-actions' : ''}`}>
       {back && (
         <button
           onClick={handleBack}
@@ -32,7 +32,7 @@ export default function PageHeader({ title, back, children, dirty = false }) {
           <ArrowLeft size={22} />
         </button>
       )}
-      <h1 className="text-lg font-bold flex-1 leading-tight break-words">{title}</h1>
+      <h1 className="text-lg font-bold flex-1 min-w-0 leading-tight break-words">{title}</h1>
       {children}
     </div>
   )

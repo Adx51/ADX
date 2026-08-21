@@ -87,7 +87,7 @@ export default function CampagnesList() {
         </button>
       </div>
 
-      <div className="px-4 pt-4 space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
+      <div className="px-4 pt-4 pb-28 space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
         {loading ? (
           Array.from({ length: 2 }).map((_, i) => <div key={i} className="card skeleton h-24" />)
         ) : campagnes.length === 0 ? (

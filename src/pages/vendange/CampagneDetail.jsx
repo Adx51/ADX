@@ -210,7 +210,7 @@ export default function CampagneDetail() {
             <div className="grid grid-cols-3 gap-3 text-center">
               <div>
                 <p className="text-2xl font-bold text-amber-800">{fmtKg(Math.round(totalPoids))}</p>
-                <p className="text-xs text-amber-600 mt-0.5">kg récolté</p>
+                <p className="text-xs text-amber-600 mt-0.5">kg récoltés</p>
               </div>
               <div>
                 <p className="text-2xl font-bold text-amber-800">{totalCaisses}</p>
@@ -227,15 +227,12 @@ export default function CampagneDetail() {
             {/* Barre total récolté / attendu */}
             {kgAttenduTotal != null && (
               <div>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="font-semibold text-amber-800">
-                    {Number(totalPoids).toLocaleString('fr-FR')} kg récoltés
-                    {isClosed && <span className="text-gray-400 font-normal ml-1">(figé)</span>}
-                  </span>
-                  <span className="text-amber-600">
-                    {kgAttenduTotal.toLocaleString('fr-FR')} kg attendus
-                  </span>
-                </div>
+                {/* Le total récolté figure déjà en gros juste au-dessus :
+                    on ne rappelle ici que l'objectif. */}
+                <p className="text-xs text-center text-amber-600 mb-1">
+                  sur {kgAttenduTotal.toLocaleString('fr-FR')} kg attendus
+                  {isClosed && <span className="text-gray-400 ml-1">(figé)</span>}
+                </p>
                 <div className="h-2.5 bg-amber-200 rounded-full overflow-hidden">
                   <div className={`h-full rounded-full transition-all ${pctTotal > 100 ? 'bg-vigne-600' : 'bg-amber-600'}`}
                        style={{ width: `${Math.min(pctTotal, 100)}%` }} />
@@ -254,7 +251,10 @@ export default function CampagneDetail() {
               </div>
             )}
 
-            {attendu && rendementMoyen != null && (
+            {/* La comparaison à l'objectif n'a de sens qu'une fois la campagne
+                terminée : en cours de vendange elle est mécaniquement très
+                négative et alarme pour rien. */}
+            {isClosed && attendu && rendementMoyen != null && (
               <RendementComparison reel={rendementMoyen} attendu={attendu} />
             )}
             {!isClosed && nbEnCours > 0 && (
@@ -484,7 +484,7 @@ function ParcelleRow({ parcelle, attendu, campagneClosed, closed, onOpen, onAdd 
                 {Number(parcelle.poids_total || 0).toFixed(0)} kg · {parcelle.nb_caisses_total || 0} caisses
                 {rendement && <span className="text-vigne-600"> · {rendement.toLocaleString('fr-FR')} kg/ha</span>}
               </p>
-              {attendu && rendement != null && (
+              {closed && attendu && rendement != null && (
                 <RendementComparison reel={rendement} attendu={attendu} compact />
               )}
             </>
