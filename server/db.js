@@ -568,6 +568,30 @@ if (schemaVersion < 22) {
   db.pragma('user_version = 22')
 }
 
+if (schemaVersion < 23) {
+  // La part du bailleur lui est livrée en raisin, souvent en plusieurs fois et
+  // par cépage. On trace chaque livraison pour pouvoir présenter, sur le
+  // relevé : le dû, le livré, et le reste à livrer.
+  // Le cépage est facultatif : il n'a de sens que si le bailleur a des
+  // parcelles de cépages différents.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS livraisons_bailleur (
+      id             TEXT PRIMARY KEY,
+      bailleur       TEXT NOT NULL,
+      annee          INTEGER NOT NULL,
+      date_livraison TEXT NOT NULL,
+      cepage         TEXT,
+      poids_kg       REAL NOT NULL DEFAULT 0,
+      notes          TEXT,
+      user_id        TEXT REFERENCES users(id) ON DELETE SET NULL,
+      created_at     TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_livr_bailleur_annee
+      ON livraisons_bailleur(annee, bailleur);
+  `)
+  db.pragma('user_version = 23')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5
