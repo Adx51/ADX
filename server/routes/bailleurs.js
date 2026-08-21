@@ -1,10 +1,12 @@
 import { Router } from 'express'
 import { v4 as uuidv4 } from 'uuid'
 import db from '../db.js'
-import { requireAuth } from '../middleware/auth.js'
+import { requireAuth, requireAdmin } from '../middleware/auth.js'
 
 const router = Router()
-router.use(requireAuth)
+// Réservé à l'administrateur, comme le registre phytosanitaire : le suivi des
+// bailleurs n'est pas encore assez abouti pour être ouvert aux autres comptes.
+router.use(requireAuth, requireAdmin)
 
 // Part revenant au bailleur selon le taux du bail.
 // « au quart » : 1/4 — quart franc champenois, le bailleur ne supporte

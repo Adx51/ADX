@@ -15,9 +15,9 @@ const fmtKg = n => Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigit
 export default function CampagneDetail() {
   const { annee } = useParams()
   const navigate = useNavigate()
-  const { readOnly } = useAuth()
+  const { user, readOnly } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const [campagne, setCampagne] = useState(null)
-  const [bailleurs, setBailleurs] = useState(null)
   const [loading, setLoading] = useState(true)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [confirmCloture, setConfirmCloture] = useState(false)
@@ -32,9 +32,6 @@ export default function CampagneDetail() {
   useEffect(() => { load() }, [annee, refreshTick])
 
   async function load() {
-    // Part des bailleurs : on réutilise l'endpoint du relevé plutôt que de
-    // recalculer la règle du quart/tiers à un deuxième endroit.
-    api.get(`/bailleurs/releve/${annee}`).then(setBailleurs).catch(() => setBailleurs(null))
     const data = await api.get(`/campagnes/${annee}`)
     setCampagne(data)
     setBilanValue(data?.note_bilan || '')
@@ -157,10 +154,12 @@ export default function CampagneDetail() {
   return (
     <div>
       <PageHeader title={`Vendange ${campagne.annee}`} back="/vendange">
-        <button onClick={() => navigate(`/vendange/${annee}/bailleurs`)}
-                className="p-2 rounded-full active:bg-vigne-600" title="Relevé bailleurs">
-          <Users size={18} />
-        </button>
+        {isAdmin && (
+          <button onClick={() => navigate(`/vendange/${annee}/bailleurs`)}
+                  className="p-2 rounded-full active:bg-vigne-600" title="Relevé bailleurs">
+            <Users size={18} />
+          </button>
+        )}
         <button onClick={() => navigate(`/vendange/${annee}/export`)}
                 className="p-2 rounded-full active:bg-vigne-600">
           <Printer size={18} />
@@ -262,37 +261,6 @@ export default function CampagneDetail() {
               <p className="text-xs text-center text-amber-600">
                 {nbEnCours} / {parcelles.length} parcelle{parcelles.length > 1 ? 's' : ''} commencée{nbEnCours > 1 ? 's' : ''}
               </p>
-            )}
-
-            {/* Part due aux bailleurs sur les parcelles en métayage : ce qui
-                leur revient, ce qui a déjà été livré, et le reste à livrer. */}
-            {bailleurs?.total_du > 0 && (
-              <button onClick={() => navigate(`/vendange/${annee}/bailleurs`)}
-                      className="w-full text-left pt-3 border-t border-amber-200">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Users size={13} className="text-amber-700" />
-                  <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">
-                    Part des bailleurs
-                  </p>
-                  <ChevronRight size={13} className="text-amber-400 ml-auto" />
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div>
-                    <p className="text-sm font-bold text-amber-800">{fmtKg(bailleurs.total_du)}</p>
-                    <p className="text-xs text-amber-600">kg dus</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-amber-800">{fmtKg(bailleurs.total_livre)}</p>
-                    <p className="text-xs text-amber-600">kg livrés</p>
-                  </div>
-                  <div>
-                    <p className={`text-sm font-bold ${bailleurs.total_reste <= 0.05 ? 'text-vigne-700' : 'text-amber-900'}`}>
-                      {fmtKg(bailleurs.total_reste)}
-                    </p>
-                    <p className="text-xs text-amber-600">kg à livrer</p>
-                  </div>
-                </div>
-              </button>
             )}
           </div>
 
