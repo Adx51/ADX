@@ -22,7 +22,8 @@ router.get('/', (req, res) => {
 router.post('/', (req, res) => {
   const { nom, surface_totale_ca, surface_plantee_ca, nombre_routes,
           commune, commune_pressoir, cepages, statut, annee_plantation,
-          gps_lat, gps_lng, photo_url, notes, reference_cadastrale } = req.body
+          gps_lat, gps_lng, photo_url, notes, reference_cadastrale,
+          bailleur, bailleur_taux } = req.body
   if (!nom) return res.status(400).json({ error: 'Le nom est requis' })
   if (!surface_totale_ca) return res.status(400).json({ error: 'La surface totale est requise' })
 
@@ -33,14 +34,16 @@ router.post('/', (req, res) => {
     INSERT INTO parcelles
       (id, user_id, nom, surface_totale_ca, surface_plantee_ca,
        nombre_routes, commune, commune_pressoir, cepages, statut, annee_plantation,
-       gps_lat, gps_lng, photo_url, notes, reference_cadastrale)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       gps_lat, gps_lng, photo_url, notes, reference_cadastrale,
+       bailleur, bailleur_taux)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(id, req.userId, nom,
     surface_totale_ca ?? null, surface_plantee_ca ?? null,
     nombre_routes ?? null, commune ?? null, commune_pressoir ?? null, cepagesStr,
     statut ?? 'en_production', annee_plantation ?? null,
     gps_lat ?? null, gps_lng ?? null, photo_url ?? null, notes ?? null,
-    reference_cadastrale ?? null)
+    reference_cadastrale ?? null,
+    bailleur?.trim() || null, bailleur?.trim() ? (bailleur_taux || null) : null)
 
   res.json(parseParcelle(db.prepare('SELECT * FROM parcelles WHERE id = ?').get(id)))
 })
@@ -215,7 +218,8 @@ router.put('/:id', (req, res) => {
 
   const { nom, surface_totale_ca, surface_plantee_ca, nombre_routes,
           commune, commune_pressoir, cepages, statut, annee_plantation,
-          gps_lat, gps_lng, photo_url, notes, reference_cadastrale } = req.body
+          gps_lat, gps_lng, photo_url, notes, reference_cadastrale,
+          bailleur, bailleur_taux } = req.body
   const cepagesStr = Array.isArray(cepages) ? JSON.stringify(cepages) : '[]'
 
   db.prepare(`
@@ -223,13 +227,16 @@ router.put('/:id', (req, res) => {
       nom = ?, surface_totale_ca = ?, surface_plantee_ca = ?,
       nombre_routes = ?, commune = ?, commune_pressoir = ?, cepages = ?, statut = ?, annee_plantation = ?,
       gps_lat = ?, gps_lng = ?, photo_url = ?, notes = ?,
-      reference_cadastrale = ?, updated_at = datetime('now')
+      reference_cadastrale = ?, bailleur = ?, bailleur_taux = ?,
+      updated_at = datetime('now')
     WHERE id = ?
   `).run(nom, surface_totale_ca ?? null, surface_plantee_ca ?? null,
     nombre_routes ?? null, commune ?? null, commune_pressoir ?? null, cepagesStr,
     statut ?? 'en_production', annee_plantation ?? null,
     gps_lat ?? null, gps_lng ?? null, photo_url ?? null, notes ?? null,
-    reference_cadastrale ?? null, req.params.id)
+    reference_cadastrale ?? null,
+    bailleur?.trim() || null, bailleur?.trim() ? (bailleur_taux || null) : null,
+    req.params.id)
 
   res.json(parseParcelle(db.prepare('SELECT * FROM parcelles WHERE id = ?').get(req.params.id)))
 })

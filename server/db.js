@@ -555,6 +555,19 @@ if (schemaVersion < 21) {
   db.pragma('user_version = 21')
 }
 
+if (schemaVersion < 22) {
+  // Métayage : une parcelle peut être louée à un bailleur qui perçoit une part
+  // de la récolte — « au quart » (1/4, spécificité champenoise du quart franc)
+  // ou « au tiers » (1/3, plafond de droit commun). Le taux est stocké en clair
+  // et non en décimal : un tiers vaut 0,333333… et le figer introduirait un
+  // arrondi sans raison, alors que la division se fait exactement à l'affichage.
+  // Les deux colonnes sont facultatives : les parcelles existantes restent en
+  // faire-valoir direct sans aucune reprise.
+  try { db.exec(`ALTER TABLE parcelles ADD COLUMN bailleur TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE parcelles ADD COLUMN bailleur_taux TEXT`) } catch {}
+  db.pragma('user_version = 22')
+}
+
 // ─── Backup automatique : 5 dernières sauvegardes rotatives ──────────────────
 
 const MAX_BACKUPS = 5

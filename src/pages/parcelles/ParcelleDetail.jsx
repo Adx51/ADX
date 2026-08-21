@@ -175,6 +175,11 @@ export default function ParcelleDetail() {
               <InfoRow label="Surface plantée" value={caToDisplay(parcelle.surface_plantee_ca)} />
               <InfoRow label="Nombre de routes" value={parcelle.nombre_routes != null ? `${parcelle.nombre_routes} routes` : null} />
               {parcelle.commune              && <InfoRow label="Commune"          value={parcelle.commune} />}
+              {parcelle.bailleur && (
+                <InfoRow label="Bailleur" value={
+                  `${parcelle.bailleur} — au ${parcelle.bailleur_taux === 'tiers' ? 'tiers (1/3)' : 'quart (1/4)'}`
+                } />
+              )}
               {parcelle.reference_cadastrale && <InfoRow label="Réf. cadastrale" value={parcelle.reference_cadastrale.replace(/,/g, ', ')} />}
               {Array.isArray(parcelle.cepages) && parcelle.cepages.length > 0 &&
                 <InfoRow label="Cépages" value={parcelle.cepages.join(', ')} />}

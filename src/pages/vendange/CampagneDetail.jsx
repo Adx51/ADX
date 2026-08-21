@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Edit2, Trash2, Lock, Unlock, ChevronRight, Grape, TrendingUp, TrendingDown, Calendar, Target, Plus, Printer } from 'lucide-react'
+import { Edit2, Trash2, Lock, Unlock, ChevronRight, Grape, TrendingUp, TrendingDown, Calendar, Target, Plus, Printer, Users } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { api } from '../../lib/api'
@@ -147,6 +147,10 @@ export default function CampagneDetail() {
   return (
     <div>
       <PageHeader title={`Vendange ${campagne.annee}`} back="/vendange">
+        <button onClick={() => navigate(`/vendange/${annee}/bailleurs`)}
+                className="p-2 rounded-full active:bg-vigne-600" title="Relevé bailleurs">
+          <Users size={18} />
+        </button>
         <button onClick={() => navigate(`/vendange/${annee}/export`)}
                 className="p-2 rounded-full active:bg-vigne-600">
           <Printer size={18} />

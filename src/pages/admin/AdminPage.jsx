@@ -552,6 +552,7 @@ function RefsTab() {
       <RefSection type="commune" label="Communes" withInsee />
       <RefSection type="cepage" label="Cépages" />
       <RefSection type="prestataire" label="Prestataires" />
+      <RefSection type="bailleur" label="Bailleurs" />
     </div>
   )
 }

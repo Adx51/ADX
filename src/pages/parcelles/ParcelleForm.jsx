@@ -33,25 +33,28 @@ export default function ParcelleForm() {
   const [cadastreFeatures, setCadastreFeatures] = useState(null)
   const [communes, setCommunes] = useState([])   // [{valeur, code_insee}]
   const [cepages, setCepages] = useState([])      // [{valeur}]
+  const [bailleurs, setBailleurs] = useState([])  // [{valeur}]
   const [parcelleData, setParcelleData] = useState(null)
 
   const { register, handleSubmit, setValue, watch } = useForm({
     defaultValues: {
       ares: '', centiares: '', ares_p: '', centiares_p: '',
       statut: 'en_production', commune: '', commune_pressoir: '', gps_lat: '', gps_lng: '',
-      reference_cadastrale: ''
+      reference_cadastrale: '', bailleur: '', bailleur_taux: 'quart'
     }
   })
 
   const gpsLat = watch('gps_lat')
   const gpsLng = watch('gps_lng')
   const statut = watch('statut')
+  const bailleurBail = watch('bailleur')
   const communeVal = watch('commune')
   const refCadastrale = watch('reference_cadastrale')
 
   useEffect(() => {
     api.get('/referentiels/commune').then(data => setCommunes(data || []))
     api.get('/referentiels/cepage').then(data => setCepages(data || []))
+    api.get('/referentiels/bailleur').then(data => setBailleurs(data || []))
   }, [])
 
   useEffect(() => {
@@ -83,6 +86,8 @@ export default function ParcelleForm() {
     setValue('gps_lng', data.gps_lng || '')
     setValue('notes', data.notes || '')
     setValue('reference_cadastrale', data.reference_cadastrale || '')
+    setValue('bailleur', data.bailleur || '')
+    setValue('bailleur_taux', data.bailleur_taux || 'quart')
   }, [parcelleData, communes, setValue])
 
   function toggleCepage(c) {
@@ -162,7 +167,9 @@ export default function ParcelleForm() {
         gps_lng: data.gps_lng ? parseFloat(data.gps_lng) : null,
         photo_url,
         notes: data.notes || null,
-        reference_cadastrale: data.reference_cadastrale || null
+        reference_cadastrale: data.reference_cadastrale || null,
+        bailleur: data.bailleur || null,
+        bailleur_taux: data.bailleur ? (data.bailleur_taux || 'quart') : null
       }
 
       if (isEdit) {
@@ -318,6 +325,32 @@ export default function ParcelleForm() {
               <input className="input" type="number" min="1980" max="2050" placeholder="ex: 2022"
                 {...register('annee_plantation')} />
             </div>
+          )}
+        </div>
+
+        {/* Faire-valoir — parcelle en propriété ou louée à un bailleur */}
+        <div>
+          <label className="label">Faire-valoir</label>
+          <select className="input" {...register('bailleur')}>
+            <option value="">Propriété — exploitation directe</option>
+            {bailleurs.map(b => (
+              <option key={b.valeur} value={b.valeur}>Métayage — {b.valeur}</option>
+            ))}
+          </select>
+          {bailleurBail && (
+            <div className="mt-2">
+              <label className="label">Part du bailleur</label>
+              <select className="input" {...register('bailleur_taux')}>
+                <option value="quart">Au quart — 1/4 de la récolte</option>
+                <option value="tiers">Au tiers — 1/3 de la récolte</option>
+              </select>
+            </div>
+          )}
+          {bailleurs.length === 0 && (
+            <p className="text-xs text-gray-400 mt-1">
+              Ajoutez vos bailleurs dans Admin → Référentiels pour pouvoir les
+              sélectionner ici.
+            </p>
           )}
         </div>
 
