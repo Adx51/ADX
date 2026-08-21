@@ -130,6 +130,9 @@ export default function CampagneDetail() {
       : null
 
   const pctTotal = kgAttenduTotal ? Math.min(Math.round((totalPoids / kgAttenduTotal) * 100), 999) : null
+  // Kilos restant à rentrer pour atteindre l'objectif de la campagne.
+  // Nul une fois l'objectif atteint : on n'affiche pas de reste négatif.
+  const resteGlobal = kgAttenduTotal ? Math.max(0, kgAttenduTotal - totalPoids) : 0
 
   const nbEnCours = parcelles.filter(p => p.vendange_id && p.vendange_statut !== 'cloturee').length
 
@@ -207,7 +210,7 @@ export default function CampagneDetail() {
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
             <div className="grid grid-cols-3 gap-3 text-center">
               <div>
-                <p className="text-2xl font-bold text-amber-800">{Number(totalPoids).toFixed(0)}</p>
+                <p className="text-2xl font-bold text-amber-800">{fmtKg(Math.round(totalPoids))}</p>
                 <p className="text-xs text-amber-600 mt-0.5">kg récolté</p>
               </div>
               <div>
@@ -238,6 +241,14 @@ export default function CampagneDetail() {
                   <div className={`h-full rounded-full transition-all ${pctTotal > 100 ? 'bg-vigne-600' : 'bg-amber-600'}`}
                        style={{ width: `${Math.min(pctTotal, 100)}%` }} />
                 </div>
+                {/* Ce qu'il reste à rentrer pour atteindre l'objectif : la
+                    donnée que l'on cherche en cours de vendange. */}
+                {resteGlobal > 0 && (
+                  <p className="text-center mt-1.5">
+                    <span className="text-lg font-bold text-amber-800">{fmtKg(resteGlobal)} kg</span>
+                    <span className="text-xs text-amber-700 font-semibold"> restants</span>
+                  </p>
+                )}
                 <p className={`text-xs text-center font-semibold mt-1 ${pctTotal > 100 ? 'text-vigne-700' : 'text-amber-700'}`}>
                   {pctTotal}% de l'objectif campagne
                 </p>
