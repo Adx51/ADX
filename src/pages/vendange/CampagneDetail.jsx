@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Edit2, Trash2, Lock, Unlock, ChevronRight, Grape, TrendingUp, TrendingDown, Calendar, Target, Plus, Printer, Users, Search, X, ChevronDown } from 'lucide-react'
+import { Edit2, Trash2, Lock, Unlock, ChevronRight, Grape, TrendingUp, TrendingDown, Calendar, CalendarDays, Target, Plus, FileText, Users, Search, X, ChevronDown } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { api } from '../../lib/api'
@@ -183,16 +183,6 @@ export default function CampagneDetail() {
   return (
     <div>
       <PageHeader title={`Vendange ${campagne.annee}`} back="/vendange">
-        {isAdmin && (
-          <button onClick={() => navigate(`/vendange/${annee}/bailleurs`)}
-                  className="p-2 rounded-full active:bg-vigne-600" title="Relevé bailleurs">
-            <Users size={18} />
-          </button>
-        )}
-        <button onClick={() => navigate(`/vendange/${annee}/export`)}
-                className="p-2 rounded-full active:bg-vigne-600">
-          <Printer size={18} />
-        </button>
         {canWrite && (
           <button onClick={() => navigate(`/vendange/${annee}/edit`)}
                   className="p-2 rounded-full active:bg-vigne-600">
@@ -298,6 +288,36 @@ export default function CampagneDetail() {
           {!isClosed && (
             <ResteAVendanger parcelles={parcelles} attendu={attendu} />
           )}
+
+          {/* Documents imprimables. Ils étaient derrière une icône d'imprimante
+              dans l'en-tête : personne ne les y trouvait. Chacun est maintenant
+              nommé, décrit, et atteignable en un tap — le journalier compris,
+              qui demandait auparavant de passer par le récap par pressoir. */}
+          <div className="card">
+            <p className="font-semibold text-gray-900 text-sm mb-2">Documents à imprimer</p>
+            <div>
+              <DocumentLink
+                icon={FileText}
+                titre="Récap par pressoir"
+                detail="Poids et rendement par parcelle"
+                onClick={() => navigate(`/vendange/${annee}/export`)}
+              />
+              <DocumentLink
+                icon={CalendarDays}
+                titre="Récap journalier"
+                detail="Ce qui est rentré, jour par jour"
+                onClick={() => navigate(`/vendange/${annee}/export-journalier`)}
+              />
+              {isAdmin && (
+                <DocumentLink
+                  icon={Users}
+                  titre="Relevé bailleurs"
+                  detail="Kilos dus et livrés en métayage"
+                  onClick={() => navigate(`/vendange/${annee}/bailleurs`)}
+                />
+              )}
+            </div>
+          </div>
 
           {/* Note de bilan */}
           {(isClosed || campagne.note_bilan) && (
@@ -441,6 +461,28 @@ export default function CampagneDetail() {
         </div>
       </div>
     </div>
+  )
+}
+
+// Ligne d'accès à un document imprimable : icône, nom, et une ligne qui dit ce
+// qu'on y trouve. Hauteur suffisante pour être tapée avec des mains de vendange.
+function DocumentLink({ icon: Icon, titre, detail, onClick }) {
+  return (
+    // Séparateur porté par la ligne elle-même, et non par un `divide-y` : seules
+    // les classes `border-*` sont réécrites en mode sombre. Pas d'arrondi non
+    // plus, sinon le trait épouse le rayon et dessine une accolade.
+    <button onClick={onClick}
+            className="w-full flex items-center gap-3 py-2.5 text-left active:bg-amber-50
+                       border-t border-gray-100 first:border-t-0">
+      <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+        <Icon size={17} className="text-amber-700" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-900 leading-tight">{titre}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{detail}</p>
+      </div>
+      <ChevronRight size={16} className="text-gray-300 flex-shrink-0" />
+    </button>
   )
 }
 
