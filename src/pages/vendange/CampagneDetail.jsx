@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Edit2, Trash2, Lock, Unlock, ChevronRight, Grape, TrendingUp, TrendingDown, Calendar, Target, Plus, Printer, Users } from 'lucide-react'
+import { Edit2, Trash2, Lock, Unlock, ChevronRight, Grape, TrendingUp, TrendingDown, Calendar, Target, Plus, Printer, Users, Search, X, ChevronDown } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { api } from '../../lib/api'
@@ -23,6 +23,10 @@ export default function CampagneDetail() {
   const [confirmCloture, setConfirmCloture] = useState(false)
   const [bilanEdit, setBilanEdit] = useState(false)
   const [bilanValue, setBilanValue] = useState('')
+  const [search, setSearch] = useState('')
+  // Communes repliées — partagé par les sections En cours / À vendanger /
+  // Clôturées, pour qu'une commune masquée le soit partout.
+  const [collapsed, setCollapsed] = useState(new Set())
 
   // Verrou anti-double-tap : empêche deux créations de vendange concurrentes
   // pour la même parcelle (sinon navigation cassée / doublons côté serveur).
@@ -147,9 +151,34 @@ export default function CampagneDetail() {
     return a.nom.localeCompare(b.nom, 'fr')
   })
 
-  const actives    = sorted.filter(p => p.vendange_id && p.vendange_statut !== 'cloturee')
-  const nonLancees = sorted.filter(p => !p.vendange_id)
-  const clotsurees = sorted.filter(p => p.vendange_statut === 'cloturee')
+  // Recherche : nom, commune ou pressoir
+  const q = search.trim().toLowerCase()
+  const visibles = q
+    ? sorted.filter(p =>
+        (p.nom || '').toLowerCase().includes(q) ||
+        (p.commune || '').toLowerCase().includes(q) ||
+        (p.commune_pressoir || '').toLowerCase().includes(q))
+    : sorted
+
+  const actives    = visibles.filter(p => p.vendange_id && p.vendange_statut !== 'cloturee')
+  const nonLancees = visibles.filter(p => !p.vendange_id)
+  const clotsurees = visibles.filter(p => p.vendange_statut === 'cloturee')
+
+  // En-têtes de commune dès que la campagne en compte plusieurs, pour que le
+  // repli soit disponible de façon homogène dans les trois sections.
+  const nbCommunes = new Set(parcelles.map(p => (p.commune || '').trim()).filter(Boolean)).size
+  const showVillage = nbCommunes > 1
+  function toggleCommune(c) {
+    setCollapsed(prev => {
+      const n = new Set(prev)
+      n.has(c) ? n.delete(c) : n.add(c)
+      return n
+    })
+  }
+  // Une recherche en cours déplie tout : on veut voir les résultats.
+  const sectionProps = {
+    showVillage, collapsed: q ? new Set() : collapsed, onToggleCommune: toggleCommune,
+  }
 
   return (
     <div>
@@ -350,6 +379,22 @@ export default function CampagneDetail() {
         <div className="px-4 pt-4 space-y-4 pb-8 md:px-0 md:pt-0 md:pb-0 md:col-span-3">
           {/* Liste des parcelles */}
           <div>
+            <div className="relative mb-3">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Rechercher une parcelle…"
+                className="input pl-9 pr-9 py-2.5 text-sm"
+              />
+              {search && (
+                <button onClick={() => setSearch('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 active:text-gray-600">
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-bold text-gray-900">Parcelles</h2>
               {canWrite && (
@@ -366,7 +411,7 @@ export default function CampagneDetail() {
                 {actives.length > 0 && (
                   <div className="space-y-2">
                     <SectionLabel label="En cours" count={actives.length} />
-                    <ParcelleSection parcelles={actives} attendu={attendu} campagneClosed={!canWrite}
+                    <ParcelleSection {...sectionProps} parcelles={actives} attendu={attendu} campagneClosed={!canWrite}
                       onOpen={p => openParcelle(p.id, p.vendange_id)}
                       onAdd={canWrite ? (p => quickChargement(p.id, p.vendange_id)) : null} />
                   </div>
@@ -375,7 +420,7 @@ export default function CampagneDetail() {
                 {nonLancees.length > 0 && (
                   <div className="space-y-2">
                     <SectionLabel label="À vendanger" count={nonLancees.length} className={actives.length > 0 ? 'mt-3' : ''} />
-                    <ParcelleSection parcelles={nonLancees} attendu={attendu} campagneClosed={!canWrite}
+                    <ParcelleSection {...sectionProps} parcelles={nonLancees} attendu={attendu} campagneClosed={!canWrite}
                       onOpen={p => openParcelle(p.id, p.vendange_id)}
                       onAdd={canWrite ? (p => quickChargement(p.id, p.vendange_id)) : null} />
                   </div>
@@ -384,7 +429,7 @@ export default function CampagneDetail() {
                 {clotsurees.length > 0 && (
                   <div className="space-y-2">
                     <SectionLabel label="Clôturées" icon={<Lock size={14} className="text-gray-400" />} count={clotsurees.length} className="mt-3" />
-                    <ParcelleSection parcelles={clotsurees} attendu={attendu} campagneClosed={!canWrite}
+                    <ParcelleSection {...sectionProps} parcelles={clotsurees} attendu={attendu} campagneClosed={!canWrite}
                       closed
                       onOpen={p => openParcelle(p.id, p.vendange_id)}
                       onAdd={null} />
@@ -414,11 +459,8 @@ function SectionLabel({ label, icon, count, className = '' }) {
   )
 }
 
-function ParcelleSection({ parcelles, attendu, campagneClosed, closed, onOpen, onAdd }) {
-  // Grouper par commune — n'afficher l'en-tête que s'il y a plusieurs communes distinctes
-  const communes = [...new Set(parcelles.map(p => p.commune || ''))]
-  const showVillage = communes.filter(c => c !== '').length > 1
-
+function ParcelleSection({ parcelles, attendu, campagneClosed, closed, onOpen, onAdd,
+                          showVillage = false, collapsed = new Set(), onToggleCommune }) {
   if (!showVillage) {
     return (
       <div className="space-y-2">
@@ -440,18 +482,38 @@ function ParcelleSection({ parcelles, attendu, campagneClosed, closed, onOpen, o
 
   return (
     <div className="space-y-3">
-      {Object.entries(grouped).map(([commune, items]) => (
-        <div key={commune}>
-          <p className="text-xs font-medium text-gray-400 mb-1.5 pl-1">{commune}</p>
-          <div className="space-y-2">
-            {items.map(p => (
-              <ParcelleRow key={p.id} parcelle={p} attendu={attendu}
-                campagneClosed={campagneClosed} closed={closed}
-                onOpen={() => onOpen(p)} onAdd={onAdd ? () => onAdd(p) : null} />
-            ))}
+      {Object.entries(grouped).map(([commune, items]) => {
+        const replie = collapsed.has(commune)
+        const kg = items.reduce((s2, p) => s2 + (p.poids_total || 0), 0)
+        return (
+          <div key={commune}>
+            {/* En-tête de commune repliable : masquer les communes sur
+                lesquelles on ne travaille pas aujourd'hui. */}
+            <button
+              onClick={() => onToggleCommune?.(commune)}
+              className="w-full flex items-center gap-2 mb-1.5 pl-1 text-left"
+            >
+              <span className="text-xs font-medium text-gray-400">{commune}</span>
+              <span className="text-xs text-gray-300">
+                {items.length} parc.{kg > 0 ? ` · ${Math.round(kg).toLocaleString('fr-FR')} kg` : ''}
+              </span>
+              <ChevronDown
+                size={13}
+                className={`text-gray-400 ml-auto transition-transform duration-200 ${replie ? '-rotate-90' : ''}`}
+              />
+            </button>
+            {!replie && (
+              <div className="space-y-2">
+                {items.map(p => (
+                  <ParcelleRow key={p.id} parcelle={p} attendu={attendu}
+                    campagneClosed={campagneClosed} closed={closed}
+                    onOpen={() => onOpen(p)} onAdd={onAdd ? () => onAdd(p) : null} />
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -460,6 +522,11 @@ function ParcelleRow({ parcelle, attendu, campagneClosed, closed, onOpen, onAdd 
   const hasVendange = Boolean(parcelle.vendange_id)
   const rendement   = hasVendange ? rendementKgHa(parcelle.poids_total, parcelle.surface_totale_ca) : null
   const showAdd     = !campagneClosed && !closed
+  // Objectif propre à la parcelle : rendement d'appellation × sa surface
+  const objectifKg  = attendu ? attendu * (parcelle.surface_totale_ca || 0) / 10000 : 0
+  const pct = hasVendange && objectifKg > 0
+    ? Math.min(Math.round((parcelle.poids_total || 0) / objectifKg * 100), 999)
+    : null
 
   return (
     <div className={`card p-0 overflow-hidden flex items-stretch ${closed ? 'opacity-60' : ''}`}>
@@ -480,16 +547,29 @@ function ParcelleRow({ parcelle, attendu, campagneClosed, closed, onOpen, onAdd 
           <p className="font-semibold text-gray-900 leading-tight break-words">{parcelle.nom}</p>
           {hasVendange ? (
             <>
-              <p className="text-xs text-gray-500 mt-0.5 truncate">
+              <p className="text-xs text-gray-500 mt-0.5">
                 {Number(parcelle.poids_total || 0).toFixed(0)} kg · {parcelle.nb_caisses_total || 0} caisses
                 {rendement && <span className="text-vigne-600"> · {rendement.toLocaleString('fr-FR')} kg/ha</span>}
               </p>
+              {/* Avancement de la parcelle vis-à-vis de son propre objectif,
+                  sur le modèle de la barre globale de la campagne. */}
+              {pct != null && (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-amber-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-vigne-600' : 'bg-amber-500'}`}
+                         style={{ width: `${Math.min(pct, 100)}%` }} />
+                  </div>
+                  <span className={`text-xs font-semibold flex-shrink-0 ${pct >= 100 ? 'text-vigne-700' : 'text-amber-700'}`}>
+                    {pct}%
+                  </span>
+                </div>
+              )}
               {closed && attendu && rendement != null && (
                 <RendementComparison reel={rendement} attendu={attendu} compact />
               )}
             </>
           ) : (
-            <p className="text-xs text-gray-400 mt-0.5 truncate">
+            <p className="text-xs text-gray-400 mt-0.5">
               {caToDisplay(parcelle.surface_totale_ca)}
               {!campagneClosed && <span className="text-amber-600 font-medium"> · Tap + pour commencer</span>}
             </p>
