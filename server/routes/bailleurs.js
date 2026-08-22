@@ -15,10 +15,21 @@ router.use(requireAuth, requireAdmin)
 // La division est faite ici, exactement : rien n'est stocké en décimal.
 const DIVISEUR = { quart: 4, tiers: 3 }
 
-export function partBailleur(poidsTotal, taux) {
+// IMPORTANT : la part se calcule sur la récolte ATTENDUE de la parcelle
+// (rendement AOC de la campagne × surface), pas sur les kilos réellement
+// rentrés. Le bailleur a droit à sa fraction du rendement autorisé, que la
+// parcelle ait donné plus ou moins cette année-là.
+export function partBailleur(poidsAttendu, taux) {
   const d = DIVISEUR[taux]
-  if (!d || !poidsTotal) return 0
-  return poidsTotal / d
+  if (!d || !poidsAttendu) return 0
+  return poidsAttendu / d
+}
+
+// Récolte attendue d'une parcelle : rendement de la campagne (kg/ha) ramené à
+// sa surface (stockée en centiares, 10 000 ca = 1 ha).
+export function recolteAttendue(rendementKgha, surfaceCa) {
+  if (!rendementKgha || !surfaceCa) return 0
+  return rendementKgha * surfaceCa / 10000
 }
 
 // Cépage auquel rattacher la récolte d'une parcelle.
@@ -45,6 +56,13 @@ router.get('/releve/:annee', (req, res) => {
   const annee = parseInt(req.params.annee, 10)
   if (!Number.isInteger(annee)) return res.status(400).json({ error: 'Année invalide' })
 
+  // Le rendement attendu de la campagne est la base de tout le relevé. S'il
+  // n'est pas renseigné, on ne devine rien : le dû reste à 0 et l'écran le dit.
+  const campagne = db.prepare(
+    'SELECT rendement_attendu_kgha FROM campagnes WHERE annee = ?'
+  ).get(annee)
+  const rendementAttendu = campagne?.rendement_attendu_kgha || null
+
   const rows = db.prepare(`
     SELECT p.id, p.nom AS parcelle_nom, p.commune, p.cepages,
            p.bailleur, p.bailleur_taux, p.surface_totale_ca,
@@ -68,7 +86,7 @@ router.get('/releve/:annee', (req, res) => {
     if (!parBailleur.has(nom)) {
       parBailleur.set(nom, {
         bailleur: nom, parcelles: [], cepages: new Map(), livraisons: [],
-        total_recolte: 0, total_du: 0, total_livre: 0,
+        total_recolte: 0, total_attendu: 0, total_du: 0, total_livre: 0,
       })
     }
     return parBailleur.get(nom)
@@ -78,7 +96,8 @@ router.get('/releve/:annee', (req, res) => {
   for (const r of rows) {
     const b = bloc(r.bailleur)
     const cep = cepageDe(r.cepages)
-    const du = partBailleur(r.poids_total, r.bailleur_taux)
+    const attendu = recolteAttendue(rendementAttendu, r.surface_totale_ca)
+    const du = partBailleur(attendu, r.bailleur_taux)
 
     b.parcelles.push({
       id: r.id,
@@ -87,6 +106,7 @@ router.get('/releve/:annee', (req, res) => {
       cepage: cep,
       taux: r.bailleur_taux,
       surface_totale_ca: r.surface_totale_ca,
+      poids_attendu: arrondi(attendu),
       poids_total: r.poids_total,
       nb_caisses_total: r.nb_caisses_total,
       part_kg: arrondi(du),
@@ -97,6 +117,7 @@ router.get('/releve/:annee', (req, res) => {
     b.cepages.set(cep, c)
 
     b.total_recolte += r.poids_total
+    b.total_attendu += attendu
     b.total_du      += du
   }
 
@@ -126,6 +147,7 @@ router.get('/releve/:annee', (req, res) => {
         }))
         .sort((a, b2) => a.cepage.localeCompare(b2.cepage, 'fr')),
       total_recolte: arrondi(b.total_recolte),
+      total_attendu: arrondi(b.total_attendu),
       total_du:      arrondi(b.total_du),
       total_livre:   arrondi(b.total_livre),
       total_reste:   arrondi(b.total_du - b.total_livre),
@@ -134,6 +156,7 @@ router.get('/releve/:annee', (req, res) => {
 
   res.json({
     annee,
+    rendement_attendu_kgha: rendementAttendu,
     bailleurs,
     total_du:    arrondi(bailleurs.reduce((s, b) => s + b.total_du, 0)),
     total_livre: arrondi(bailleurs.reduce((s, b) => s + b.total_livre, 0)),

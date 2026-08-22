@@ -9,6 +9,9 @@ import { todayISO } from '../../lib/saison'
 // La part leur étant remise en raisin, souvent en plusieurs fois et par cépage,
 // le document présente pour chacun : ce qui est dû, ce qui a été livré, et ce
 // qui reste à livrer — puis le détail parcelle par parcelle qui justifie le dû.
+//
+// Le dû se calcule sur la récolte ATTENDUE de chaque parcelle (rendement de la
+// campagne × surface), jamais sur les kilos réellement rentrés.
 const LIBELLE_TAUX = { quart: 'au quart (1/4)', tiers: 'au tiers (1/3)' }
 
 function kg(n) {
@@ -73,6 +76,18 @@ export default function ReleveBailleurs() {
           </div>
         ) : (
           <>
+            {!data.rendement_attendu_kgha && (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+                <p className="font-semibold text-amber-900 text-sm">
+                  Rendement attendu non renseigné
+                </p>
+                <p className="text-amber-800 text-sm mt-0.5">
+                  Le dû se calcule sur la récolte attendue. Renseignez le rendement
+                  de la campagne {annee} pour que ce relevé se remplisse.
+                </p>
+              </div>
+            )}
+
             {data.bailleurs.map(b => (
               <BlocBailleur
                 key={b.bailleur}
@@ -99,8 +114,11 @@ export default function ReleveBailleurs() {
             )}
 
             <p className="text-xs text-gray-400 pt-2">
-              Part calculée sur la récolte enregistrée pour la saison {annee}. Le quart
-              franc champenois et le tiers s'entendent sans participation du bailleur
+              Part calculée sur la récolte attendue de chaque parcelle
+              {data.rendement_attendu_kgha
+                ? ` (${kg(data.rendement_attendu_kgha)} kg/ha × surface)`
+                : ''}, et non sur les kilos effectivement rentrés. Le quart franc
+              champenois et le tiers s'entendent sans participation du bailleur
               aux charges d'exploitation.
             </p>
           </>
@@ -173,8 +191,11 @@ function BlocBailleur({ b, annee, saisieOuverte, onOuvrirSaisie, onEnregistre, o
                     {p.surface_totale_ca ? ` · ${caToDisplay(p.surface_totale_ca)}` : ''}
                   </span>
                 </td>
-                <td className="border border-gray-300 px-2 py-1.5 text-right text-xs text-gray-500 whitespace-nowrap">
-                  {kg(p.poids_total)} kg récoltés
+                <td className="border border-gray-300 px-2 py-1.5 text-right whitespace-nowrap">
+                  <span className="text-xs text-gray-600">{kg(p.poids_attendu)} kg attendus</span>
+                  {p.poids_total > 0 && (
+                    <span className="block text-xs text-gray-400">{kg(p.poids_total)} kg récoltés</span>
+                  )}
                 </td>
                 <td className="border border-gray-300 px-2 py-1.5 text-right font-semibold text-gray-900 whitespace-nowrap">
                   {kg(p.part_kg)} kg
