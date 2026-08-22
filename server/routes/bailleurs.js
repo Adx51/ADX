@@ -74,6 +74,25 @@ router.get('/releve/:annee', (req, res) => {
     ORDER BY p.bailleur COLLATE NOCASE, p.nom COLLATE NOCASE
   `).all(annee)
 
+  // Le détail des pesées, parcelle par parcelle : c'est ce qui justifie le
+  // « récolté » du relevé, et ce que le bailleur demande à voir.
+  const chargements = db.prepare(`
+    SELECT v.parcelle_id, ch.id, ch.date_chargement, ch.heure_livraison,
+           ch.nombre_caisses, ch.poids_kg
+    FROM chargements ch
+    JOIN vendanges v ON v.id = ch.vendange_id
+    JOIN parcelles p ON p.id = v.parcelle_id
+    WHERE v.annee = ? AND p.bailleur IS NOT NULL AND TRIM(p.bailleur) <> ''
+    ORDER BY ch.date_chargement ASC, ch.heure_livraison ASC
+  `).all(annee)
+
+  const chargementsParParcelle = new Map()
+  for (const c of chargements) {
+    const { parcelle_id, ...reste } = c
+    if (!chargementsParParcelle.has(parcelle_id)) chargementsParParcelle.set(parcelle_id, [])
+    chargementsParParcelle.get(parcelle_id).push(reste)
+  }
+
   const livraisons = db.prepare(`
     SELECT id, bailleur, date_livraison, cepage, poids_kg, notes
     FROM livraisons_bailleur
@@ -110,6 +129,7 @@ router.get('/releve/:annee', (req, res) => {
       poids_total: r.poids_total,
       nb_caisses_total: r.nb_caisses_total,
       part_kg: arrondi(du),
+      chargements: chargementsParParcelle.get(r.id) || [],
     })
 
     const c = b.cepages.get(cep) || { cepage: cep, du: 0, livre: 0 }

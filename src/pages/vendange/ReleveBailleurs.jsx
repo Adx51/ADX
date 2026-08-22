@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Printer, Users, Loader2, Plus, Trash2, Check } from 'lucide-react'
 import { api } from '../../lib/api'
@@ -225,24 +225,52 @@ function BlocBailleur({ b, annee, saisieOuverte, onOuvrirSaisie, onEnregistre, o
         <table className="w-full border-collapse text-sm mt-2">
           <tbody>
             {b.parcelles.map(p => (
-              <tr key={p.id} className="border border-gray-300">
-                <td className="border border-gray-300 px-2 py-1.5">
-                  <span className="font-medium uppercase text-gray-900">{p.nom}</span>
-                  <span className="block text-xs text-gray-400">
-                    {p.cepage} · {LIBELLE_TAUX[p.taux] || p.taux}
-                    {p.surface_totale_ca ? ` · ${caToDisplay(p.surface_totale_ca)}` : ''}
-                  </span>
-                </td>
-                <td className="border border-gray-300 px-2 py-1.5 text-right whitespace-nowrap">
-                  <span className="text-xs text-gray-600">{kg(p.poids_attendu)} kg attendus</span>
-                  {p.poids_total > 0 && (
-                    <span className="block text-xs text-gray-400">{kg(p.poids_total)} kg récoltés</span>
-                  )}
-                </td>
-                <td className="border border-gray-300 px-2 py-1.5 text-right font-semibold text-gray-900 whitespace-nowrap">
-                  {kg(p.part_kg)} kg
-                </td>
-              </tr>
+              <Fragment key={p.id}>
+                <tr className="border border-gray-300">
+                  <td className="border border-gray-300 px-2 py-1.5">
+                    <span className="font-medium uppercase text-gray-900">{p.nom}</span>
+                    <span className="block text-xs text-gray-400">
+                      {p.cepage} · {LIBELLE_TAUX[p.taux] || p.taux}
+                      {p.surface_totale_ca ? ` · ${caToDisplay(p.surface_totale_ca)}` : ''}
+                    </span>
+                  </td>
+                  <td className="border border-gray-300 px-2 py-1.5 text-right whitespace-nowrap">
+                    <span className="text-xs text-gray-600">{kg(p.poids_attendu)} kg attendus</span>
+                    {p.poids_total > 0 && (
+                      <span className="block text-xs text-gray-400">{kg(p.poids_total)} kg récoltés</span>
+                    )}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-1.5 text-right font-semibold text-gray-900 whitespace-nowrap">
+                    {kg(p.part_kg)} kg
+                  </td>
+                </tr>
+
+                {/* Les pesées telles qu'elles ont été saisies : c'est ce qui
+                    justifie le « récolté » de la ligne ci-dessus. */}
+                {p.chargements?.length > 0 && (
+                  <tr className="border border-gray-300">
+                    <td colSpan={3} className="border border-gray-300 px-2 py-1.5">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
+                        Chargements ({p.chargements.length})
+                      </p>
+                      <div className="space-y-0.5">
+                        {p.chargements.map(c => (
+                          <div key={c.id} className="flex justify-between text-xs text-gray-600">
+                            <span className="tabular-nums">
+                              {fmtDate(c.date_chargement)}
+                              {c.heure_livraison && <span className="text-gray-400"> · {c.heure_livraison.slice(0, 5)}</span>}
+                            </span>
+                            <span className="tabular-nums">
+                              {c.nombre_caisses} c
+                              <span className="font-semibold text-gray-900 ml-2">{kg(c.poids_kg)} kg</span>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
