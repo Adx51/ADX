@@ -270,7 +270,7 @@ export default function CampagneDetail() {
       <div className="flex bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-10 mt-4">
         <TabBtn id="parcelles" label="Parcelles" active={tab} onClick={setTab} />
         <TabBtn id="suivi"     label="Suivi"     active={tab} onClick={setTab} />
-        <TabBtn id="documents" label="Documents" active={tab} onClick={setTab} />
+        <TabBtn id="rapports" label="Rapports" active={tab} onClick={setTab} />
       </div>
 
       <div className="px-4 pt-4 pb-24 space-y-4 max-w-3xl mx-auto">
@@ -384,26 +384,26 @@ export default function CampagneDetail() {
           </>
         )}
 
-        {/* Onglet Documents — les rapports étaient auparavant derrière une
-            icône d'imprimante dans l'en-tête, que personne ne trouvait. */}
-        {tab === 'documents' && (
+        {/* Onglet Rapports — ils étaient auparavant derrière une icône
+            d'imprimante dans l'en-tête, que personne ne trouvait. */}
+        {tab === 'rapports' && (
           <div className="card">
-            <p className="font-semibold text-gray-900 text-sm mb-2">Documents à imprimer</p>
+            <p className="font-semibold text-gray-900 text-sm mb-2">Rapports à imprimer</p>
             <div>
-              <DocumentLink
+              <RapportLink
                 icon={FileText}
                 titre="Récap par pressoir"
                 detail="Poids et rendement par parcelle"
                 onClick={() => navigate(`/vendange/${annee}/export`)}
               />
-              <DocumentLink
+              <RapportLink
                 icon={CalendarDays}
                 titre="Récap journalier"
                 detail="Ce qui est rentré, jour par jour"
                 onClick={() => navigate(`/vendange/${annee}/export-journalier`)}
               />
               {isAdmin && (
-                <DocumentLink
+                <RapportLink
                   icon={Users}
                   titre="Relevé bailleurs"
                   detail="Kilos dus et livrés en métayage"
@@ -496,9 +496,9 @@ function TabBtn({ id, label, active, onClick }) {
   )
 }
 
-// Ligne d'accès à un document imprimable : icône, nom, et une ligne qui dit ce
+// Ligne d'accès à un rapport imprimable : icône, nom, et une ligne qui dit ce
 // qu'on y trouve. Hauteur suffisante pour être tapée avec des mains de vendange.
-function DocumentLink({ icon: Icon, titre, detail, onClick }) {
+function RapportLink({ icon: Icon, titre, detail, onClick }) {
   return (
     // Séparateur porté par la ligne elle-même, et non par un `divide-y` : seules
     // les classes `border-*` sont réécrites en mode sombre. Pas d'arrondi non

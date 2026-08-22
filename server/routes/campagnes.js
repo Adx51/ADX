@@ -419,16 +419,30 @@ router.get('/:annee/pdf-journalier', async (req, res) => {
     if (!byDate[row.date_chargement]) byDate[row.date_chargement] = []
     byDate[row.date_chargement].push(row)
   }
-  const jours = Object.entries(byDate).map(([date, chargements]) => ({
+  let jours = Object.entries(byDate).map(([date, chargements]) => ({
     date, chargements,
     total_caisses: chargements.reduce((s, c) => s + (c.nombre_caisses || 0), 0),
     total_poids:   chargements.reduce((s, c) => s + (c.poids_kg || 0), 0),
   }))
+
+  // ?date=YYYY-MM-DD : le PDF ne contient que cette journée. C'est le document
+  // envoyé au pressoir le soir même — il ne doit pas embarquer toute la campagne.
+  const seul = req.query.date
+  if (seul) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(seul)) return res.status(400).json({ error: 'Date invalide' })
+    jours = jours.filter(j => j.date === seul)
+    if (jours.length === 0) return res.status(404).json({ error: 'Aucun chargement ce jour-là' })
+  }
+
   const total_caisses = jours.reduce((s, j) => s + j.total_caisses, 0)
   const total_poids   = jours.reduce((s, j) => s + j.total_poids, 0)
 
+  const nomFichier = seul
+    ? `vendanges-${seul}.pdf`
+    : `vendanges-${annee}-journalier.pdf`
+
   res.setHeader('Content-Type', 'application/pdf')
-  res.setHeader('Content-Disposition', `attachment; filename="vendanges-${annee}-journalier.pdf"`)
+  res.setHeader('Content-Disposition', `attachment; filename="${nomFichier}"`)
   buildPdfJournalier(annee, jours, total_caisses, total_poids).pipe(res)
 })
 

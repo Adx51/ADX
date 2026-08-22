@@ -1,15 +1,24 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Loader2, List, Download } from 'lucide-react'
+import { ArrowLeft, Loader2, List, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { api } from '../../lib/api'
 
-async function downloadPdf(annee, setDownloading) {
+const TOUS = 'tous'
+
+// « vendredi 12 septembre » et non « Vendredi 12 Septembre » : la classe CSS
+// `capitalize` met une majuscule à chaque mot, ce que le français n'aime pas.
+const capFirst = s => s.charAt(0).toUpperCase() + s.slice(1)
+
+// `date` : journée à exporter seule, ou null pour toute la campagne. Le PDF
+// d'une seule journée est ce que l'on envoie au pressoir le soir même.
+async function downloadPdf(annee, date, setDownloading) {
   setDownloading(true)
   try {
     const token = localStorage.getItem('adx_token')
-    const res = await fetch(`/api/campagnes/${annee}/pdf-journalier`, {
+    const qs = date ? `?date=${encodeURIComponent(date)}` : ''
+    const res = await fetch(`/api/campagnes/${annee}/pdf-journalier${qs}`, {
       headers: { Authorization: `Bearer ${token}` }
     })
     if (!res.ok) throw new Error('Erreur PDF')
@@ -17,7 +26,7 @@ async function downloadPdf(annee, setDownloading) {
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
     a.href     = url
-    a.download = `vendanges-${annee}-journalier.pdf`
+    a.download = date ? `vendanges-${date}.pdf` : `vendanges-${annee}-journalier.pdf`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -35,9 +44,17 @@ export default function CampagneExportJournalier() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [downloading, setDownloading] = useState(false)
+  // Journée affichée. Par défaut la dernière saisie : c'est le rapport que
+  // l'on envoie au prestataire en fin de journée.
+  const [jourSel, setJourSel] = useState(null)
 
   useEffect(() => {
-    api.get(`/campagnes/${annee}/export-journalier`).then(d => { setData(d); setLoading(false) })
+    api.get(`/campagnes/${annee}/export-journalier`).then(d => {
+      setData(d)
+      const jours = d?.jours || []
+      setJourSel(jours.length ? jours[jours.length - 1].date : null)
+      setLoading(false)
+    })
   }, [annee])
 
   if (loading) return (
@@ -52,14 +69,24 @@ export default function CampagneExportJournalier() {
     </div>
   )
 
+  const jours    = data.jours || []
+  const unSeul   = jourSel !== TOUS && jourSel !== null
+  const affiches = unSeul ? jours.filter(j => j.date === jourSel) : jours
+  const index    = jours.findIndex(j => j.date === jourSel)
+
+  function decaler(pas) {
+    const cible = jours[index + pas]
+    if (cible) setJourSel(cible.date)
+  }
+
   const dlBtn = (full) => (
     <button
-      onClick={() => downloadPdf(annee, setDownloading)}
+      onClick={() => downloadPdf(annee, unSeul ? jourSel : null, setDownloading)}
       disabled={downloading}
       className={`flex items-center gap-1.5 bg-amber-500 text-white px-3 ${full ? 'py-2 flex-1 justify-center' : 'py-1.5'} rounded-xl text-sm font-semibold disabled:opacity-60`}
     >
       {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-      {downloading ? 'Génération…' : 'Télécharger PDF'}
+      {downloading ? 'Génération…' : unSeul ? 'PDF du jour' : 'PDF complet'}
     </button>
   )
 
@@ -91,17 +118,44 @@ export default function CampagneExportJournalier() {
           </button>
           {dlBtn(true)}
         </div>
+
+        {/* Choix de la journée. Le rapport part au prestataire jour par jour :
+            on affiche une seule journée à la fois, les flèches passent d'un
+            jour à l'autre et le menu permet d'y aller directement. */}
+        {jours.length > 0 && (
+          <div className="flex items-center gap-2">
+            <button onClick={() => decaler(-1)} disabled={!unSeul || index <= 0}
+                    aria-label="Jour précédent"
+                    className="p-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-30">
+              <ChevronLeft size={16} />
+            </button>
+            <select value={jourSel ?? TOUS} onChange={e => setJourSel(e.target.value)}
+                    className="input py-2 text-sm flex-1 text-center font-medium">
+              {jours.map(j => (
+                <option key={j.date} value={j.date}>
+                  {capFirst(format(parseISO(j.date), 'EEEE d MMMM', { locale: fr }))}
+                </option>
+              ))}
+              <option value={TOUS}>Toute la campagne ({jours.length} jours)</option>
+            </select>
+            <button onClick={() => decaler(1)} disabled={!unSeul || index < 0 || index >= jours.length - 1}
+                    aria-label="Jour suivant"
+                    className="p-2 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-30">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="light-content px-4 py-6 space-y-6 max-w-2xl mx-auto">
 
-        {data.jours.length === 0 ? (
+        {affiches.length === 0 ? (
           <p className="text-center text-gray-400 py-12">Aucun chargement enregistré.</p>
         ) : (
-          data.jours.map(jour => <JourSection key={jour.date} jour={jour} />)
+          affiches.map(jour => <JourSection key={jour.date} jour={jour} />)
         )}
 
-        {data.jours.length > 1 && (
+        {affiches.length > 1 && (
           <div>
             {/* Mobile */}
             <div className="md:hidden rounded-xl bg-gray-200 px-4 py-3 flex items-center justify-between">
@@ -134,16 +188,15 @@ export default function CampagneExportJournalier() {
 }
 
 function JourSection({ jour }) {
-  const dateLabel = format(parseISO(jour.date), 'EEEE d MMMM yyyy', { locale: fr })
+  const dateLabel = capFirst(format(parseISO(jour.date), 'EEEE d MMMM yyyy', { locale: fr }))
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-2">
-        <p className="font-bold text-gray-900 capitalize">{dateLabel}</p>
+      {/* Pas de total ici sur mobile : la ligne « Total du jour » le donne
+          déjà juste en dessous. */}
+      <div className="flex items-baseline gap-3 mb-2">
+        <p className="font-bold text-gray-900">{dateLabel}</p>
         <div className="flex-1 h-px bg-gray-300" />
-        <p className="text-sm font-semibold text-gray-500 md:hidden">
-          {jour.total_caisses}c · {Number(jour.total_poids).toFixed(0)} kg
-        </p>
       </div>
 
       {/* Mobile : cards */}
