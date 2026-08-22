@@ -65,7 +65,9 @@ router.get('/releve/:annee', (req, res) => {
 
   const rows = db.prepare(`
     SELECT p.id, p.nom AS parcelle_nom, p.commune, p.cepages,
-           p.bailleur, p.bailleur_taux, p.surface_totale_ca,
+           COALESCE(p.commune_pressoir, p.commune, '') AS pressoir,
+           p.reference_cadastrale,
+           p.bailleur, p.bailleur_taux, p.surface_totale_ca, p.surface_plantee_ca,
            COALESCE(v.poids_total, 0)      AS poids_total,
            COALESCE(v.nb_caisses_total, 0) AS nb_caisses_total
     FROM parcelles p
@@ -122,9 +124,12 @@ router.get('/releve/:annee', (req, res) => {
       id: r.id,
       nom: r.parcelle_nom,
       commune: r.commune,
+      pressoir: r.pressoir,
+      reference_cadastrale: r.reference_cadastrale,
       cepage: cep,
       taux: r.bailleur_taux,
       surface_totale_ca: r.surface_totale_ca,
+      surface_plantee_ca: r.surface_plantee_ca,
       poids_attendu: arrondi(attendu),
       poids_total: r.poids_total,
       nb_caisses_total: r.nb_caisses_total,

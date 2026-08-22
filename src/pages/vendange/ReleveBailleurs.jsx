@@ -1,8 +1,8 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Printer, Users, Loader2, Plus, Trash2, Check } from 'lucide-react'
 import { api } from '../../lib/api'
-import { caToDisplay } from '../../lib/surface'
+import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import { todayISO } from '../../lib/saison'
 
 // Relevé des kilos dus aux bailleurs pour une saison, et suivi des livraisons.
@@ -14,6 +14,12 @@ import { todayISO } from '../../lib/saison'
 // campagne × surface), jamais sur les kilos réellement rentrés.
 const LIBELLE_TAUX = { quart: 'au quart (1/4)', tiers: 'au tiers (1/3)' }
 const TOUS = '__tous__'
+
+// « au tiers (1/3) » → « (1/3) » : la fraction seule suffit en tête de colonne.
+const fraction = taux => {
+  const m = /\(([^)]+)\)/.exec(LIBELLE_TAUX[taux] || '')
+  return m ? ` (${m[1]})` : ''
+}
 
 function kg(n) {
   return Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 1 })
@@ -217,63 +223,15 @@ function BlocBailleur({ b, annee, saisieOuverte, onOuvrirSaisie, onEnregistre, o
         </p>
       )}
 
-      {/* Détail des parcelles qui justifient le dû */}
+      {/* Rapport complet de chaque parcelle du bailleur : identité, pesées,
+          rendement, récolte attendue et part qui en découle. */}
       <details className="print:open" open>
         <summary className="text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer print:list-none">
           Détail par parcelle
         </summary>
-        <table className="w-full border-collapse text-sm mt-2">
-          <tbody>
-            {b.parcelles.map(p => (
-              <Fragment key={p.id}>
-                <tr className="border border-gray-300">
-                  <td className="border border-gray-300 px-2 py-1.5">
-                    <span className="font-medium uppercase text-gray-900">{p.nom}</span>
-                    <span className="block text-xs text-gray-400">
-                      {p.cepage} · {LIBELLE_TAUX[p.taux] || p.taux}
-                      {p.surface_totale_ca ? ` · ${caToDisplay(p.surface_totale_ca)}` : ''}
-                    </span>
-                  </td>
-                  <td className="border border-gray-300 px-2 py-1.5 text-right whitespace-nowrap">
-                    <span className="text-xs text-gray-600">{kg(p.poids_attendu)} kg attendus</span>
-                    {p.poids_total > 0 && (
-                      <span className="block text-xs text-gray-400">{kg(p.poids_total)} kg récoltés</span>
-                    )}
-                  </td>
-                  <td className="border border-gray-300 px-2 py-1.5 text-right font-semibold text-gray-900 whitespace-nowrap">
-                    {kg(p.part_kg)} kg
-                  </td>
-                </tr>
-
-                {/* Les pesées telles qu'elles ont été saisies : c'est ce qui
-                    justifie le « récolté » de la ligne ci-dessus. */}
-                {p.chargements?.length > 0 && (
-                  <tr className="border border-gray-300">
-                    <td colSpan={3} className="border border-gray-300 px-2 py-1.5">
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
-                        Chargements ({p.chargements.length})
-                      </p>
-                      <div className="space-y-0.5">
-                        {p.chargements.map(c => (
-                          <div key={c.id} className="flex justify-between text-xs text-gray-600">
-                            <span className="tabular-nums">
-                              {fmtDate(c.date_chargement)}
-                              {c.heure_livraison && <span className="text-gray-400"> · {c.heure_livraison.slice(0, 5)}</span>}
-                            </span>
-                            <span className="tabular-nums">
-                              {c.nombre_caisses} c
-                              <span className="font-semibold text-gray-900 ml-2">{kg(c.poids_kg)} kg</span>
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
+        <div className="space-y-3 mt-2">
+          {b.parcelles.map(p => <RapportParcelle key={p.id} p={p} />)}
+        </div>
       </details>
 
       {/* Livraisons déjà faites */}
@@ -313,6 +271,81 @@ function BlocBailleur({ b, annee, saisieOuverte, onOuvrirSaisie, onEnregistre, o
         )}
       </div>
     </section>
+  )
+}
+
+// Rapport complet d'une parcelle en métayage : son identité, toutes ses pesées,
+// son rendement, sa récolte attendue et la part qui en découle. C'est le même
+// niveau de détail que le récap par pressoir, restreint aux vignes du bailleur.
+function RapportParcelle({ p }) {
+  const chargements = p.chargements || []
+  const rendement   = rendementKgHa(p.poids_total, p.surface_totale_ca)
+  const identite    = [p.commune, p.cepage, LIBELLE_TAUX[p.taux] || p.taux]
+    .filter(Boolean).join(' · ')
+
+  return (
+    <div className="border border-gray-400 break-inside-avoid">
+      <div className="bg-gray-100 px-2 py-1.5 flex items-baseline justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-bold uppercase text-gray-900 text-sm leading-tight">{p.nom}</p>
+          <p className="text-xs text-gray-500">{identite}</p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-xs font-medium text-gray-700">{caToDisplay(p.surface_totale_ca)}</p>
+          {p.reference_cadastrale && (
+            <p className="text-[10px] text-gray-400">{p.reference_cadastrale.replace(/,/g, ', ')}</p>
+          )}
+        </div>
+      </div>
+
+      {chargements.length === 0 ? (
+        <p className="px-2 py-2 text-xs text-gray-400 italic">Aucun chargement sur cette parcelle.</p>
+      ) : (
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr className="border-t border-gray-300 bg-gray-50">
+              <th className="px-2 py-1 text-left font-semibold uppercase text-[10px] text-gray-500">Date</th>
+              <th className="px-2 py-1 text-left font-semibold uppercase text-[10px] text-gray-500 w-14">Heure</th>
+              <th className="px-2 py-1 text-right font-semibold uppercase text-[10px] text-gray-500 w-16">Caisses</th>
+              <th className="px-2 py-1 text-right font-semibold uppercase text-[10px] text-gray-500 w-20">Poids</th>
+            </tr>
+          </thead>
+          <tbody>
+            {chargements.map(c => (
+              <tr key={c.id} className="border-t border-gray-200">
+                <td className="px-2 py-1 tabular-nums text-gray-700">{fmtDate(c.date_chargement)}</td>
+                <td className="px-2 py-1 tabular-nums text-gray-400">
+                  {c.heure_livraison ? c.heure_livraison.slice(0, 5) : '—'}
+                </td>
+                <td className="px-2 py-1 text-right tabular-nums text-gray-700">{c.nombre_caisses}</td>
+                <td className="px-2 py-1 text-right tabular-nums font-medium text-gray-900">{kg(c.poids_kg)} kg</td>
+              </tr>
+            ))}
+            <tr className="border-t border-gray-400 bg-amber-50 print-subtotal-row">
+              <td className="px-2 py-1 font-bold uppercase text-[10px] text-gray-600" colSpan={2}>Total récolté</td>
+              <td className="px-2 py-1 text-right font-bold text-gray-900">{p.nb_caisses_total}</td>
+              <td className="px-2 py-1 text-right font-bold text-gray-900">{kg(p.poids_total)} kg</td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+
+      <div className="border-t border-gray-400 grid grid-cols-3 text-center">
+        <ChiffreParcelle label="Rendement" valeur={rendement ? `${rendement.toLocaleString('fr-FR')} kg/ha` : '—'} />
+        <ChiffreParcelle label="Récolte attendue" valeur={`${kg(p.poids_attendu)} kg`} />
+        <ChiffreParcelle label={`Part bailleur${fraction(p.taux)}`}
+                         valeur={`${kg(p.part_kg)} kg`} fort />
+      </div>
+    </div>
+  )
+}
+
+function ChiffreParcelle({ label, valeur, fort = false }) {
+  return (
+    <div className="px-1 py-1.5 border-r border-gray-200 last:border-r-0">
+      <p className="text-[10px] uppercase tracking-wide text-gray-500 leading-tight">{label}</p>
+      <p className={`text-sm ${fort ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>{valeur}</p>
+    </div>
   )
 }
 
