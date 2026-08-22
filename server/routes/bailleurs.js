@@ -68,6 +68,7 @@ router.get('/releve/:annee', (req, res) => {
            COALESCE(p.commune_pressoir, p.commune, '') AS pressoir,
            p.reference_cadastrale,
            p.bailleur, p.bailleur_taux, p.surface_totale_ca, p.surface_plantee_ca,
+           v.id                            AS vendange_id,
            COALESCE(v.poids_total, 0)      AS poids_total,
            COALESCE(v.nb_caisses_total, 0) AS nb_caisses_total
     FROM parcelles p
@@ -122,6 +123,8 @@ router.get('/releve/:annee', (req, res) => {
 
     b.parcelles.push({
       id: r.id,
+      parcelle_id: r.id,          // même forme que le récap par pressoir
+      vendange_id: r.vendange_id,
       nom: r.parcelle_nom,
       commune: r.commune,
       pressoir: r.pressoir,
