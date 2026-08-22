@@ -13,6 +13,7 @@ import { todayISO } from '../../lib/saison'
 // Le dû se calcule sur la récolte ATTENDUE de chaque parcelle (rendement de la
 // campagne × surface), jamais sur les kilos réellement rentrés.
 const LIBELLE_TAUX = { quart: 'au quart (1/4)', tiers: 'au tiers (1/3)' }
+const TOUS = '__tous__'
 
 function kg(n) {
   return Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 1 })
@@ -29,9 +30,20 @@ export default function ReleveBailleurs() {
   const [data, setData] = useState(null)
   const [erreur, setErreur] = useState('')
   const [saisieFor, setSaisieFor] = useState(null)   // bailleur en cours de saisie
+  // Bailleur affiché. Le relevé se remet en main propre, un bailleur à la
+  // fois : on ouvre donc sur un seul, pas sur la liste de tout le monde.
+  const [sel, setSel] = useState(null)
 
   async function charger() {
-    try { setData(await api.get(`/bailleurs/releve/${annee}`)) }
+    try {
+      const d = await api.get(`/bailleurs/releve/${annee}`)
+      setData(d)
+      setSel(prev => {
+        const noms = (d?.bailleurs || []).map(b => b.bailleur)
+        if (prev && (prev === TOUS || noms.includes(prev))) return prev
+        return noms[0] || null
+      })
+    }
     catch (e) { setErreur(e.message) }
   }
   useEffect(() => { charger() }, [annee])
@@ -49,23 +61,53 @@ export default function ReleveBailleurs() {
     </div>
   )
 
+  const affiches = sel && sel !== TOUS
+    ? data.bailleurs.filter(b => b.bailleur === sel)
+    : data.bailleurs
+
   return (
     <div className="min-h-screen bg-white">
-      <div className="print:hidden sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center gap-2">
-        <button onClick={() => navigate(`/vendange/${annee}`)}
-                className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300 font-medium text-sm shrink-0">
-          <ArrowLeft size={18} /> Retour
-        </button>
-        <p className="flex-1 text-center font-bold text-gray-900 dark:text-gray-100 text-sm">
-          Bailleurs {annee}
-        </p>
-        <button onClick={() => window.print()}
-                className="flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1.5 rounded-xl text-sm font-semibold shrink-0">
-          <Printer size={14} /> Imprimer
-        </button>
+      <div className="print:hidden sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 py-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <button onClick={() => navigate(`/vendange/${annee}`)}
+                  className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300 font-medium text-sm shrink-0">
+            <ArrowLeft size={18} /> Retour
+          </button>
+          <p className="flex-1 text-center font-bold text-gray-900 dark:text-gray-100 text-sm">
+            Bailleurs {annee}
+          </p>
+          <button onClick={() => window.print()}
+                  className="flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1.5 rounded-xl text-sm font-semibold shrink-0">
+            <Printer size={14} /> Imprimer
+          </button>
+        </div>
+
+        {/* Choix du bailleur : le relevé imprimé ne contient alors que ses
+            parcelles, c'est le document qu'on lui remet. */}
+        {data.bailleurs.length > 1 && (
+          <select value={sel ?? TOUS} onChange={e => setSel(e.target.value)}
+                  className="input py-2 text-sm text-center font-medium">
+            {data.bailleurs.map(b => (
+              <option key={b.bailleur} value={b.bailleur}>{b.bailleur}</option>
+            ))}
+            <option value={TOUS}>Tous les bailleurs ({data.bailleurs.length})</option>
+          </select>
+        )}
       </div>
 
       <div className="light-content px-4 py-6 space-y-8 max-w-2xl mx-auto">
+        {/* En-tête du document imprimé — la barre ci-dessus ne s'imprime pas. */}
+        {data.bailleurs.length > 0 && (
+          <div className="text-center">
+            <p className="font-bold text-base text-gray-900 uppercase tracking-wide">
+              VENDANGES {annee}
+            </p>
+            <p className="font-semibold text-sm text-gray-600 uppercase tracking-wide">
+              {sel === TOUS ? 'RELEVÉ DES BAILLEURS' : 'RELEVÉ BAILLEUR'}
+            </p>
+          </div>
+        )}
+
         {data.bailleurs.length === 0 ? (
           <div className="text-center py-16">
             <Users size={44} className="mx-auto text-gray-300 mb-4" />
@@ -88,7 +130,7 @@ export default function ReleveBailleurs() {
               </div>
             )}
 
-            {data.bailleurs.map(b => (
+            {affiches.map(b => (
               <BlocBailleur
                 key={b.bailleur}
                 b={b}
@@ -100,10 +142,10 @@ export default function ReleveBailleurs() {
               />
             ))}
 
-            {data.bailleurs.length > 1 && (
+            {affiches.length > 1 && (
               <div className="rounded-xl bg-gray-200 print-total-row px-4 py-3">
                 <p className="font-bold text-sm text-gray-900 uppercase mb-1">
-                  Total général — {data.bailleurs.length} bailleurs
+                  Total général — {affiches.length} bailleurs
                 </p>
                 <div className="flex justify-between text-sm text-gray-700">
                   <span>Dû {kg(data.total_du)} kg</span>

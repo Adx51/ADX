@@ -405,8 +405,8 @@ export default function CampagneDetail() {
               {isAdmin && (
                 <RapportLink
                   icon={Users}
-                  titre="Relevé bailleurs"
-                  detail="Kilos dus et livrés en métayage"
+                  titre="Rapport bailleur"
+                  detail="Un relevé par bailleur, avec ses parcelles"
                   onClick={() => navigate(`/vendange/${annee}/bailleurs`)}
                 />
               )}
