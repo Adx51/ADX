@@ -1,25 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Printer, Users, Loader2, Plus, Trash2, Check } from 'lucide-react'
+import { ArrowLeft, Printer, Users, Loader2, Plus, Trash2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { caToDisplay, rendementKgHa } from '../../lib/surface'
 import { todayISO } from '../../lib/saison'
 
-// Relevé des kilos dus aux bailleurs pour une saison, et suivi des livraisons.
-// La part leur étant remise en raisin, souvent en plusieurs fois et par cépage,
-// le document présente pour chacun : ce qui est dû, ce qui a été livré, et ce
-// qui reste à livrer — puis le détail parcelle par parcelle qui justifie le dû.
-//
-// Le dû se calcule sur la récolte ATTENDUE de chaque parcelle (rendement de la
-// campagne × surface), jamais sur les kilos réellement rentrés.
-const LIBELLE_TAUX = { quart: 'au quart (1/4)', tiers: 'au tiers (1/3)' }
+// Rapport de récolte des parcelles d'un bailleur, pour une saison.
+// Le document rend compte de ce qui est sorti de ses vignes : pour chaque
+// parcelle, ses pesées telles qu'elles ont été saisies, son total et son
+// rendement. Aucun calcul de part n'y figure — le partage se règle ailleurs.
 const TOUS = '__tous__'
-
-// « au tiers (1/3) » → « (1/3) » : la fraction seule suffit en tête de colonne.
-const fraction = taux => {
-  const m = /\(([^)]+)\)/.exec(LIBELLE_TAUX[taux] || '')
-  return m ? ` (${m[1]})` : ''
-}
 
 function kg(n) {
   return Number(n || 0).toLocaleString('fr-FR', { maximumFractionDigits: 1 })
@@ -130,8 +120,8 @@ export default function ReleveBailleurs() {
                   Rendement attendu non renseigné
                 </p>
                 <p className="text-amber-800 text-sm mt-0.5">
-                  Le dû se calcule sur la récolte attendue. Renseignez le rendement
-                  de la campagne {annee} pour que ce relevé se remplisse.
+                  Renseignez le rendement de la campagne {annee} pour que la
+                  récolte attendue de chaque parcelle apparaisse.
                 </p>
               </div>
             )}
@@ -148,26 +138,12 @@ export default function ReleveBailleurs() {
               />
             ))}
 
-            {affiches.length > 1 && (
-              <div className="rounded-xl bg-gray-200 print-total-row px-4 py-3">
-                <p className="font-bold text-sm text-gray-900 uppercase mb-1">
-                  Total général — {affiches.length} bailleurs
-                </p>
-                <div className="flex justify-between text-sm text-gray-700">
-                  <span>Dû {kg(data.total_du)} kg</span>
-                  <span>Livré {kg(data.total_livre)} kg</span>
-                  <span className="font-bold text-gray-900">Reste {kg(data.total_reste)} kg</span>
-                </div>
-              </div>
-            )}
-
             <p className="text-xs text-gray-400 pt-2">
-              Part calculée sur la récolte attendue de chaque parcelle
+              Récolte attendue = rendement de la campagne
               {data.rendement_attendu_kgha
-                ? ` (${kg(data.rendement_attendu_kgha)} kg/ha × surface)`
-                : ''}, et non sur les kilos effectivement rentrés. Le quart franc
-              champenois et le tiers s'entendent sans participation du bailleur
-              aux charges d'exploitation.
+                ? ` (${kg(data.rendement_attendu_kgha)} kg/ha)`
+                : ''} × surface de la parcelle. Les poids sont ceux relevés au
+              pressoir, chargement par chargement.
             </p>
           </>
         )}
@@ -177,8 +153,8 @@ export default function ReleveBailleurs() {
 }
 
 function BlocBailleur({ b, annee, saisieOuverte, onOuvrirSaisie, onEnregistre, onSupprimer }) {
-  const solde = b.total_reste
-  const couleurSolde = solde <= 0.05 ? 'text-vigne-700' : 'text-amber-700'
+  const totalRecolte = b.parcelles.reduce((s, p) => s + (p.poids_total || 0), 0)
+  const totalCaisses = b.parcelles.reduce((s, p) => s + (p.nb_caisses_total || 0), 0)
 
   return (
     <section className="break-inside-avoid space-y-3">
@@ -187,38 +163,30 @@ function BlocBailleur({ b, annee, saisieOuverte, onOuvrirSaisie, onEnregistre, o
         <div className="flex-1 h-px bg-gray-300" />
       </div>
 
-      {/* Rapport complet de chaque parcelle du bailleur : identité, pesées,
-          rendement, récolte attendue et part qui en découle. Pas de ventilation
-          par cépage — les pesées se font par parcelle. */}
+      {/* Rapport de chaque parcelle du bailleur : identité, pesées, rendement.
+          Aucun calcul de part : le document rend compte de la récolte, le
+          partage se règle ailleurs. */}
       <div className="space-y-3">
         {b.parcelles.map(p => <RapportParcelle key={p.id} p={p} />)}
       </div>
 
-      {/* Récapitulatif du bailleur */}
-      <table className="w-full border-collapse text-sm">
-        <tbody>
-          <tr className="border border-gray-400 bg-amber-50 print-subtotal-row">
-            <td className="border border-gray-400 px-2 py-1.5 text-xs font-bold text-gray-600 uppercase">Total (kg)</td>
-            <td className="border border-gray-400 px-2 py-1.5 text-center w-20">
-              <span className="block text-[10px] uppercase text-gray-500">Dû</span>
-              <span className="font-bold text-gray-900">{kg(b.total_du)}</span>
-            </td>
-            <td className="border border-gray-400 px-2 py-1.5 text-center w-20">
-              <span className="block text-[10px] uppercase text-gray-500">Livré</span>
-              <span className="font-bold text-gray-900">{kg(b.total_livre)}</span>
-            </td>
-            <td className="border border-gray-400 px-2 py-1.5 text-center w-20">
-              <span className="block text-[10px] uppercase text-gray-500">Reste</span>
-              <span className={`font-bold ${couleurSolde}`}>{kg(b.total_reste)}</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      {solde <= 0.05 && b.total_du > 0 && (
-        <p className="flex items-center gap-1.5 text-xs font-medium text-vigne-700">
-          <Check size={13} /> Part intégralement livrée.
-        </p>
+      {/* Récapitulatif : ce qui est sorti des vignes du bailleur */}
+      {b.parcelles.length > 1 && (
+        <table className="w-full border-collapse text-sm">
+          <tbody>
+            <tr className="border border-gray-400 bg-amber-50 print-subtotal-row">
+              <td className="border border-gray-400 px-2 py-1.5 text-xs font-bold text-gray-600 uppercase">
+                Total récolté — {b.parcelles.length} parcelles
+              </td>
+              <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-gray-900 w-20">
+                {totalCaisses} c
+              </td>
+              <td className="border border-gray-400 px-2 py-1.5 text-right font-bold text-gray-900 w-24">
+                {kg(totalRecolte)} kg
+              </td>
+            </tr>
+          </tbody>
+        </table>
       )}
 
       {/* Livraisons déjà faites */}
@@ -267,8 +235,7 @@ function BlocBailleur({ b, annee, saisieOuverte, onOuvrirSaisie, onEnregistre, o
 function RapportParcelle({ p }) {
   const chargements = p.chargements || []
   const rendement   = rendementKgHa(p.poids_total, p.surface_totale_ca)
-  const identite    = [p.commune, p.cepage, LIBELLE_TAUX[p.taux] || p.taux]
-    .filter(Boolean).join(' · ')
+  const identite    = [p.commune, p.cepage].filter(Boolean).join(' · ')
 
   return (
     <div className="border border-gray-400 break-inside-avoid">
@@ -317,11 +284,10 @@ function RapportParcelle({ p }) {
         </table>
       )}
 
-      <div className="border-t border-gray-400 grid grid-cols-3 text-center">
-        <ChiffreParcelle label="Rendement" valeur={rendement ? `${rendement.toLocaleString('fr-FR')} kg/ha` : '—'} />
+      <div className="border-t border-gray-400 grid grid-cols-2 text-center">
         <ChiffreParcelle label="Récolte attendue" valeur={`${kg(p.poids_attendu)} kg`} />
-        <ChiffreParcelle label={`Part bailleur${fraction(p.taux)}`}
-                         valeur={`${kg(p.part_kg)} kg`} fort />
+        <ChiffreParcelle label="Rendement"
+                         valeur={rendement ? `${rendement.toLocaleString('fr-FR')} kg/ha` : '—'} fort />
       </div>
     </div>
   )
