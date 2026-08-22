@@ -24,6 +24,9 @@ export default function CampagneDetail() {
   const [bilanEdit, setBilanEdit] = useState(false)
   const [bilanValue, setBilanValue] = useState('')
   const [search, setSearch] = useState('')
+  // Onglet ouvert. « parcelles » par défaut : pendant la vendange c'est l'écran
+  // de travail, on y tape un chargement toutes les cinq minutes.
+  const [tab, setTab] = useState('parcelles')
   // Communes repliées — partagé par les sections En cours / À vendanger /
   // Clôturées, pour qu'une commune masquée le soit partout.
   const [collapsed, setCollapsed] = useState(new Set())
@@ -191,36 +194,14 @@ export default function CampagneDetail() {
         )}
       </PageHeader>
 
-      <div className="md:px-6 md:pt-5 md:pb-8 md:grid md:grid-cols-5 md:gap-6 md:items-start">
-        <div className="px-4 pt-4 space-y-4 md:px-0 md:pt-0 md:col-span-2">
+      {/* Bandeau de tête, au-dessus des onglets : le récap chiffré est ce que
+          l'on regarde en permanence pendant la vendange, il ne doit jamais
+          demander de changer d'onglet. */}
+      <div className="px-4 pt-4 space-y-4 max-w-3xl mx-auto">
           {isClosed && (
             <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-2 flex items-center gap-2 text-sm text-gray-600">
               <Lock size={14} />
               <span>Clôturée le {campagne.date_cloture ? format(parseISO(campagne.date_cloture), 'd MMMM yyyy', { locale: fr }) : ''}</span>
-            </div>
-          )}
-
-          {/* Infos campagne */}
-          {(campagne.date_debut || attendu) && (
-            <div className="card space-y-2.5">
-              {campagne.date_debut && (
-                <div className="flex items-center gap-3 text-sm">
-                  <Calendar size={15} className="text-gray-400 flex-shrink-0" />
-                  <span className="text-gray-500">Début</span>
-                  <span className="font-medium text-gray-900 ml-auto capitalize">
-                    {format(parseISO(campagne.date_debut), 'd MMM yyyy', { locale: fr })}
-                  </span>
-                </div>
-              )}
-              {attendu && (
-                <div className="flex items-center gap-3 text-sm">
-                  <Target size={15} className="text-gray-400 flex-shrink-0" />
-                  <span className="text-gray-500">Objectif</span>
-                  <span className="font-medium text-gray-900 ml-auto">
-                    {Number(attendu).toLocaleString('fr-FR')} kg/ha
-                  </span>
-                </div>
-              )}
             </div>
           )}
 
@@ -282,42 +263,48 @@ export default function CampagneDetail() {
               </p>
             )}
           </div>
+      </div>
+
+      {/* Onglets — même barre que le détail d'une parcelle. Par défaut
+          « Parcelles » : c'est l'écran de travail pendant la vendange. */}
+      <div className="flex bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-10 mt-4">
+        <TabBtn id="parcelles" label="Parcelles" active={tab} onClick={setTab} />
+        <TabBtn id="suivi"     label="Suivi"     active={tab} onClick={setTab} />
+        <TabBtn id="documents" label="Documents" active={tab} onClick={setTab} />
+      </div>
+
+      <div className="px-4 pt-4 pb-24 space-y-4 max-w-3xl mx-auto">
+        {tab === 'suivi' && (
+          <>
+          {/* Infos campagne */}
+          {(campagne.date_debut || attendu) && (
+            <div className="card space-y-2.5">
+              {campagne.date_debut && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Calendar size={15} className="text-gray-400 flex-shrink-0" />
+                  <span className="text-gray-500">Début</span>
+                  <span className="font-medium text-gray-900 ml-auto capitalize">
+                    {format(parseISO(campagne.date_debut), 'd MMM yyyy', { locale: fr })}
+                  </span>
+                </div>
+              )}
+              {attendu && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Target size={15} className="text-gray-400 flex-shrink-0" />
+                  <span className="text-gray-500">Objectif</span>
+                  <span className="font-medium text-gray-900 ml-auto">
+                    {Number(attendu).toLocaleString('fr-FR')} kg/ha
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Reste à vendanger, par commune — pilotage de fin de vendange.
               Affichage seul : aucun calcul enregistré n'est modifié. */}
           {!isClosed && (
             <ResteAVendanger parcelles={parcelles} attendu={attendu} />
           )}
-
-          {/* Documents imprimables. Ils étaient derrière une icône d'imprimante
-              dans l'en-tête : personne ne les y trouvait. Chacun est maintenant
-              nommé, décrit, et atteignable en un tap — le journalier compris,
-              qui demandait auparavant de passer par le récap par pressoir. */}
-          <div className="card">
-            <p className="font-semibold text-gray-900 text-sm mb-2">Documents à imprimer</p>
-            <div>
-              <DocumentLink
-                icon={FileText}
-                titre="Récap par pressoir"
-                detail="Poids et rendement par parcelle"
-                onClick={() => navigate(`/vendange/${annee}/export`)}
-              />
-              <DocumentLink
-                icon={CalendarDays}
-                titre="Récap journalier"
-                detail="Ce qui est rentré, jour par jour"
-                onClick={() => navigate(`/vendange/${annee}/export-journalier`)}
-              />
-              {isAdmin && (
-                <DocumentLink
-                  icon={Users}
-                  titre="Relevé bailleurs"
-                  detail="Kilos dus et livrés en métayage"
-                  onClick={() => navigate(`/vendange/${annee}/bailleurs`)}
-                />
-              )}
-            </div>
-          </div>
 
           {/* Note de bilan */}
           {(isClosed || campagne.note_bilan) && (
@@ -394,10 +381,40 @@ export default function CampagneDetail() {
               </div>
             </div>
           )}
-        </div>
+          </>
+        )}
 
-        <div className="px-4 pt-4 space-y-4 pb-8 md:px-0 md:pt-0 md:pb-0 md:col-span-3">
-          {/* Liste des parcelles */}
+        {/* Onglet Documents — les rapports étaient auparavant derrière une
+            icône d'imprimante dans l'en-tête, que personne ne trouvait. */}
+        {tab === 'documents' && (
+          <div className="card">
+            <p className="font-semibold text-gray-900 text-sm mb-2">Documents à imprimer</p>
+            <div>
+              <DocumentLink
+                icon={FileText}
+                titre="Récap par pressoir"
+                detail="Poids et rendement par parcelle"
+                onClick={() => navigate(`/vendange/${annee}/export`)}
+              />
+              <DocumentLink
+                icon={CalendarDays}
+                titre="Récap journalier"
+                detail="Ce qui est rentré, jour par jour"
+                onClick={() => navigate(`/vendange/${annee}/export-journalier`)}
+              />
+              {isAdmin && (
+                <DocumentLink
+                  icon={Users}
+                  titre="Relevé bailleurs"
+                  detail="Kilos dus et livrés en métayage"
+                  onClick={() => navigate(`/vendange/${annee}/bailleurs`)}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab === 'parcelles' && (
           <div>
             <div className="relative mb-3">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -415,12 +432,11 @@ export default function CampagneDetail() {
               )}
             </div>
 
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-bold text-gray-900">Parcelles</h2>
-              {canWrite && (
-                <p className="text-xs text-gray-400">+ = nouveau chargement</p>
-              )}
-            </div>
+            {/* Le titre « Parcelles » ferait doublon avec l'onglet du même nom :
+                on ne garde que le rappel du geste. */}
+            {canWrite && (
+              <p className="text-xs text-gray-400 text-right mb-2">+ = nouveau chargement</p>
+            )}
             {parcelles.length === 0 ? (
               <div className="card text-center py-6">
                 <Grape size={32} className="mx-auto text-vigne-300 mb-2" />
@@ -458,9 +474,25 @@ export default function CampagneDetail() {
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
+  )
+}
+
+// Onglet de tête. Même dessin que celui du détail d'une parcelle, pour que la
+// navigation se lise pareil d'un écran à l'autre.
+function TabBtn({ id, label, active, onClick }) {
+  const isActive = active === id
+  return (
+    <button onClick={() => onClick(id)}
+      className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+        isActive
+          ? 'border-vigne-600 text-vigne-700'
+          : 'border-transparent text-gray-500 active:text-gray-700'
+      }`}>
+      {label}
+    </button>
   )
 }
 
