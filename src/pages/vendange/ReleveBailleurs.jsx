@@ -187,32 +187,30 @@ function BlocBailleur({ b, annee, saisieOuverte, onOuvrirSaisie, onEnregistre, o
         <div className="flex-1 h-px bg-gray-300" />
       </div>
 
-      {/* Dû / livré / reste, par cépage */}
+      {/* Rapport complet de chaque parcelle du bailleur : identité, pesées,
+          rendement, récolte attendue et part qui en découle. Pas de ventilation
+          par cépage — les pesées se font par parcelle. */}
+      <div className="space-y-3">
+        {b.parcelles.map(p => <RapportParcelle key={p.id} p={p} />)}
+      </div>
+
+      {/* Récapitulatif du bailleur */}
       <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border border-gray-400 bg-gray-100">
-            <th className="border border-gray-400 px-2 py-1.5 text-left font-bold uppercase text-xs text-gray-900">Cépage</th>
-            <th className="border border-gray-400 px-2 py-1.5 text-center font-bold uppercase text-xs w-20 text-gray-900">Dû</th>
-            <th className="border border-gray-400 px-2 py-1.5 text-center font-bold uppercase text-xs w-20 text-gray-900">Livré</th>
-            <th className="border border-gray-400 px-2 py-1.5 text-center font-bold uppercase text-xs w-20 text-gray-900">Reste</th>
-          </tr>
-        </thead>
         <tbody>
-          {b.cepages.map(c => (
-            <tr key={c.cepage} className="border border-gray-300">
-              <td className="border border-gray-300 px-2 py-1.5 font-medium text-gray-900">{c.cepage}</td>
-              <td className="border border-gray-300 px-2 py-1.5 text-center text-gray-700">{kg(c.du)}</td>
-              <td className="border border-gray-300 px-2 py-1.5 text-center text-gray-700">{kg(c.livre)}</td>
-              <td className={`border border-gray-300 px-2 py-1.5 text-center font-bold ${c.reste <= 0.05 ? 'text-vigne-700' : 'text-gray-900'}`}>
-                {kg(c.reste)}
-              </td>
-            </tr>
-          ))}
           <tr className="border border-gray-400 bg-amber-50 print-subtotal-row">
             <td className="border border-gray-400 px-2 py-1.5 text-xs font-bold text-gray-600 uppercase">Total (kg)</td>
-            <td className="border border-gray-400 px-2 py-1.5 text-center font-bold text-gray-900">{kg(b.total_du)}</td>
-            <td className="border border-gray-400 px-2 py-1.5 text-center font-bold text-gray-900">{kg(b.total_livre)}</td>
-            <td className={`border border-gray-400 px-2 py-1.5 text-center font-bold ${couleurSolde}`}>{kg(b.total_reste)}</td>
+            <td className="border border-gray-400 px-2 py-1.5 text-center w-20">
+              <span className="block text-[10px] uppercase text-gray-500">Dû</span>
+              <span className="font-bold text-gray-900">{kg(b.total_du)}</span>
+            </td>
+            <td className="border border-gray-400 px-2 py-1.5 text-center w-20">
+              <span className="block text-[10px] uppercase text-gray-500">Livré</span>
+              <span className="font-bold text-gray-900">{kg(b.total_livre)}</span>
+            </td>
+            <td className="border border-gray-400 px-2 py-1.5 text-center w-20">
+              <span className="block text-[10px] uppercase text-gray-500">Reste</span>
+              <span className={`font-bold ${couleurSolde}`}>{kg(b.total_reste)}</span>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -222,17 +220,6 @@ function BlocBailleur({ b, annee, saisieOuverte, onOuvrirSaisie, onEnregistre, o
           <Check size={13} /> Part intégralement livrée.
         </p>
       )}
-
-      {/* Rapport complet de chaque parcelle du bailleur : identité, pesées,
-          rendement, récolte attendue et part qui en découle. */}
-      <details className="print:open" open>
-        <summary className="text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer print:list-none">
-          Détail par parcelle
-        </summary>
-        <div className="space-y-3 mt-2">
-          {b.parcelles.map(p => <RapportParcelle key={p.id} p={p} />)}
-        </div>
-      </details>
 
       {/* Livraisons déjà faites */}
       {b.livraisons.length > 0 && (
@@ -261,7 +248,7 @@ function BlocBailleur({ b, annee, saisieOuverte, onOuvrirSaisie, onEnregistre, o
       <div className="print:hidden">
         {saisieOuverte ? (
           <FormLivraison bailleur={b.bailleur} annee={annee}
-                         cepages={b.cepages.map(c => c.cepage)}
+                         cepages={[...new Set(b.parcelles.map(p => p.cepage).filter(Boolean))]}
                          onAnnuler={onOuvrirSaisie} onEnregistre={onEnregistre} />
         ) : (
           <button onClick={onOuvrirSaisie}
