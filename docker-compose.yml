@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  adx:
+    build: .
+    container_name: adx-vignoble
+    restart: unless-stopped
+    ports:
+      - "3001:3001"          # Accessible sur http://IP-DU-PI:3001
+    volumes:
+      - adx-data:/app/data   # Base SQLite + photos persistées
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      # ⚠️ Changer cette clé ! Générer avec :
+      # node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+      JWT_SECRET: "${JWT_SECRET:-change-this-secret-key-in-dot-env}"
+      DB_PATH: /app/data/adx.db
+      PHOTOS_DIR: /app/data/photos
+    env_file:
+      - .env.local           # Créer ce fichier avec JWT_SECRET=...
+
+volumes:
+  adx-data:
+    driver: local
