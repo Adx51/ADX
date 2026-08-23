@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Edit2, Trash2, Lock, Unlock, ChevronRight, Grape, TrendingUp, TrendingDown, Calendar, CalendarDays, Target, Plus, FileText, Users, Search, X, ChevronDown } from 'lucide-react'
+import { Edit2, Trash2, Lock, Unlock, ChevronRight, Grape, TrendingUp, TrendingDown, BarChart3, Calendar, CalendarDays, Target, Plus, FileText, Users, Search, X, ChevronDown } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { api } from '../../lib/api'
@@ -198,10 +198,18 @@ export default function CampagneDetail() {
           l'on regarde en permanence pendant la vendange, il ne doit jamais
           demander de changer d'onglet. */}
       <div className="px-4 pt-4 space-y-4 max-w-3xl mx-auto">
+          {/* Campagne clôturée : le bilan est le document qui va avec, on le
+              met sous la main plutôt que d'attendre qu'on le cherche. */}
           {isClosed && (
             <div className="bg-gray-100 border border-gray-200 rounded-xl px-4 py-2 flex items-center gap-2 text-sm text-gray-600">
-              <Lock size={14} />
-              <span>Clôturée le {campagne.date_cloture ? format(parseISO(campagne.date_cloture), 'd MMMM yyyy', { locale: fr }) : ''}</span>
+              <Lock size={14} className="flex-shrink-0" />
+              <span className="flex-1 min-w-0">
+                Clôturée le {campagne.date_cloture ? format(parseISO(campagne.date_cloture), 'd MMMM yyyy', { locale: fr }) : ''}
+              </span>
+              <button onClick={() => navigate(`/vendange/${annee}/bilan`)}
+                      className="flex items-center gap-1 text-vigne-700 font-medium flex-shrink-0">
+                <BarChart3 size={14} /> Bilan
+              </button>
             </div>
           )}
 
@@ -239,7 +247,7 @@ export default function CampagneDetail() {
                 </div>
                 {/* Ce qu'il reste à rentrer pour atteindre l'objectif : la
                     donnée que l'on cherche en cours de vendange. */}
-                {resteGlobal > 0 && (
+                {!isClosed && resteGlobal > 0 && (
                   <p className="text-center mt-1.5">
                     <span className="text-lg font-bold text-amber-800">{fmtKg(resteGlobal)} kg</span>
                     <span className="text-xs text-amber-700 font-semibold"> restants</span>
@@ -395,6 +403,12 @@ export default function CampagneDetail() {
                 titre="Récap par pressoir"
                 detail="Poids et rendement par parcelle"
                 onClick={() => navigate(`/vendange/${annee}/export`)}
+              />
+              <RapportLink
+                icon={BarChart3}
+                titre="Bilan de campagne"
+                detail="Chiffres de l'année, pressoirs et rendements"
+                onClick={() => navigate(`/vendange/${annee}/bilan`)}
               />
               <RapportLink
                 icon={CalendarDays}

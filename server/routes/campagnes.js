@@ -127,6 +127,176 @@ router.get('/stats', (req, res) => {
   res.json({ surface_totale_ca, nb_parcelles, campagnes: result, vendangesDetail, harvestCurves })
 })
 
+// ── Bilan de campagne ────────────────────────────────────────────────────
+// Document de fin de vendange : les chiffres de l'année, la comparaison entre
+// pressoirs, le classement des parcelles et leur écart à leur propre moyenne
+// des années passées. Tout est calculé ici pour que l'écran n'ait qu'à
+// afficher — et que le PDF et l'écran ne puissent pas diverger.
+const ha = ca => (ca || 0) / 10000
+const rendement = (kg, ca) => (ca > 0 ? Math.round(kg / ha(ca)) : null)
+const arr1 = n => Math.round(n * 10) / 10
+
+function cepageLibelle(cepagesJson) {
+  let list = []
+  try { list = JSON.parse(cepagesJson || '[]') } catch {}
+  if (!Array.isArray(list) || list.length === 0) return 'Non renseigné'
+  return list.length === 1 ? list[0] : list.join(' + ')
+}
+
+// Agrège des parcelles selon une clé (pressoir, commune, cépage) et calcule
+// pour chaque groupe sa surface, sa récolte, son rendement et sa part du total.
+function grouper(parcelles, cle, totalPoids) {
+  const m = new Map()
+  for (const p of parcelles) {
+    const k = cle(p) || 'Non défini'
+    const g = m.get(k) || { libelle: k, nb_parcelles: 0, surface_ca: 0, poids: 0, caisses: 0 }
+    g.nb_parcelles += 1
+    g.surface_ca   += p.surface_totale_ca || 0
+    g.poids        += p.poids_total || 0
+    g.caisses      += p.nb_caisses_total || 0
+    m.set(k, g)
+  }
+  return [...m.values()]
+    .map(g => ({
+      ...g,
+      poids: arr1(g.poids),
+      rendement_kgha: rendement(g.poids, g.surface_ca),
+      part_pct: totalPoids > 0 ? Math.round(g.poids / totalPoids * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.poids - a.poids)
+}
+
+router.get('/:annee/bilan', (req, res) => {
+  const annee = parseInt(req.params.annee)
+  const campagne = db.prepare('SELECT * FROM campagnes WHERE annee = ?').get(annee)
+  if (!campagne) return res.status(404).json({ error: 'Campagne introuvable' })
+
+  // Parcelles vendangées cette année, avec leur récolte.
+  const rows = db.prepare(`
+    SELECT p.id, p.nom, p.commune, p.cepages, p.surface_totale_ca,
+           COALESCE(NULLIF(p.commune_pressoir, ''), p.commune, 'Non défini') AS pressoir,
+           v.id AS vendange_id,
+           COALESCE(v.poids_total, 0)      AS poids_total,
+           COALESCE(v.nb_caisses_total, 0) AS nb_caisses_total
+    FROM parcelles p
+    LEFT JOIN vendanges v ON v.parcelle_id = p.id AND v.annee = ?
+    ORDER BY p.nom COLLATE NOCASE
+  `).all(annee)
+
+  const vendangees = rows.filter(r => r.vendange_id && r.poids_total > 0)
+
+  // Moyenne historique de chaque parcelle, années précédentes uniquement.
+  // La surface retenue est la surface actuelle : c'est une approximation, mais
+  // la seule possible — on ne conserve pas l'historique des surfaces.
+  const histo = db.prepare(`
+    SELECT v.parcelle_id, v.annee, v.poids_total
+    FROM vendanges v
+    WHERE v.annee < ? AND COALESCE(v.poids_total, 0) > 0
+  `).all(annee)
+
+  const histoParParcelle = new Map()
+  for (const h of histo) {
+    if (!histoParParcelle.has(h.parcelle_id)) histoParParcelle.set(h.parcelle_id, [])
+    histoParParcelle.get(h.parcelle_id).push(h)
+  }
+
+  const totalPoids   = vendangees.reduce((s, r) => s + r.poids_total, 0)
+  const totalCaisses = vendangees.reduce((s, r) => s + r.nb_caisses_total, 0)
+  const surfaceVendangeeCa = vendangees.reduce((s, r) => s + (r.surface_totale_ca || 0), 0)
+  const surfaceTotaleCa    = rows.reduce((s, r) => s + (r.surface_totale_ca || 0), 0)
+  const rendementMoyen = rendement(totalPoids, surfaceVendangeeCa)
+
+  const parcelles = vendangees.map(r => {
+    const rdt = rendement(r.poids_total, r.surface_totale_ca)
+    const passe = (histoParParcelle.get(r.id) || [])
+      .map(h => rendement(h.poids_total, r.surface_totale_ca))
+      .filter(v => v != null)
+    const moyenneHisto = passe.length
+      ? Math.round(passe.reduce((s, v) => s + v, 0) / passe.length)
+      : null
+
+    return {
+      id: r.id,
+      nom: r.nom,
+      commune: r.commune,
+      pressoir: r.pressoir,
+      cepage: cepageLibelle(r.cepages),
+      surface_totale_ca: r.surface_totale_ca,
+      poids: arr1(r.poids_total),
+      caisses: r.nb_caisses_total,
+      rendement_kgha: rdt,
+      // Écart au rendement moyen du domaine cette année.
+      ecart_domaine_pct: rendementMoyen && rdt != null
+        ? Math.round((rdt - rendementMoyen) / rendementMoyen * 100) : null,
+      // Écart à sa propre moyenne des années précédentes : c'est le chiffre
+      // qui dit si la parcelle décroche, indépendamment du millésime.
+      moyenne_historique_kgha: moyenneHisto,
+      nb_annees_historique: passe.length,
+      ecart_historique_pct: moyenneHisto && rdt != null
+        ? Math.round((rdt - moyenneHisto) / moyenneHisto * 100) : null,
+    }
+  }).sort((a, b) => (b.rendement_kgha || 0) - (a.rendement_kgha || 0))
+
+  // Rythme de la vendange, jour par jour
+  const jours = db.prepare(`
+    SELECT ch.date_chargement AS date,
+           COALESCE(SUM(ch.poids_kg), 0)       AS kg,
+           COALESCE(SUM(ch.nombre_caisses), 0) AS caisses,
+           COUNT(*)                            AS nb_chargements
+    FROM chargements ch
+    JOIN vendanges v ON v.id = ch.vendange_id
+    WHERE v.annee = ?
+    GROUP BY ch.date_chargement
+    ORDER BY ch.date_chargement ASC
+  `).all(annee)
+
+  let cumul = 0
+  const rythme = jours.map(j => {
+    cumul += j.kg
+    return { ...j, kg: arr1(j.kg), cumul: arr1(cumul) }
+  })
+  const jourMax = rythme.reduce((best, j) => (!best || j.kg > best.kg ? j : best), null)
+
+  const kgAttendu = campagne.kg_attendu_cloture != null
+    ? campagne.kg_attendu_cloture
+    : campagne.rendement_attendu_kgha
+      ? Math.round(campagne.rendement_attendu_kgha * surfaceTotaleCa / 10000)
+      : null
+
+  res.json({
+    campagne: {
+      annee: campagne.annee,
+      statut: campagne.statut,
+      date_debut: campagne.date_debut,
+      date_cloture: campagne.date_cloture,
+      rendement_attendu_kgha: campagne.rendement_attendu_kgha,
+      note_bilan: campagne.note_bilan,
+    },
+    totaux: {
+      poids: arr1(totalPoids),
+      caisses: totalCaisses,
+      surface_vendangee_ca: surfaceVendangeeCa,
+      surface_totale_ca: surfaceTotaleCa,
+      rendement_kgha: rendementMoyen,
+      kg_attendu: kgAttendu,
+      pct_objectif: kgAttendu ? Math.round(totalPoids / kgAttendu * 100) : null,
+      nb_parcelles_vendangees: vendangees.length,
+      nb_parcelles: rows.length,
+      poids_moyen_caisse: totalCaisses > 0 ? arr1(totalPoids / totalCaisses) : null,
+      premier_jour: rythme[0]?.date || null,
+      dernier_jour: rythme[rythme.length - 1]?.date || null,
+      nb_jours: rythme.length,
+      nb_chargements: rythme.reduce((s, j) => s + j.nb_chargements, 0),
+    },
+    pressoirs: grouper(vendangees, p => p.pressoir, totalPoids),
+    communes:  grouper(vendangees, p => p.commune,  totalPoids),
+    cepages:   grouper(vendangees, p => cepageLibelle(p.cepages), totalPoids),
+    parcelles,
+    rythme,
+    jour_max: jourMax,
+  })
+})
+
 // Détail d'une campagne
 router.get('/:annee', (req, res) => {
   const annee = parseInt(req.params.annee)

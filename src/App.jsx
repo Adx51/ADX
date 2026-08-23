@@ -29,6 +29,7 @@ const StatsGlobales           = lazy(() => import('./pages/vendange/StatsGlobale
 const CampagneExport          = lazy(() => import('./pages/vendange/CampagneExport'))
 const CampagneExportJournalier = lazy(() => import('./pages/vendange/CampagneExportJournalier'))
 const ReleveBailleurs         = lazy(() => import('./pages/vendange/ReleveBailleurs'))
+const CampagneBilan           = lazy(() => import('./pages/vendange/CampagneBilan'))
 const AdminPage               = lazy(() => import('./pages/admin/AdminPage'))
 const ReglagesPage            = lazy(() => import('./pages/reglages/ReglagesPage'))
 const PhytoPage               = lazy(() => import('./pages/phyto/PhytoPage'))
@@ -76,6 +77,7 @@ export default function App() {
                 <Route path="/vendange/:annee/export"  element={<CampagneExport />} />
                 <Route path="/vendange/:annee/export-journalier" element={<CampagneExportJournalier />} />
                 <Route path="/vendange/:annee/bailleurs" element={<ReleveBailleurs />} />
+                <Route path="/vendange/:annee/bilan"     element={<CampagneBilan />} />
 
                 {/* Phyto */}
                 <Route path="/phyto" element={<PhytoPage />} />

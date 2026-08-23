@@ -16,11 +16,11 @@ export default function Layout() {
   }, [pathname])
 
   return (
-    <div className="flex h-screen overflow-hidden print:block print:h-auto print:overflow-visible" style={{ height: '100dvh' }}>
+    <div className="app-shell flex h-screen overflow-hidden" style={{ height: '100dvh' }}>
       <SideNav />
       <div className="flex flex-col flex-1 min-w-0 md:ml-56 lg:ml-64 print:ml-0">
         <TopBar />
-        <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden overscroll-none print:overflow-visible print:h-auto">
+        <div ref={scrollRef} className="app-scroll flex-1 overflow-y-auto overflow-x-hidden overscroll-none">
           <UpdateBanner />
           <OfflineBanner />
           <ReadOnlyBanner />

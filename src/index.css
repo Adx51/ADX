@@ -83,6 +83,26 @@
 
 /* ── Impression : forcer fond blanc / texte noir ───────────────────── */
 @media print {
+  /* Le gabarit de l'application est une fenêtre fixe qui défile en interne.
+     À l'impression il doit se déplier, sinon tout ce qui dépasse du premier
+     écran est purement et simplement perdu sur le papier. Les `!important`
+     sont nécessaires : la hauteur du conteneur vient d'une règle inline. */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .app-shell {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .app-scroll {
+    flex: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
   *, *::before, *::after {
     background-color: white !important;
     background-image: none !important;
@@ -99,6 +119,13 @@
   }
   .print-subtotal-row {
     background-color: #fef3c7 !important;
+  }
+  /* Barres de graphique : sans fond elles n'existent plus sur le papier. */
+  .print-bar-track {
+    background-color: #e5e7eb !important;
+  }
+  .print-bar {
+    background-color: #b45309 !important;
   }
 }
 
